@@ -1,6 +1,6 @@
 services:
   service-checker:
-    image: ghcr.io/solvelab/service-checker:${SERVICE_MONITOR_IMAGE_TAG:-v1.0.1}
+    image: ghcr.io/${GHCR_OWNER:-solvelab}/service-checker:${SERVICE_MONITOR_IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
       - .env

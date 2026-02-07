@@ -25,6 +25,11 @@ To pin a release, set `SERVICE_MONITOR_IMAGE_TAG` in `.env` to the current relea
 SERVICE_MONITOR_IMAGE_TAG=vX.Y.Z
 ```
 
+If you forked the repository under a different GitHub owner, set `GHCR_OWNER` in `.env`:
+```bash
+GHCR_OWNER=your-github-owner
+```
+
 ## 🛠️ Local build (development)
 Use the dev compose file to build locally:
 ```bash

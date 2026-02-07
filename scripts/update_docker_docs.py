@@ -3,6 +3,23 @@ import sys
 from pathlib import Path
 
 
+def _update_file(path: Path, pattern: str, new_tag: str) -> bool:
+    if not path.exists():
+        print(f"{path} not found, skipping")
+        return False
+
+    content = path.read_text(encoding="utf-8")
+    updated = re.sub(pattern, new_tag, content)
+
+    if updated != content:
+        path.write_text(updated, encoding="utf-8")
+        print(f"Updated {path} to {new_tag}")
+        return True
+
+    print(f"{path} already up to date")
+    return False
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: update_docker_docs.py <version>")
@@ -13,20 +30,15 @@ def main() -> int:
         print(f"invalid version: {version}")
         return 1
 
-    path = Path("DOCKER.md")
-    if not path.exists():
-        print("DOCKER.md not found")
-        return 1
-
-    content = path.read_text(encoding="utf-8")
     new_tag = f"v{version}"
-    updated = re.sub(r"v(?:X\.Y\.Z|\d+\.\d+\.\d+)", new_tag, content)
+    tag_pattern = r"v(?:X\.Y\.Z|\d+\.\d+\.\d+)"
 
-    if updated != content:
-        path.write_text(updated, encoding="utf-8")
-        print(f"Updated DOCKER.md to {new_tag}")
-    else:
-        print("DOCKER.md already up to date")
+    _update_file(Path("DOCKER.md"), tag_pattern, new_tag)
+    _update_file(
+        Path("deployment.yaml"),
+        r"(image:\s*ghcr\.io/[^/]+/service-checker:)(?:latest|v\d+\.\d+\.\d+)",
+        rf"\g<1>{new_tag}",
+    )
 
     return 0
 
