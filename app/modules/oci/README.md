@@ -20,7 +20,7 @@ Monitors Oracle Cloud status at https://ocistatus.oraclecloud.com via the RSS fe
 - `URL` (default `https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss`)
 - `INTERVAL_SECONDS` (default 60)
 - `TIMEOUT_SECONDS` (default 10)
-- `USER_AGENT` (default inherited or `service-monitor/oci`)
+- `USER_AGENT` (default inherited or `service-checker/oci`)
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target states (default `investigating,identified,monitoring`); for `keyword`/`regex`, a term or pattern

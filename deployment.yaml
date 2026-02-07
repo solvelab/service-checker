@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: service-monitor
+  name: de-service-checker
   labels:
-    app: service-monitor
+    app: service-checker
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: service-monitor
+      app: service-checker
   template:
     metadata:
       labels:
-        app: service-monitor
+        app: service-checker
     spec:
       containers:
-        - name: service-monitor
-          image: ghcr.io/didevlab/service-monitor:v1.0.2
+        - name: service-checker
+          image: ghcr.io/solvelab/service-checker:v1.0.2
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "app"]
           env:
@@ -29,7 +29,7 @@ spec:
             - name: SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS
               value: "10"
             - name: SERVICE_MONITOR_DEFAULT_USER_AGENT
-              value: "service-monitor/1.0"
+              value: "service-checker/1.0"
             - name: STEAM_URL
               value: "https://steamstat.us/"
             - name: STEAM_INTERVAL_SECONDS
@@ -37,7 +37,7 @@ spec:
             - name: STEAM_TIMEOUT_SECONDS
               value: "10"
             - name: STEAM_USER_AGENT
-              value: "service-monitor/steam"
+              value: "service-checker/steam"
             - name: STEAM_RULE_KIND
               value: "status"
             - name: STEAM_RULE_VALUE
@@ -53,7 +53,7 @@ spec:
             - name: OPENAI_TIMEOUT_SECONDS
               value: "10"
             - name: OPENAI_USER_AGENT
-              value: "service-monitor/openai"
+              value: "service-checker/openai"
             - name: OPENAI_RULE_KIND
               value: "status"
             - name: OPENAI_RULE_VALUE
@@ -69,7 +69,7 @@ spec:
             - name: CLAUDE_TIMEOUT_SECONDS
               value: "10"
             - name: CLAUDE_USER_AGENT
-              value: "service-monitor/claude"
+              value: "service-checker/claude"
             - name: CLAUDE_RULE_KIND
               value: "status"
             - name: CLAUDE_RULE_VALUE
@@ -85,7 +85,7 @@ spec:
             - name: CFX_TIMEOUT_SECONDS
               value: "10"
             - name: CFX_USER_AGENT
-              value: "service-monitor/cfx"
+              value: "service-checker/cfx"
             - name: CFX_RULE_KIND
               value: "status"
             - name: CFX_RULE_VALUE
@@ -101,7 +101,7 @@ spec:
             - name: OCI_TIMEOUT_SECONDS
               value: "10"
             - name: OCI_USER_AGENT
-              value: "service-monitor/oci"
+              value: "service-checker/oci"
             - name: OCI_RULE_KIND
               value: "status"
             - name: OCI_RULE_VALUE
@@ -117,7 +117,7 @@ spec:
             - name: GCP_TIMEOUT_SECONDS
               value: "10"
             - name: GCP_USER_AGENT
-              value: "service-monitor/gcp"
+              value: "service-checker/gcp"
             - name: GCP_RULE_KIND
               value: "status"
             - name: GCP_RULE_VALUE
@@ -133,7 +133,7 @@ spec:
             - name: AWS_TIMEOUT_SECONDS
               value: "10"
             - name: AWS_USER_AGENT
-              value: "service-monitor/aws"
+              value: "service-checker/aws"
             - name: AWS_RULE_KIND
               value: "status"
             - name: AWS_RULE_VALUE

@@ -6,8 +6,8 @@
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
 ![Notifications](https://img.shields.io/badge/Notifications-Telegram%20%7C%20Webhook-26A5E4)
-![Semantic Release](https://github.com/didevlab/service-checker/actions/workflows/release.yml/badge.svg)
-![Publish Image](https://github.com/didevlab/service-checker/actions/workflows/publish.yml/badge.svg)
+![Semantic Release](https://github.com/solvelab/service-checker/actions/workflows/release.yml/badge.svg)
+![Publish Image](https://github.com/solvelab/service-checker/actions/workflows/publish.yml/badge.svg)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ZUADM4SZT5DC8&no_recurring=0&item_name=Projetos+desenvolvidos+com+cuidado+e+dedica%C3%A7%C3%A3o.+O+apoio+incentiva+a+continuidade+e+a+evolu%C3%A7%C3%A3o+constante.&currency_code=BRL)
 
 🔗 Nav: [🎮 Steam](app/modules/steam/README.md) · [🤖 OpenAI](app/modules/openai/README.md) · [🟣 Claude](app/modules/claude/README.md) · [🧭 Cfx](app/modules/cfx/README.md) · [☁️ OCI](app/modules/oci/README.md) · [🌐 GCP](app/modules/gcp/README.md) · [☁️ AWS](app/modules/aws/README.md) · [🔔 Notifications](app/notifications/README.md) · [🐳 Docker](DOCKER.md)

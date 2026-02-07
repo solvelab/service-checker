@@ -1,5 +1,5 @@
 services:
-  service-monitor:
+  service-checker:
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,11 +11,11 @@ services:
       SERVICE_MONITOR_LOG_LEVEL: ${SERVICE_MONITOR_LOG_LEVEL:-INFO}
       SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS: ${SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS:-60}
       SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS: ${SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS:-10}
-      SERVICE_MONITOR_DEFAULT_USER_AGENT: ${SERVICE_MONITOR_DEFAULT_USER_AGENT:-service-monitor/1.0}
+      SERVICE_MONITOR_DEFAULT_USER_AGENT: ${SERVICE_MONITOR_DEFAULT_USER_AGENT:-service-checker/1.0}
       STEAM_URL: ${STEAM_URL:-https://steamstat.us/}
       STEAM_INTERVAL_SECONDS: ${STEAM_INTERVAL_SECONDS:-60}
       STEAM_TIMEOUT_SECONDS: ${STEAM_TIMEOUT_SECONDS:-10}
-      STEAM_USER_AGENT: ${STEAM_USER_AGENT:-service-monitor/steam}
+      STEAM_USER_AGENT: ${STEAM_USER_AGENT:-service-checker/steam}
       STEAM_RULE_KIND: ${STEAM_RULE_KIND:-status}
       STEAM_RULE_VALUE: ${STEAM_RULE_VALUE:-major,minor}
       STEAM_SERVICE_FILTER: ${STEAM_SERVICE_FILTER:-}
@@ -23,7 +23,7 @@ services:
       OPENAI_URL: ${OPENAI_URL:-https://status.openai.com/api/v2/summary.json}
       OPENAI_INTERVAL_SECONDS: ${OPENAI_INTERVAL_SECONDS:-60}
       OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-10}
-      OPENAI_USER_AGENT: ${OPENAI_USER_AGENT:-service-monitor/openai}
+      OPENAI_USER_AGENT: ${OPENAI_USER_AGENT:-service-checker/openai}
       OPENAI_RULE_KIND: ${OPENAI_RULE_KIND:-status}
       OPENAI_RULE_VALUE: ${OPENAI_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
       OPENAI_SERVICE_FILTER: ${OPENAI_SERVICE_FILTER:-}
@@ -31,7 +31,7 @@ services:
       CLAUDE_URL: ${CLAUDE_URL:-https://status.claude.com/api/v2/summary.json}
       CLAUDE_INTERVAL_SECONDS: ${CLAUDE_INTERVAL_SECONDS:-60}
       CLAUDE_TIMEOUT_SECONDS: ${CLAUDE_TIMEOUT_SECONDS:-10}
-      CLAUDE_USER_AGENT: ${CLAUDE_USER_AGENT:-service-monitor/claude}
+      CLAUDE_USER_AGENT: ${CLAUDE_USER_AGENT:-service-checker/claude}
       CLAUDE_RULE_KIND: ${CLAUDE_RULE_KIND:-status}
       CLAUDE_RULE_VALUE: ${CLAUDE_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
       CLAUDE_SERVICE_FILTER: ${CLAUDE_SERVICE_FILTER:-}
@@ -39,7 +39,7 @@ services:
       CFX_URL: ${CFX_URL:-https://status.cfx.re/api/v2/summary.json}
       CFX_INTERVAL_SECONDS: ${CFX_INTERVAL_SECONDS:-60}
       CFX_TIMEOUT_SECONDS: ${CFX_TIMEOUT_SECONDS:-10}
-      CFX_USER_AGENT: ${CFX_USER_AGENT:-service-monitor/cfx}
+      CFX_USER_AGENT: ${CFX_USER_AGENT:-service-checker/cfx}
       CFX_RULE_KIND: ${CFX_RULE_KIND:-status}
       CFX_RULE_VALUE: ${CFX_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
       CFX_SERVICE_FILTER: ${CFX_SERVICE_FILTER:-}
@@ -47,7 +47,7 @@ services:
       OCI_URL: ${OCI_URL:-https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss}
       OCI_INTERVAL_SECONDS: ${OCI_INTERVAL_SECONDS:-60}
       OCI_TIMEOUT_SECONDS: ${OCI_TIMEOUT_SECONDS:-10}
-      OCI_USER_AGENT: ${OCI_USER_AGENT:-service-monitor/oci}
+      OCI_USER_AGENT: ${OCI_USER_AGENT:-service-checker/oci}
       OCI_RULE_KIND: ${OCI_RULE_KIND:-status}
       OCI_RULE_VALUE: ${OCI_RULE_VALUE:-investigating,identified,monitoring}
       OCI_SERVICE_FILTER: "${OCI_SERVICE_FILTER:-Brazil East (Sao Paulo),Brazil Southeast (Vinhedo)}"
@@ -55,7 +55,7 @@ services:
       GCP_URL: ${GCP_URL:-https://status.cloud.google.com/incidents.json}
       GCP_INTERVAL_SECONDS: ${GCP_INTERVAL_SECONDS:-60}
       GCP_TIMEOUT_SECONDS: ${GCP_TIMEOUT_SECONDS:-10}
-      GCP_USER_AGENT: ${GCP_USER_AGENT:-service-monitor/gcp}
+      GCP_USER_AGENT: ${GCP_USER_AGENT:-service-checker/gcp}
       GCP_RULE_KIND: ${GCP_RULE_KIND:-status}
       GCP_RULE_VALUE: ${GCP_RULE_VALUE:-service_disruption,service_outage,service_information}
       GCP_SERVICE_FILTER: ${GCP_SERVICE_FILTER:-southamerica-east1,us-central1,us-east1}
@@ -63,7 +63,7 @@ services:
       AWS_URL: ${AWS_URL:-https://health.aws.amazon.com/public/currentevents}
       AWS_INTERVAL_SECONDS: ${AWS_INTERVAL_SECONDS:-60}
       AWS_TIMEOUT_SECONDS: ${AWS_TIMEOUT_SECONDS:-10}
-      AWS_USER_AGENT: ${AWS_USER_AGENT:-service-monitor/aws}
+      AWS_USER_AGENT: ${AWS_USER_AGENT:-service-checker/aws}
       AWS_RULE_KIND: ${AWS_RULE_KIND:-status}
       AWS_RULE_VALUE: ${AWS_RULE_VALUE:-operational_issue}
       AWS_SERVICE_FILTER: ${AWS_SERVICE_FILTER:-sa-east-1,us-east-1,us-east-2}

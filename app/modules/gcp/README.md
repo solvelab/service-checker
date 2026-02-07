@@ -20,7 +20,7 @@ Monitor incidents published at https://status.cloud.google.com (endpoint `incide
 - `URL` (default `https://status.cloud.google.com/incidents.json`)
 - `INTERVAL_SECONDS` (default 60)
 - `TIMEOUT_SECONDS` (default 10)
-- `USER_AGENT` (default inherited or `service-monitor/gcp`)
+- `USER_AGENT` (default inherited or `service-checker/gcp`)
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target states (default `service_disruption,service_outage,service_information`); for `keyword`/`regex`, a term or pattern

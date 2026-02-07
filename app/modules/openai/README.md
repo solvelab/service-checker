@@ -20,7 +20,7 @@ Monitor https://status.openai.com using the JSON endpoint `api/v2/summary.json`.
 - `URL` (default `https://status.openai.com/api/v2/summary.json`)
 - `INTERVAL_SECONDS` (default 60)
 - `TIMEOUT_SECONDS` (default 10)
-- `USER_AGENT` (default inherited or `service-monitor/openai`)
+- `USER_AGENT` (default inherited or `service-checker/openai`)
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target states (e.g., `degraded_performance,partial_outage,major_outage`); for `keyword`/`regex`, a term or pattern

@@ -21,7 +21,7 @@ Monitor https://steamstat.us/ with environment-configurable rules and service fi
 - `URL` (default `https://steamstat.us/`)
 - `INTERVAL_SECONDS` (default 60)
 - `TIMEOUT_SECONDS` (default 10)
-- `USER_AGENT` (default inherited or `service-monitor/steam`)
+- `USER_AGENT` (default inherited or `service-checker/steam`)
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target severities (e.g., `major,minor`); for `keyword`/`regex`, a term or pattern

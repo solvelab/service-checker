@@ -65,7 +65,7 @@ def load_app_config() -> AppConfig:
     defaults = DefaultConfig(
         interval_seconds=_get_int("SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS", 60),
         timeout_seconds=_get_float("SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS", 10.0),
-        user_agent=os.getenv("SERVICE_MONITOR_DEFAULT_USER_AGENT", "service-monitor/1.0"),
+        user_agent=os.getenv("SERVICE_MONITOR_DEFAULT_USER_AGENT", "service-checker/1.0"),
     )
 
     module_slugs = _get_module_slugs()

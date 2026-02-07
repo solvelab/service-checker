@@ -12,7 +12,7 @@ This guide covers two Docker Compose setups:
 The release image is published in GitHub Packages (GHCR).
 
 ```bash
-docker pull ghcr.io/didevlab/service-monitor:vX.Y.Z
+docker pull ghcr.io/solvelab/service-checker:vX.Y.Z
 ```
 
 Start the service using the image:

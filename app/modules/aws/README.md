@@ -20,7 +20,7 @@ Monitors public AWS Health Dashboard events at `https://health.aws.amazon.com/pu
 - `URL` (default `https://health.aws.amazon.com/public/currentevents`)
 - `INTERVAL_SECONDS` (default 60)
 - `TIMEOUT_SECONDS` (default 10)
-- `USER_AGENT` (default inherited or `service-monitor/aws`)
+- `USER_AGENT` (default inherited or `service-checker/aws`)
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, tokens to match against event `typeCode` (default `operational_issue`); for `keyword`/`regex`, a term or pattern applied to the JSON
