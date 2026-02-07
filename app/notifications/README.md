@@ -9,6 +9,8 @@ The `NotificationManager` (in `app/core/notifications.py`) receives module resul
 ## 🧭 Overview
 - Each module is responsible for calling the `NotificationManager` handler; the core does not need to know destination details.
 - For modules that return a list of services (Steam/OpenAI/etc.), the lifecycle is per service (independent alert, repeat, and resolution).
+- Recovery notifications identify the exact component that transitioned back to OK, including name, id/slug, and the previous status. This keeps component-level recoveries distinct from provider-level "overall" recoveries.
+- Each recovery notification is logged with `check_id` (e.g., `openai:api`) and the `from_status` → `to_status` transition for auditability.
 - Available channels: Telegram (`app/notifications/telegram`) and Webhook (`app/notifications/webhook`). New destinations can be added following the same contract.
 - Notification failures are logged at `ERROR` level but do not stop the main monitor.
 

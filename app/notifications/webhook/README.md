@@ -13,19 +13,39 @@ Sends a POST to `WEBHOOK_URL` whenever a module enters `ALERT` or when a service
 - `WEBHOOK_HEADER_NAME`: header name (default `Authorization`).
 
 ## 🚀 Payload sent
+
+### ALERT
 ```json
 {
   "timestamp": "<iso8601>",
   "level": "<INFO|WARNING|ERROR>",
-  "event": "<monitor_check|service_alert|service_resolved>",
+  "event": "<monitor_check|service_alert>",
   "module": "<module_id>",
-  "status": "<ALERT|RESOLVED>",
+  "status": "ALERT",
   "message": "<result.message>",
   "reason": "<result.reason>",
-  "payload": <result.payload>,
-  "duration_ms": <result.duration_ms>
+  "payload": "<result.payload>",
+  "interval_seconds": "<int>"
 }
 ```
+
+### RESOLVED
+```json
+{
+  "timestamp": "<iso8601>",
+  "level": "INFO",
+  "event": "<monitor_resolved|service_resolved>",
+  "module": "<module_id>",
+  "check_id": "<module_id>:<component_id>",
+  "status": "RESOLVED",
+  "message": "<result.message>",
+  "reason": "<result.reason>",
+  "payload": "<result.payload>",
+  "interval_seconds": "<int>"
+}
+```
+
+`check_id` identifica de forma unica o componente recuperado (ex: `openai:api`, `steam:csgo`). Para recuperacoes no nivel do modulo (sem componentes), `check_id` e igual ao `module`.
 
 ## ⚙️ Usage example
 1. Enable the channel: `WEBHOOK_ENABLED=true`.

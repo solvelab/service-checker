@@ -25,20 +25,45 @@ Sends HTML cards to configured chats or groups when a module returns `ALERT` and
 3. For groups, use the negative `chat.id` returned by `getUpdates` (e.g., `-4058878374`). This works for both `TELEGRAM_CHAT_ID` and `TELEGRAM_CHAT_IDS`.
 
 ## 🧩 Card template
-The alert text has the format:
 
+### Alert
 ```
-🚨 *{MODULE_ID}* alert
-• Status: `{STATUS}`
-• Reason: {REASON}
-• When: {UTC_TIMESTAMP}
-• Details: {SUMMARY} (optional)
-• Duration: `{DURATION_MS:.2f}ms`
+🚨 {MODULE_ID}
+Level: {LEVEL}
+Event: Service-Checker
+Status: ALERT
+Reason:
+• {REASON_ITEMS}
+Message: {MESSAGE}
+Timestamp: {TIMESTAMP}
+Duration: {DURATION_MS}ms
+Interval: {INTERVAL}s
 ```
 
-The `Details` field summarizes the available payload (service list, JSON objects, etc.) and is truncated to avoid overly long messages. `parse_mode=HTML` ensures the card displays with emphasis and clean separators.
+### Resolved
+```
+✅ Service-Checker — Resolved
+Module: {MODULE_ID}
 
-The HTML template used by the bot lives at `app/notifications/telegram/templates/telegram_alert.j2`; the `steam` module uses `telegram_steam.j2` to detail impacted services and `telegram_resolved.j2` for the resolution message.
+Level: INFO
+Event: Service-Checker
+Status: OK
+Recovered component:
+• {COMPONENT_NAME} ({COMPONENT_ID}) — {FROM_STATUS} → {TO_STATUS}
+Message: service restored
+Timestamp: {TIMESTAMP}
+Duration: {DURATION_MS}ms
+Interval: {INTERVAL}s
+```
+
+Para provedores com multiplos componentes (OpenAI, Steam, etc.), a notificacao de recuperacao identifica exatamente qual componente foi restaurado, incluindo o nome, id/slug e a transicao de status. Quando nenhum componente esta presente (recuperacao no nivel do modulo), a secao "Recovered component" e omitida.
+
+`parse_mode=HTML` ensures the card displays with emphasis and clean separators.
+
+Os templates HTML ficam em `app/notifications/telegram/templates/`:
+- `telegram_alert.j2` — alerta padrao
+- `telegram_steam.j2` — alerta especifico do Steam com servicos impactados
+- `telegram_resolved.j2` — mensagem de recuperacao com identificacao do componente
 
 ## 🚀 How to use
 1. Create the bot with [BotFather](https://t.me/BotFather) and grab the token.
