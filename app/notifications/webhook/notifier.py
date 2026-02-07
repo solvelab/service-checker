@@ -100,11 +100,19 @@ class WebhookNotifier:
         if self.config.token:
             headers[self.config.header_name] = self.config.token
 
+        check_id = module_id
+        if isinstance(result.payload, list) and result.payload:
+            first = result.payload[0]
+            if isinstance(first, dict):
+                sid = first.get("id") or first.get("slug") or first.get("name") or "service"
+                check_id = f"{module_id}:{sid}".lower()
+
         payload = {
             "timestamp": event_time.isoformat(),
             "level": level_name,
             "event": event_name,
             "module": module_id,
+            "check_id": check_id,
             "status": "RESOLVED",
             "message": result.message,
             "reason": result.reason,

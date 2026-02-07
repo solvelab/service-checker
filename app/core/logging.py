@@ -20,6 +20,9 @@ class JsonFormatter(logging.Formatter):
             "reason",
             "duration_ms",
             "interval_seconds",
+            "check_id",
+            "from_status",
+            "to_status",
         ):
             value = getattr(record, key, None)
             if value is not None:

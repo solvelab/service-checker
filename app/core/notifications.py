@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -55,6 +57,16 @@ class NotificationManager:
         if result.status == MonitorStatus.OK:
             state = self._alert_state.get(module_id)
             if state is not None and state.last_status == MonitorStatus.ALERT:
+                logger.info(
+                    "recovery notification emitted",
+                    extra={
+                        "event": "monitor_recovery",
+                        "module_id": module_id,
+                        "check_id": module_id,
+                        "from_status": state.last_status_text or "ALERT",
+                        "to_status": "OK",
+                    },
+                )
                 await self._notify_recovery(
                     module_id,
                     result,
@@ -100,7 +112,9 @@ class NotificationManager:
             logger,
         )
         self._alert_state[module_id] = AlertState(
-            last_status=MonitorStatus.ALERT, last_alert_at=event_time
+            last_status=MonitorStatus.ALERT,
+            last_alert_at=event_time,
+            last_status_text=result.reason or "ALERT",
         )
 
     async def _handle_service_result(
@@ -121,8 +135,24 @@ class NotificationManager:
                 key = _service_key(module_id, item)
                 state = self._alert_state.get(key)
                 if state is not None and state.last_status == MonitorStatus.ALERT:
+                    from_status = state.last_status_text or "ALERT"
+                    enriched_item = {
+                        **item,
+                        "from_status": from_status,
+                        "to_status": item.get("status") or "operational",
+                    }
                     recovery_result = _build_service_result(
-                        result, item, MonitorStatus.OK, "service restored"
+                        result, enriched_item, MonitorStatus.OK, "service restored"
+                    )
+                    logger.info(
+                        "recovery notification emitted",
+                        extra={
+                            "event": "service_recovery",
+                            "module_id": module_id,
+                            "check_id": key,
+                            "from_status": from_status,
+                            "to_status": enriched_item["to_status"],
+                        },
                     )
                     await self._notify_recovery(
                         module_id,
@@ -175,7 +205,9 @@ class NotificationManager:
                 logger,
             )
             self._alert_state[key] = AlertState(
-                last_status=MonitorStatus.ALERT, last_alert_at=event_time
+                last_status=MonitorStatus.ALERT,
+                last_alert_at=event_time,
+                last_status_text=item.get("status") or item.get("severity") or item.get("status_text") or "ALERT",
             )
 
     async def _notify_alert(
@@ -251,6 +283,7 @@ class NotificationManager:
 class AlertState:
     last_status: MonitorStatus
     last_alert_at: Optional[datetime]
+    last_status_text: Optional[str] = None
 
 
 def _ensure_aware(value: datetime) -> datetime:

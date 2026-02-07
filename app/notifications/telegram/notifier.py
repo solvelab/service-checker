@@ -230,6 +230,11 @@ def _serialize_services(payload) -> List[dict]:
                     "name": item.get("name") or item.get("id") or "service",
                     "status_text": item.get("status_text") or item.get("class") or "",
                     "severity": (item.get("severity") or "unknown").upper(),
+                    "id": item.get("id") or "",
+                    "slug": item.get("slug") or "",
+                    "status": item.get("status") or "",
+                    "from_status": item.get("from_status") or "",
+                    "to_status": item.get("to_status") or "",
                 }
             )
     return services
