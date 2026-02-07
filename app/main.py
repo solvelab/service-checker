@@ -1,5 +1,6 @@
 import asyncio
 
+from ._version import __version__
 from .core.config import AppConfig, load_app_config
 from .core.http_client import create_http_client
 from .core.loader import load_monitors
@@ -16,6 +17,7 @@ async def run_monitor_service() -> None:
         "service monitor starting",
         extra={
             "event": "startup",
+            "version": __version__,
             "modules": [module.slug for module in config.modules],
             "defaults": {
                 "interval_seconds": config.defaults.interval_seconds,

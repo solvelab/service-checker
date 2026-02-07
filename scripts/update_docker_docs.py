@@ -40,6 +40,10 @@ def main() -> int:
         rf"\g<1>{new_tag}",
     )
 
+    version_file = Path("app/_version.py")
+    version_file.write_text(f'__version__ = "{version}"\n', encoding="utf-8")
+    print(f"Updated {version_file} to {version}")
+
     return 0
 
 

@@ -15,6 +15,7 @@ class JsonFormatter(logging.Formatter):
 
         for key in (
             "event",
+            "version",
             "module_id",
             "status",
             "reason",
