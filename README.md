@@ -14,6 +14,14 @@
 
 A modular Python monitor that continuously checks third-party status pages (Steam, OpenAI, Claude, Cfx, OCI, GCP, and AWS) and sends configurable alerts when any module detects an incident.
 
+## 📸 Preview
+
+<p align="center">
+  <img src="docs/screenshots/telegram-alert-and-recovery.png" alt="Telegram alert and recovery notifications" width="360">
+</p>
+
+> Alert triggered when Steam Web API reported a minor degradation, followed by an automatic recovery notification with component details.
+
 ## ✅ Highlights
 - Modular, plug-in style monitors for popular status providers.
 - Multiple notification channels (Telegram, Webhook).
