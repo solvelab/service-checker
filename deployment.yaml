@@ -21,7 +21,7 @@ spec:
           command: ["python", "-m", "app"]
           env:
             - name: SERVICE_MONITOR_MODULES
-              value: "steam,openai,claude,cfx,oci,gcp,aws"
+              value: "steam,openai,claude,cfx,oci,gcp,aws,github"
             - name: SERVICE_MONITOR_LOG_LEVEL
               value: "INFO"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
@@ -141,6 +141,22 @@ spec:
             - name: AWS_SERVICE_FILTER
               value: "sa-east-1,us-east-1,us-east-2"
             - name: AWS_ENABLED
+              value: "true"
+            - name: GITHUB_URL
+              value: "https://www.githubstatus.com/api/v2/summary.json"
+            - name: GITHUB_INTERVAL_SECONDS
+              value: "60"
+            - name: GITHUB_TIMEOUT_SECONDS
+              value: "10"
+            - name: GITHUB_USER_AGENT
+              value: "service-checker/github"
+            - name: GITHUB_RULE_KIND
+              value: "status"
+            - name: GITHUB_RULE_VALUE
+              value: "degraded_performance,partial_outage,major_outage"
+            - name: GITHUB_SERVICE_FILTER
+              value: ""
+            - name: GITHUB_ENABLED
               value: "true"
             - name: TELEGRAM_ENABLED
               value: "false"

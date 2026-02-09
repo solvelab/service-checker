@@ -10,9 +10,9 @@
 ![Publish Image](https://github.com/solvelab/service-checker/actions/workflows/publish.yml/badge.svg)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ZUADM4SZT5DC8&no_recurring=0&item_name=Projetos+desenvolvidos+com+cuidado+e+dedica%C3%A7%C3%A3o.+O+apoio+incentiva+a+continuidade+e+a+evolu%C3%A7%C3%A3o+constante.&currency_code=BRL)
 
-🔗 Nav: [🎮 Steam](app/modules/steam/README.md) · [🤖 OpenAI](app/modules/openai/README.md) · [🟣 Claude](app/modules/claude/README.md) · [🧭 Cfx](app/modules/cfx/README.md) · [☁️ OCI](app/modules/oci/README.md) · [🌐 GCP](app/modules/gcp/README.md) · [☁️ AWS](app/modules/aws/README.md) · [🔔 Notifications](app/notifications/README.md) · [🐳 Docker](DOCKER.md)
+🔗 Nav: [🎮 Steam](app/modules/steam/README.md) · [🤖 OpenAI](app/modules/openai/README.md) · [🟣 Claude](app/modules/claude/README.md) · [🧭 Cfx](app/modules/cfx/README.md) · [☁️ OCI](app/modules/oci/README.md) · [🌐 GCP](app/modules/gcp/README.md) · [☁️ AWS](app/modules/aws/README.md) · [🐙 GitHub](app/modules/github/README.md) · [🔔 Notifications](app/notifications/README.md) · [🐳 Docker](DOCKER.md)
 
-A modular Python monitor that continuously checks third-party status pages (Steam, OpenAI, Claude, Cfx, OCI, GCP, and AWS) and sends configurable alerts when any module detects an incident.
+A modular Python monitor that continuously checks third-party status pages (Steam, OpenAI, Claude, Cfx, OCI, GCP, AWS, and GitHub) and sends configurable alerts when any module detects an incident.
 
 ## 📸 Preview
 
@@ -52,6 +52,7 @@ Each module pulls a provider-specific status source and applies rules configured
 - ☁️ **OCI**: https://ocistatus.oraclecloud.com (RSS `incident-summary.rss`). [📖](app/modules/oci/README.md)
 - 🌐 **GCP**: https://status.cloud.google.com (`incidents.json`). [📖](app/modules/gcp/README.md)
 - ☁️ **AWS**: https://health.aws.amazon.com/public/currentevents (JSON events). [📖](app/modules/aws/README.md)
+- 🐙 **GitHub**: https://www.githubstatus.com (`/api/v2/summary.json`). [📖](app/modules/github/README.md)
 
 See each module README for rules, filters, and examples.
 
@@ -88,7 +89,7 @@ See [DOCKER.md](DOCKER.md) for GHCR image usage, dev builds (`docker-compose-dev
 - **Too many alerts**: increase `NOTIFICATION_REPEAT_MINUTES` or narrow `*_SERVICE_FILTER`.
 
 ## 🔗 Documentation
-- Modules: [Steam](app/modules/steam/README.md), [OpenAI](app/modules/openai/README.md), [Claude](app/modules/claude/README.md), [Cfx](app/modules/cfx/README.md), [OCI](app/modules/oci/README.md), [GCP](app/modules/gcp/README.md), [AWS](app/modules/aws/README.md)
+- Modules: [Steam](app/modules/steam/README.md), [OpenAI](app/modules/openai/README.md), [Claude](app/modules/claude/README.md), [Cfx](app/modules/cfx/README.md), [OCI](app/modules/oci/README.md), [GCP](app/modules/gcp/README.md), [AWS](app/modules/aws/README.md), [GitHub](app/modules/github/README.md)
 - Notifications: [Overview](app/notifications/README.md) · [Telegram](app/notifications/telegram/README.md) · [Webhook](app/notifications/webhook/README.md)
 - Infra: [DOCKER.md](DOCKER.md), [docker-compose.yml](docker-compose.yml)
 

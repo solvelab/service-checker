@@ -128,6 +128,8 @@ def _default_url(slug: str) -> str:
         return "https://health.aws.amazon.com/public/currentevents"
     if slug.lower() == "gcp":
         return "https://status.cloud.google.com/incidents.json"
+    if slug.lower() == "github":
+        return "https://www.githubstatus.com/api/v2/summary.json"
     return f"https://{slug}.example.com/"
 
 
