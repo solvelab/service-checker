@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: service-checker
-          image: ghcr.io/solvelab/service-checker:v1.1.0
+          image: ghcr.io/solvelab/service-checker:latest
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "app"]
           env:
