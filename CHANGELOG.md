@@ -1,3 +1,21 @@
+# [1.1.0](https://github.com/solvelab/service-checker/compare/v1.0.2...v1.1.0) (2026-02-09)
+
+
+### Bug Fixes
+
+* **docker:** add GitHub monitor config to docker-compose files ([b9e16c8](https://github.com/solvelab/service-checker/commit/b9e16c83949a2a5081fa9998607a12f198dad970))
+* **release:** support emoji prefixes in commit messages for semantic-release ([4073225](https://github.com/solvelab/service-checker/commit/4073225266680593f431d2bf875c58b460b3a6ce))
+* **version:** update application version to 1.0.2 in `_version.py` ([455b5b1](https://github.com/solvelab/service-checker/commit/455b5b1fb5e8c466439d303fd3582296a13612a3))
+
+
+### Features
+
+* **deployment:** adicionar configuração de deployment ([192702b](https://github.com/solvelab/service-checker/commit/192702bb1cf2da88bce143c51760d123d1e57d12))
+* **github:** add GitHub status monitoring module ([ef21a68](https://github.com/solvelab/service-checker/commit/ef21a6866fbc3f5d86c4d8e6693043282f5af02f))
+* **logging, notifications:** enhance recovery notifications with status tracking ([f1c9e04](https://github.com/solvelab/service-checker/commit/f1c9e04f3231c1d8fc46beecf1cc940a778892ea))
+* **README:** add logo and donation section ([a6da05f](https://github.com/solvelab/service-checker/commit/a6da05f1544cc06836e2eaaf394912b86c902bbf))
+* **versioning:** introduce version tracking in the application ([92b20d1](https://github.com/solvelab/service-checker/commit/92b20d1779662bd65a48fd7563bc36c107df438d))
+
 ## [1.0.2](https://github.com/solvelab/service-checker/compare/v1.0.1...v1.0.2) (2025-12-25)
 
 
