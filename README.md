@@ -16,11 +16,18 @@ A modular Python monitor that continuously checks third-party status pages (Stea
 
 ## 📸 Preview
 
-<p align="center">
-  <img src="docs/screenshots/telegram-alert-and-recovery.png" alt="Telegram alert and recovery notifications" width="360">
-</p>
-
-> Alert triggered when Steam Web API reported a minor degradation, followed by an automatic recovery notification with component details.
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="docs/screenshots/telegram-alert-and-recovery.png" alt="Steam alert and recovery" width="360"><br>
+      <sub>Steam — alert + recovery</sub>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/telegram-github-alert-and-recovery.png" alt="GitHub alert and recovery" width="360"><br>
+      <sub>GitHub — alert + recovery</sub>
+    </td>
+  </tr>
+</table>
 
 ## ✅ Highlights
 - Modular, plug-in style monitors for popular status providers.
