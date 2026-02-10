@@ -1,3 +1,11 @@
+## [1.1.1](https://github.com/solvelab/service-checker/compare/v1.1.0...v1.1.1) (2026-02-09)
+
+
+### Bug Fixes
+
+* **deployment:** change imagePullPolicy to Always for service-checker container in deployment.yaml ([4475f77](https://github.com/solvelab/service-checker/commit/4475f77006a15fd856f23db01949ece69c5df899))
+* **deployment:** update service-checker image tag to latest in deployment.yaml ([c16fc7b](https://github.com/solvelab/service-checker/commit/c16fc7b55483affeabca42bd85b521dceb146020))
+
 # [1.1.0](https://github.com/solvelab/service-checker/compare/v1.0.2...v1.1.0) (2026-02-09)
 
 
