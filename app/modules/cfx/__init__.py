@@ -1,2 +1,0 @@
-"""Cfx status monitor module."""
-
