@@ -1,3 +1,17 @@
+# [2.0.0](https://github.com/solvelab/service-checker/compare/v1.1.1...v2.0.0) (2026-04-26)
+
+
+### Features
+
+* **rockstar:** replace cfx monitor with Rockstar Games services monitor ([4739a92](https://github.com/solvelab/service-checker/commit/4739a9268a7c0295c2ac40d02e531ecd16678ffb))
+
+
+### BREAKING CHANGES
+
+* **rockstar:** the cfx module slug is removed. Operators must replace
+CFX_* environment variables with ROCKSTAR_* (see docs/DOCKER.md and
+app/modules/rockstar/README.md for migration details).
+
 ## [1.1.1](https://github.com/solvelab/service-checker/compare/v1.1.0...v1.1.1) (2026-02-09)
 
 
