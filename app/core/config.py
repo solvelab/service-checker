@@ -120,8 +120,8 @@ def _default_url(slug: str) -> str:
         return "https://status.openai.com/api/v2/summary.json"
     if slug.lower() == "claude":
         return "https://status.claude.com/api/v2/summary.json"
-    if slug.lower() == "cfx":
-        return "https://status.cfx.re/api/v2/summary.json"
+    if slug.lower() == "rockstar":
+        return "https://support.rockstargames.com/servicestatus"
     if slug.lower() == "oci":
         return "https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss"
     if slug.lower() == "aws":

@@ -43,7 +43,7 @@ docker compose -f docker-compose-dev.yml up --build
 
 ## 🧰 Global configuration
 These apply across modules:
-- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,cfx,oci,gcp,aws,github`).
+- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github`).
 - `SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS`: default polling interval in seconds.
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
@@ -76,11 +76,11 @@ Each module supports the same environment shape:
 - `CLAUDE_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`
 - `CLAUDE_SERVICE_FILTER`: empty (all)
 
-**Cfx (`CFX_`)**
-- `CFX_URL`: `https://status.cfx.re/api/v2/summary.json`
-- `CFX_RULE_KIND`: `status`
-- `CFX_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`
-- `CFX_SERVICE_FILTER`: empty (all)
+**Rockstar (`ROCKSTAR_`)**
+- `ROCKSTAR_URL`: `https://support.rockstargames.com/servicestatus`
+- `ROCKSTAR_SERVICE_FILTER`: empty (all). Match by item id, name, or section. Example: `FiveM,RedM` or `Cfx.re`.
+- `ROCKSTAR_IMPERSONATE_PROFILE`: `chrome110` (used by `curl_cffi` to bypass WAF TLS fingerprinting)
+- Note: `ROCKSTAR_RULE_*` and `ROCKSTAR_USER_AGENT` are inert — the monitor uses HTML parsing and `curl_cffi` impersonation.
 
 **OCI (`OCI_`)**
 - `OCI_URL`: `https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss`
