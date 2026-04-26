@@ -2,7 +2,7 @@
 ![Module](https://img.shields.io/badge/Module-OpenAI-1F6FEB)
 ![Source](https://img.shields.io/badge/Source-status.openai.com-0A66C2)
 
-🔗 Nav: [🏠 Home](../../../README.md) · [🎮 Steam](../steam/README.md) · [🟣 Claude](../claude/README.md) · [🧭 Cfx](../cfx/README.md) · [☁️ OCI](../oci/README.md) · [🌐 GCP](../gcp/README.md) · [☁️ AWS](../aws/README.md) · [🔔 Notifications](../../notifications/README.md) · [🐳 Docker](../../../DOCKER.md)
+🔗 Nav: [🏠 Home](../../../README.md) · [🎮 Steam](../steam/README.md) · [🟣 Claude](../claude/README.md) · [🎮 Rockstar](../rockstar/README.md) · [☁️ OCI](../oci/README.md) · [🌐 GCP](../gcp/README.md) · [☁️ AWS](../aws/README.md) · [🔔 Notifications](../../notifications/README.md) · [🐳 Docker](../../../DOCKER.md)
 
 Monitor https://status.openai.com using the JSON endpoint `api/v2/summary.json`.
 
