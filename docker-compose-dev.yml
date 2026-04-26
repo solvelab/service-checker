@@ -7,7 +7,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVICE_MONITOR_MODULES: ${SERVICE_MONITOR_MODULES:-steam,openai,claude,cfx,oci,gcp,aws,github}
+      SERVICE_MONITOR_MODULES: ${SERVICE_MONITOR_MODULES:-steam,openai,claude,rockstar,oci,gcp,aws,github}
       SERVICE_MONITOR_LOG_LEVEL: ${SERVICE_MONITOR_LOG_LEVEL:-INFO}
       SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS: ${SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS:-60}
       SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS: ${SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS:-10}
@@ -36,14 +36,12 @@ services:
       CLAUDE_RULE_VALUE: ${CLAUDE_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
       CLAUDE_SERVICE_FILTER: ${CLAUDE_SERVICE_FILTER:-}
       CLAUDE_ENABLED: ${CLAUDE_ENABLED:-true}
-      CFX_URL: ${CFX_URL:-https://status.cfx.re/api/v2/summary.json}
-      CFX_INTERVAL_SECONDS: ${CFX_INTERVAL_SECONDS:-60}
-      CFX_TIMEOUT_SECONDS: ${CFX_TIMEOUT_SECONDS:-10}
-      CFX_USER_AGENT: ${CFX_USER_AGENT:-service-checker/cfx}
-      CFX_RULE_KIND: ${CFX_RULE_KIND:-status}
-      CFX_RULE_VALUE: ${CFX_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
-      CFX_SERVICE_FILTER: ${CFX_SERVICE_FILTER:-}
-      CFX_ENABLED: ${CFX_ENABLED:-true}
+      ROCKSTAR_URL: ${ROCKSTAR_URL:-https://support.rockstargames.com/servicestatus}
+      ROCKSTAR_INTERVAL_SECONDS: ${ROCKSTAR_INTERVAL_SECONDS:-60}
+      ROCKSTAR_TIMEOUT_SECONDS: ${ROCKSTAR_TIMEOUT_SECONDS:-15}
+      ROCKSTAR_SERVICE_FILTER: ${ROCKSTAR_SERVICE_FILTER:-}
+      ROCKSTAR_IMPERSONATE_PROFILE: ${ROCKSTAR_IMPERSONATE_PROFILE:-chrome110}
+      ROCKSTAR_ENABLED: ${ROCKSTAR_ENABLED:-true}
       OCI_URL: ${OCI_URL:-https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss}
       OCI_INTERVAL_SECONDS: ${OCI_INTERVAL_SECONDS:-60}
       OCI_TIMEOUT_SECONDS: ${OCI_TIMEOUT_SECONDS:-10}

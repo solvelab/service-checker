@@ -21,7 +21,7 @@ spec:
           command: ["python", "-m", "app"]
           env:
             - name: SERVICE_MONITOR_MODULES
-              value: "steam,openai,claude,cfx,oci,gcp,aws,github"
+              value: "steam,openai,claude,rockstar,oci,gcp,aws,github"
             - name: SERVICE_MONITOR_LOG_LEVEL
               value: "INFO"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
@@ -78,21 +78,17 @@ spec:
               value: ""
             - name: CLAUDE_ENABLED
               value: "true"
-            - name: CFX_URL
-              value: "https://status.cfx.re/api/v2/summary.json"
-            - name: CFX_INTERVAL_SECONDS
+            - name: ROCKSTAR_URL
+              value: "https://support.rockstargames.com/servicestatus"
+            - name: ROCKSTAR_INTERVAL_SECONDS
               value: "60"
-            - name: CFX_TIMEOUT_SECONDS
-              value: "10"
-            - name: CFX_USER_AGENT
-              value: "service-checker/cfx"
-            - name: CFX_RULE_KIND
-              value: "status"
-            - name: CFX_RULE_VALUE
-              value: "degraded_performance,partial_outage,major_outage"
-            - name: CFX_SERVICE_FILTER
-              value: ""
-            - name: CFX_ENABLED
+            - name: ROCKSTAR_TIMEOUT_SECONDS
+              value: "15"
+            - name: ROCKSTAR_SERVICE_FILTER
+              value: "FiveM,RedM"
+            - name: ROCKSTAR_IMPERSONATE_PROFILE
+              value: "chrome110"
+            - name: ROCKSTAR_ENABLED
               value: "true"
             - name: OCI_URL
               value: "https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss"
