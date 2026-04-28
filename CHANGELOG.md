@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/solvelab/service-checker/compare/v2.0.0...v2.1.0) (2026-04-28)
+
+
+### Features
+
+* **modules:** adicionar suporte ao monitoramento do Bitbucket ([e13cc61](https://github.com/solvelab/service-checker/commit/e13cc61fd9d3a4cdef7a804b8341cc86576c3cc4))
+
 # [2.0.0](https://github.com/solvelab/service-checker/compare/v1.1.1...v2.0.0) (2026-04-26)
 
 
