@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 
 from app.core.config import ModuleConfig, RuleConfig
-from app.core.types import MonitorResult, MonitorStatus
+from app.core.types import MonitorStatus
 from app.modules.github.monitor import (
     GitHubStatusMonitor,
     _extract_components,

@@ -17,7 +17,7 @@ from app.core.config import (
     WebhookConfig,
 )
 from app.core.logging import JsonFormatter
-from app.core.notifications import NotificationManager, _service_key
+from app.core.notifications import NotificationManager
 from app.core.types import MonitorResult, MonitorStatus
 from app.notifications.telegram.notifier import _serialize_services
 
