@@ -21,7 +21,7 @@ spec:
           command: ["python", "-m", "app"]
           env:
             - name: SERVICE_MONITOR_MODULES
-              value: "steam,openai,claude,rockstar,oci,gcp,aws,github"
+              value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket"
             - name: SERVICE_MONITOR_LOG_LEVEL
               value: "INFO"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
@@ -153,6 +153,22 @@ spec:
             - name: GITHUB_SERVICE_FILTER
               value: ""
             - name: GITHUB_ENABLED
+              value: "true"
+            - name: BITBUCKET_URL
+              value: "https://bitbucket.status.atlassian.com/api/v2/summary.json"
+            - name: BITBUCKET_INTERVAL_SECONDS
+              value: "60"
+            - name: BITBUCKET_TIMEOUT_SECONDS
+              value: "10"
+            - name: BITBUCKET_USER_AGENT
+              value: "service-checker/bitbucket"
+            - name: BITBUCKET_RULE_KIND
+              value: "status"
+            - name: BITBUCKET_RULE_VALUE
+              value: "degraded_performance,partial_outage,major_outage"
+            - name: BITBUCKET_SERVICE_FILTER
+              value: ""
+            - name: BITBUCKET_ENABLED
               value: "true"
             - name: TELEGRAM_ENABLED
               value: "false"
