@@ -43,7 +43,7 @@ docker compose -f docker-compose-dev.yml up --build
 
 ## 🧰 Global configuration
 These apply across modules:
-- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github`).
+- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket`).
 - `SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS`: default polling interval in seconds.
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
@@ -105,6 +105,12 @@ Each module supports the same environment shape:
 - `GITHUB_RULE_KIND`: `status`
 - `GITHUB_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`
 - `GITHUB_SERVICE_FILTER`: empty (all)
+
+**Bitbucket (`BITBUCKET_`)**
+- `BITBUCKET_URL`: `https://bitbucket.status.atlassian.com/api/v2/summary.json`
+- `BITBUCKET_RULE_KIND`: `status`
+- `BITBUCKET_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`
+- `BITBUCKET_SERVICE_FILTER`: empty (all). Example: `pipelines,git-via-https`.
 
 ## 🔔 Notifications
 **Telegram**
