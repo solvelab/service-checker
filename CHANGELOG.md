@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/solvelab/service-checker/compare/v2.1.0...v2.2.0) (2026-04-28)
+
+
+### Features
+
+* **bitbucket:** habilitar modulo bitbucket no deployment k8s ([610f923](https://github.com/solvelab/service-checker/commit/610f923234feded1dee29a7f8d089dafdb5c98f6))
+
 # [2.1.0](https://github.com/solvelab/service-checker/compare/v2.0.0...v2.1.0) (2026-04-28)
 
 
