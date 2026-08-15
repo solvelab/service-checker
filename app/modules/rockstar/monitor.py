@@ -25,7 +25,11 @@ _SECTION_OR_ITEM_RE = re.compile(
 )
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
-_DEFAULT_IMPERSONATE = "chrome110"
+# Impersonation profiles age out: chrome110 is already refused by steamstat.us,
+# another Cloudflare-fronted endpoint. Both chrome110 and chrome124 are accepted
+# here (measured 2026-08-15); pinning the newer one keeps both modules aligned on
+# a profile that is still current.
+_DEFAULT_IMPERSONATE = "chrome124"
 
 
 class RockstarStatusMonitor:
