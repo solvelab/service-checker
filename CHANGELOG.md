@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/solvelab/service-checker/compare/v2.2.0...v2.2.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **config:** corrigir .env.example que referenciava o modulo cfx removido ([4e33ac5](https://github.com/solvelab/service-checker/commit/4e33ac5e5cfb7795965f637d9ab5dfbae0c928f5))
+
 # [2.2.0](https://github.com/solvelab/service-checker/compare/v2.1.0...v2.2.0) (2026-04-28)
 
 
