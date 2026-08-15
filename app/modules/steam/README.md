@@ -11,17 +11,37 @@ Monitor https://steamstat.us/ with environment-configurable rules and service fi
 - Docker: [../../../DOCKER.md](../../../DOCKER.md)
 
 ## 🧭 Overview
-- Fetches the page HTML and applies the rule defined in env.
+- Fetches the page HTML through `curl_cffi` TLS impersonation and applies the rule defined in env.
 - Supports three strategies: `status`, `keyword`, `regex`.
 - Result includes a payload with evaluated services for auditing.
 - Alert/resolution lifecycle is per service (each Steam Services `id` yields independent ALERT/RESOLVED).
 - The `pageviews` entry is ignored to avoid false alerts on traffic metrics.
 
+## 🛡️ Transport: why `curl_cffi` and not `httpx`
+`steamstat.us` is fronted by Cloudflare, which rejects on **TLS fingerprint**, not on headers — a
+plain `httpx` request gets `403` no matter what `User-Agent` it sends. The module therefore fetches
+through `curl_cffi`, impersonating a real browser's TLS stack, the same way the Rockstar module does.
+
+Impersonation profiles age out. Measured against the live endpoint on **2026-08-15**:
+
+| Profile | Result |
+|---|---|
+| `chrome110`, `chrome116` | ❌ HTTP 403 |
+| `chrome119`, `chrome120`, `chrome123`, `chrome124` | ✅ HTTP 200 |
+| `safari17_0` | ✅ HTTP 200 |
+
+Default is `chrome124` — a pinned concrete profile rather than the floating `chrome` alias, so a
+`curl_cffi` upgrade cannot silently change which fingerprint is sent. When Cloudflare eventually
+refuses it too, the symptom is `status=ERROR` with `upstream returned HTTP 403`: raise
+`STEAM_IMPERSONATE_PROFILE` to a newer profile and update the table above.
+
 ## 🔧 Environment variables (`STEAM_`)
 - `URL` (default `https://steamstat.us/`)
 - `INTERVAL_SECONDS` (default 60)
 - `TIMEOUT_SECONDS` (default 10)
-- `USER_AGENT` (default inherited or `service-checker/steam`)
+- `IMPERSONATE_PROFILE`: `curl_cffi` browser profile (default `chrome124`) — see the table above
+- `USER_AGENT`: **inert for this module** — `curl_cffi` sets its own headers as part of the
+  impersonation. Kept for consistency with the other modules.
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target severities (e.g., `major,minor`); for `keyword`/`regex`, a term or pattern
