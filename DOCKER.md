@@ -63,6 +63,7 @@ Each module supports the same environment shape:
 - `STEAM_RULE_KIND`: `status`
 - `STEAM_RULE_VALUE`: `major,minor`
 - `STEAM_SERVICE_FILTER`: empty (all)
+- `STEAM_IMPERSONATE_PROFILE`: `chrome124` (used by `curl_cffi` to bypass Cloudflare TLS fingerprinting; `chrome110`/`chrome116` are refused)
 
 **OpenAI (`OPENAI_`)**
 - `OPENAI_URL`: `https://status.openai.com/api/v2/summary.json`
@@ -79,7 +80,7 @@ Each module supports the same environment shape:
 **Rockstar (`ROCKSTAR_`)**
 - `ROCKSTAR_URL`: `https://support.rockstargames.com/servicestatus`
 - `ROCKSTAR_SERVICE_FILTER`: empty (all). Match by item id, name, or section. Example: `FiveM,RedM` or `Cfx.re`.
-- `ROCKSTAR_IMPERSONATE_PROFILE`: `chrome110` (used by `curl_cffi` to bypass WAF TLS fingerprinting)
+- `ROCKSTAR_IMPERSONATE_PROFILE`: `chrome124` (used by `curl_cffi` to bypass WAF TLS fingerprinting)
 - Note: `ROCKSTAR_RULE_*` and `ROCKSTAR_USER_AGENT` are inert — the monitor uses HTML parsing and `curl_cffi` impersonation.
 
 **OCI (`OCI_`)**
