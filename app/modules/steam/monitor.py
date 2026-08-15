@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import os
 import re
 import time
 from typing import Optional
@@ -8,11 +10,18 @@ import httpx
 from ...core.config import ModuleConfig
 from ...core.types import MonitorResult, MonitorStatus
 
+# steamstat.us sits behind Cloudflare, which blocks on TLS fingerprint rather than
+# on headers: plain httpx gets 403 no matter what User-Agent it sends. curl_cffi
+# impersonates a real browser's TLS stack. Profiles age — chrome110 and chrome116
+# are already refused; chrome119 and newer are accepted (measured 2026-08-15).
+_DEFAULT_IMPERSONATE = "chrome124"
+
 
 class SteamMonitor:
     def __init__(self, slug: str = "steam") -> None:
         self.id = slug
         self.config: Optional[ModuleConfig] = None
+        self._impersonate = os.getenv("STEAM_IMPERSONATE_PROFILE", _DEFAULT_IMPERSONATE)
 
     def configure(self, config: ModuleConfig) -> None:
         self.config = config
@@ -25,30 +34,17 @@ class SteamMonitor:
 
         start = time.perf_counter()
         try:
-            response = await http_client.get(
-                self.config.url,
-                timeout=self.config.timeout_seconds,
-                headers={"User-Agent": self.config.user_agent},
-            )
-            body = response.text
+            body = await asyncio.to_thread(self._fetch_html)
         except Exception as exc:  # noqa: BLE001
             duration_ms = (time.perf_counter() - start) * 1000
             return MonitorResult(
                 status=MonitorStatus.ERROR,
                 message="steam request failed",
-                reason=str(exc),
+                reason=f"{type(exc).__name__}: {exc}",
                 duration_ms=round(duration_ms, 2),
             )
 
         duration_ms = (time.perf_counter() - start) * 1000
-
-        if response.status_code >= 400:
-            return MonitorResult(
-                status=MonitorStatus.ERROR,
-            message="steam returned error status",
-                reason=f"status {response.status_code}",
-                duration_ms=round(duration_ms, 2),
-            )
 
         rule_status, rule_reason, payload = self._evaluate_rule(body)
         if rule_status == MonitorStatus.ERROR:
@@ -75,6 +71,23 @@ class SteamMonitor:
             duration_ms=round(duration_ms, 2),
             payload=payload,
         )
+
+    def _fetch_html(self) -> str:
+        # Imported lazily so the rest of the app does not hard-depend on curl_cffi.
+        from curl_cffi import requests as cffi_requests
+
+        assert self.config is not None
+        response = cffi_requests.get(
+            self.config.url,
+            impersonate=self._impersonate,
+            timeout=self.config.timeout_seconds,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"upstream returned HTTP {response.status_code}")
+        text = response.text
+        if not text:
+            raise RuntimeError("upstream returned empty body")
+        return text
 
     def _evaluate_rule(self, body: str) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
         if self.config is None:
