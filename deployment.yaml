@@ -44,6 +44,8 @@ spec:
               value: "major,minor"
             - name: STEAM_SERVICE_FILTER
               value: ""
+            - name: STEAM_IMPERSONATE_PROFILE
+              value: "chrome124"
             - name: STEAM_ENABLED
               value: "true"
             - name: OPENAI_URL
@@ -87,7 +89,7 @@ spec:
             - name: ROCKSTAR_SERVICE_FILTER
               value: "FiveM,RedM"
             - name: ROCKSTAR_IMPERSONATE_PROFILE
-              value: "chrome110"
+              value: "chrome124"
             - name: ROCKSTAR_ENABLED
               value: "true"
             - name: OCI_URL
