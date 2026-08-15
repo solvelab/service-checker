@@ -17,7 +17,9 @@ The page is server-rendered HTML (no public JSON endpoint). The monitor parses s
 
 ## TLS impersonation
 
-The page is fronted by a WAF that fingerprints TLS clients. Plain `httpx` / `requests` from datacenter IPs gets `ReadTimeout`. The monitor uses [`curl_cffi`](https://github.com/lexiforest/curl_cffi) with `impersonate="chrome110"` (default) which mimics a real Chrome TLS handshake. Profile is configurable via `ROCKSTAR_IMPERSONATE_PROFILE`.
+The page is fronted by a WAF that fingerprints TLS clients. Plain `httpx` / `requests` from datacenter IPs gets `ReadTimeout`. The monitor uses [`curl_cffi`](https://github.com/lexiforest/curl_cffi) with `impersonate="chrome124"` (default) which mimics a real Chrome TLS handshake. Profile is configurable via `ROCKSTAR_IMPERSONATE_PROFILE`.
+
+Profiles age out. The previous default `chrome110` still returns 200 here (measured 2026-08-15), but is already refused by `steamstat.us`, another Cloudflare-fronted endpoint. The default was raised to `chrome124` so both impersonating modules sit on a profile that is still current. Use a pinned concrete profile, never the floating `chrome` alias: the alias changes meaning when `curl_cffi` is upgraded.
 
 ## Configuration
 
@@ -30,7 +32,7 @@ The page is fronted by a WAF that fingerprints TLS clients. Plain `httpx` / `req
   - `FiveM,RedM` — only Cfx.re game services
   - `Cfx.re` — entire Cfx.re section
   - `cfx-re-fivem` — by canonical id
-- `ROCKSTAR_IMPERSONATE_PROFILE` (default `chrome110`) — try `safari17_0` if WAF blocks the default
+- `ROCKSTAR_IMPERSONATE_PROFILE` (default `chrome124`) — try `safari17_0` if the WAF blocks the default
 
 ## Severity mapping
 
