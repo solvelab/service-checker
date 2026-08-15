@@ -1,3 +1,10 @@
+## [2.2.2](https://github.com/solvelab/service-checker/compare/v2.2.1...v2.2.2) (2026-08-15)
+
+
+### Bug Fixes
+
+* **steam:** buscar via curl_cffi para contornar bloqueio TLS do Cloudflare ([57b6bfe](https://github.com/solvelab/service-checker/commit/57b6bfe5db3b1b0c47aa026518641d9d3b3025a6))
+
 ## [2.2.1](https://github.com/solvelab/service-checker/compare/v2.2.0...v2.2.1) (2026-08-15)
 
 
