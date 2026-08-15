@@ -27,9 +27,6 @@ build/
 *.swp
 .DS_Store
 
-# Project specs (managed outside repo)
-openspec/
-
 # Logs
 *.log
 
