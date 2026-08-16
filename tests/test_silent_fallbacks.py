@@ -66,6 +66,11 @@ ACCEPTED_SILENT = {
     # detector: sinal por callback é invisível para uma varredura textual, e forçar um
     # log aqui produziria a mensagem sem o contexto que a torna útil.
     ("core/state_store.py", "except ValueError:"),
+    # O loop de retry so pode registrar depois de decidir se havera nova tentativa —
+    # a mensagem diz "attempt N/M", e dentro do `except` esse dado ainda nao existe.
+    # O log sai logo abaixo, no mesmo ciclo, e `test_a_retry_is_logged` prova.
+    ("core/impersonated_fetch.py", "except UpstreamRejected as exc:"),
+    ("core/impersonated_fetch.py", "except Exception as exc:  # noqa: BLE001"),
 }
 
 
@@ -87,7 +92,16 @@ def _except_blocks():
                 "file": str(path.relative_to(_APP.parent)).replace("app/", ""),
                 "line": index + 1,
                 "clause": line.strip(),
-                "logs": bool(re.search(r"(logger|log|self\._logger)\.(debug|info|warning|error|exception)", text))
+                # `logging.getLogger("...").warning(...)` conta: a primeira versao desta
+                # regex so via `logger.`, e acusou como silencioso um bloco que registrava
+                # — falso positivo e como um detector perde a autoridade e e desligado.
+                "logs": bool(
+                    re.search(
+                        r"(logger|log|self\._logger|logging\.getLogger\([^)]*\))"
+                        r"\.(debug|info|warning|error|exception)",
+                        text,
+                    )
+                )
                 or "_warn" in text,
                 "raises": bool(re.search(r"\braise\b", text)),
                 "returns_error": "MonitorStatus.ERROR" in text,

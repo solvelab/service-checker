@@ -140,6 +140,23 @@ Each module supports the same environment shape:
   `CLOUDFLARE_SERVICE_FILTER='Tunnel,"Arica, Chile - (ARI)"'`. Applies to every
   module's `SERVICE_FILTER`.
 
+## 🔁 Retry on impersonated fetches
+
+`steam` and `rockstar` read HTML from behind Cloudflare and need `curl_cffi` to imitate a browser's
+TLS handshake. Even with the right fingerprint the edge refuses **some** requests — measured at ~30%
+on `steam`, and 83% of those succeed on the next attempt. Three refusals in a row would otherwise
+trip the dead-monitor notification on noise alone.
+
+- `<SLUG>_FETCH_ATTEMPTS` (default `3`): total attempts, first one included. `1` disables retrying.
+- `<SLUG>_FETCH_BACKOFF_SECONDS` (default `1.5`): pause between attempts. `0` is valid.
+
+Only transient failures are retried: `403`, `408`, `429` and `5xx`, plus network errors. A `404` or
+an empty body is not — insisting there only delays the diagnosis. Every extra attempt is logged as
+`fetch_retry`, so the degradation stays visible instead of being smoothed away.
+
+The worst case must fit the check interval: with `timeout=15s`, three attempts and a 1.5s pause it
+is ~48s against a 60s interval. Raise the timeout or the attempts and the checks start overlapping.
+
 ## 💾 Alert state across restarts
 
 - `NOTIFICATION_STATE_PATH`: file where pending alerts are kept. **Empty means in-memory
