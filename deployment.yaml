@@ -21,7 +21,7 @@ spec:
           command: ["python", "-m", "app"]
           env:
             - name: SERVICE_MONITOR_MODULES
-              value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket"
+              value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare"
             - name: SERVICE_MONITOR_LOG_LEVEL
               value: "INFO"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
@@ -171,6 +171,22 @@ spec:
             - name: BITBUCKET_SERVICE_FILTER
               value: ""
             - name: BITBUCKET_ENABLED
+              value: "true"
+            - name: CLOUDFLARE_URL
+              value: "https://www.cloudflarestatus.com/api/v2/summary.json"
+            - name: CLOUDFLARE_INTERVAL_SECONDS
+              value: "60"
+            - name: CLOUDFLARE_TIMEOUT_SECONDS
+              value: "10"
+            - name: CLOUDFLARE_USER_AGENT
+              value: "service-checker/cloudflare"
+            - name: CLOUDFLARE_RULE_KIND
+              value: "status"
+            - name: CLOUDFLARE_RULE_VALUE
+              value: "degraded_performance,partial_outage,major_outage"
+            - name: CLOUDFLARE_SERVICE_FILTER
+              value: "Tunnel,Authoritative DNS,Network,CDN/Cache,SSL Certificate Provisioning"
+            - name: CLOUDFLARE_ENABLED
               value: "true"
             - name: TELEGRAM_ENABLED
               value: "false"

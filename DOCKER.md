@@ -123,6 +123,15 @@ Each module supports the same environment shape:
 - `BITBUCKET_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`
 - `BITBUCKET_SERVICE_FILTER`: empty (all). Example: `pipelines,git-via-https`.
 
+**Cloudflare (`CLOUDFLARE_`)**
+- `CLOUDFLARE_URL`: `https://www.cloudflarestatus.com/api/v2/summary.json`
+- `CLOUDFLARE_RULE_KIND`: `status`
+- `CLOUDFLARE_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`
+- `CLOUDFLARE_SERVICE_FILTER`: **not** empty-means-all. Cloudflare publishes 475 components and
+  the ones that flap are the data centers, so leaving this empty falls back to a curated
+  allowlist: `Tunnel,Authoritative DNS,Network,CDN/Cache,SSL Certificate Provisioning`.
+  Set `*` to watch all 475 and expect dozens of alerts a day.
+
 ## 🔔 Notifications
 **Telegram**
 - `TELEGRAM_ENABLED` (default `false`)

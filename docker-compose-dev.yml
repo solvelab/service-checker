@@ -7,7 +7,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVICE_MONITOR_MODULES: ${SERVICE_MONITOR_MODULES:-steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket}
+      SERVICE_MONITOR_MODULES: ${SERVICE_MONITOR_MODULES:-steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare}
       SERVICE_MONITOR_LOG_LEVEL: ${SERVICE_MONITOR_LOG_LEVEL:-INFO}
       SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS: ${SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS:-60}
       SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS: ${SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS:-10}
@@ -83,6 +83,14 @@ services:
       BITBUCKET_RULE_VALUE: ${BITBUCKET_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
       BITBUCKET_SERVICE_FILTER: ${BITBUCKET_SERVICE_FILTER:-}
       BITBUCKET_ENABLED: ${BITBUCKET_ENABLED:-true}
+      CLOUDFLARE_URL: ${CLOUDFLARE_URL:-https://www.cloudflarestatus.com/api/v2/summary.json}
+      CLOUDFLARE_INTERVAL_SECONDS: ${CLOUDFLARE_INTERVAL_SECONDS:-60}
+      CLOUDFLARE_TIMEOUT_SECONDS: ${CLOUDFLARE_TIMEOUT_SECONDS:-10}
+      CLOUDFLARE_USER_AGENT: ${CLOUDFLARE_USER_AGENT:-service-checker/cloudflare}
+      CLOUDFLARE_RULE_KIND: ${CLOUDFLARE_RULE_KIND:-status}
+      CLOUDFLARE_RULE_VALUE: ${CLOUDFLARE_RULE_VALUE:-degraded_performance,partial_outage,major_outage}
+      CLOUDFLARE_SERVICE_FILTER: ${CLOUDFLARE_SERVICE_FILTER:-Tunnel,Authoritative DNS,Network,CDN/Cache,SSL Certificate Provisioning}
+      CLOUDFLARE_ENABLED: ${CLOUDFLARE_ENABLED:-true}
       TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}

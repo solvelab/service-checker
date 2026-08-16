@@ -164,6 +164,8 @@ def _default_url(slug: str) -> str:
         return "https://www.githubstatus.com/api/v2/summary.json"
     if slug.lower() == "bitbucket":
         return "https://bitbucket.status.atlassian.com/api/v2/summary.json"
+    if slug.lower() == "cloudflare":
+        return "https://www.cloudflarestatus.com/api/v2/summary.json"
     return f"https://{slug}.example.com/"
 
 
