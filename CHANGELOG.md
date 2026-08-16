@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/solvelab/service-checker/compare/v2.5.2...v2.6.0) (2026-08-16)
+
+
+### Features
+
+* **scripts:** simular disparo de alerta dos nove provedores ([#50](https://github.com/solvelab/service-checker/issues/50)) ([efa0f3d](https://github.com/solvelab/service-checker/commit/efa0f3d6836cc459bf1c064f23e1a0b0c398e20b)), closes [#49](https://github.com/solvelab/service-checker/issues/49) [#48](https://github.com/solvelab/service-checker/issues/48)
+
 ## [2.5.2](https://github.com/solvelab/service-checker/compare/v2.5.1...v2.5.2) (2026-08-16)
 
 
