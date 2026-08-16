@@ -281,9 +281,12 @@ async def test_recovering_one_incident_does_not_clear_the_other():
     await _feed_result(manager, MonitorStatus.ALERT, both, 0)
     assert manager.telegram_notifier.send_alert.call_count == 2
 
-    # Only the first one clears.
+    # Only the first one clears. The module reports ALERT while Storage is still
+    # degraded, and an ALERT payload carries only the incidents that still match the
+    # rule (`_evaluate_status_rule` returns `matches`) — so a cleared incident leaves
+    # the payload rather than appearing in it as resolved.
     await _feed_result(
-        manager, MonitorStatus.OK, [{"id": "aaa111", "name": "Compute", "status": "Resolved"}], 1
+        manager, MonitorStatus.ALERT, [{"id": "bbb222", "name": "Storage", "status": "Identified"}], 1
     )
     assert manager.telegram_notifier.send_recovery.call_count == 1
 
