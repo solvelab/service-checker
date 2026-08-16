@@ -33,6 +33,11 @@ _EXTRA_KEYS = (
 )
 
 
+#: Mesmo motivo do buffer em `config.py`: o aviso nasce enquanto o logger ainda
+#: esta sendo montado, entao e emitido logo depois, por `configure_logging`.
+_LEVEL_WARNINGS: list = []
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         log: Dict[str, Any] = {
@@ -65,11 +70,25 @@ def configure_logging(level_name: str) -> logging.Logger:
     handler.setFormatter(JsonFormatter())
     logger.addHandler(handler)
 
+    while _LEVEL_WARNINGS:
+        logger.warning(
+            _LEVEL_WARNINGS.pop(0), extra={"event": "config_fallback"}
+        )
+
     return logger
 
 
 def _coerce_level(level_name: str) -> int:
-    try:
-        return getattr(logging, level_name.upper())
-    except AttributeError:
-        return logging.INFO
+    """Traduz o nome do nivel, avisando quando o nome nao existe.
+
+    Silenciosamente virar INFO fazia `SERVICE_MONITOR_LOG_LEVEL=DEBUGG` parecer aceito.
+    O aviso sai pelo logger recem-configurado, entao ele proprio respeita o nivel que
+    acabou de ser escolhido — e por isso e WARNING, que sobrevive a INFO.
+    """
+    resolved = getattr(logging, str(level_name).upper(), None)
+    if isinstance(resolved, int):
+        return resolved
+    _LEVEL_WARNINGS.append(
+        f"SERVICE_MONITOR_LOG_LEVEL={level_name!r} is not a log level; using INFO"
+    )
+    return logging.INFO

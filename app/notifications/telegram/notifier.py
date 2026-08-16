@@ -410,7 +410,20 @@ def _render_with_template(
         fallback = _DEFAULT_TEMPLATE
         try:
             return fallback.render(payload)
-        except Exception:
+        except Exception as fallback_exc:  # noqa: BLE001
+            # O alerta ainda sai, mas so com o essencial. Sem esta linha, a diferenca
+            # entre "template customizado renderizou" e "sobrou o minimo" nao aparece
+            # em lugar nenhum — e a mensagem degradada e plausivel o bastante para
+            # ninguem estranhar.
+            logger.error(
+                "telegram fallback template also failed; sending a bare message",
+                extra={
+                    "event": "notify_error",
+                    "module_id": module_id,
+                    "target": "telegram",
+                    "reason": str(fallback_exc),
+                },
+            )
             return f"{module_id} alert: {payload.get('message', 'no details')}"
 
 
@@ -420,7 +433,28 @@ def _format_timestamp(dt: datetime, fmt: str, zone: str) -> str:
         target = dt.astimezone()
     else:
         target = dt.astimezone(timezone.utc)
+    # Filho de `service_monitor` de proposito: `configure_logging` so monta aquela
+    # arvore, e com `propagate = False` — um logger de fora nao tem handler nenhum.
+    log = logging.getLogger("service_monitor.telegram")
     try:
-        return target.strftime(fmt)
-    except Exception:
+        formatted = target.strftime(fmt)
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "timestamp format could not be applied; using ISO-8601",
+            extra={"event": "config_fallback", "target": "telegram",
+                   "reason": f"{fmt!r}: {exc}"},
+        )
         return target.isoformat()
+
+    # O `except` acima quase nunca dispara: no Linux, `strftime` com uma diretiva
+    # desconhecida nao levanta — devolve o texto literal. Entao um
+    # `TELEGRAM_TIMESTAMP_FORMAT` errado nao caia no fallback, ele **emitia o lixo**
+    # dentro do alerta, e ninguem ficava sabendo. Se nenhuma diretiva foi interpretada,
+    # o formato nao vale nada.
+    if "%" in fmt and formatted == fmt:
+        log.warning(
+            "timestamp format has no directive the platform understands; using ISO-8601",
+            extra={"event": "config_fallback", "target": "telegram", "reason": repr(fmt)},
+        )
+        return target.isoformat()
+    return formatted

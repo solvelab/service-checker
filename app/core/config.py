@@ -4,6 +4,26 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 
+#: Avisos acumulados durante a leitura da configuracao.
+#:
+#: `load_app_config()` roda **antes** de `configure_logging()` — o nivel de log vem da
+#: propria configuracao. Um WARNING emitido aqui nao teria handler nenhum e sumiria, que
+#: e exatamente o defeito que este modulo passou a evitar. Entao os avisos ficam
+#: guardados e `app/main.py` os drena assim que o logger existe.
+_CONFIG_WARNINGS: List[str] = []
+
+
+def _warn_config(message: str) -> None:
+    _CONFIG_WARNINGS.append(message)
+
+
+def drain_config_warnings() -> List[str]:
+    """Devolve os avisos acumulados e esvazia o buffer."""
+    drained = list(_CONFIG_WARNINGS)
+    _CONFIG_WARNINGS.clear()
+    return drained
+
+
 @dataclass
 class DefaultConfig:
     interval_seconds: int
@@ -176,11 +196,17 @@ def _default_url(slug: str) -> str:
 
 def _get_int(env_name: str, default: int) -> int:
     raw = os.getenv(env_name)
+    # Ausente ou vazio e configuracao, nao erro: nada a avisar.
     if raw is None or raw.strip() == "":
         return default
     try:
         return int(raw)
     except ValueError:
+        # Um typo — `6O` com a letra O — era aceito para sempre, e o operador seguia
+        # acreditando que tinha configurado o que digitou.
+        _warn_config(
+            f"{env_name}={raw!r} is not a whole number; using the default {default}"
+        )
         return default
 
 
@@ -191,6 +217,7 @@ def _get_float(env_name: str, default: float) -> float:
     try:
         return float(raw)
     except ValueError:
+        _warn_config(f"{env_name}={raw!r} is not a number; using the default {default}")
         return default
 
 
@@ -213,7 +240,11 @@ def _get_service_filter(env_name: str) -> List[str]:
         # One "row", so the parsed line is the list of entries. `skipinitialspace` lets
         # `a, "b, c"` work as well as `a,"b, c"`.
         rows = list(csv.reader([raw], skipinitialspace=True))
-    except csv.Error:
+    except csv.Error as exc:
+        _warn_config(
+            f"{env_name}={raw!r} could not be parsed as a quoted list ({exc}); "
+            "falling back to a plain comma split"
+        )
         rows = []
     items = rows[0] if rows else raw.split(",")
     return [item.strip().lower() for item in items if item.strip()]

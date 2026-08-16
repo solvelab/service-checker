@@ -28,6 +28,42 @@ Três coisas rodam sozinhas e uma depende de decisão humana. Nesta ordem:
 | Simulações de endpoint e de notificação | manual, antes do PR | não, são diagnóstico |
 | Checks obrigatórios para mergear | não configurado | ver a última seção |
 
+## O fallback funciona, o sinal não
+
+Este é o modo de falha que mais custou caro aqui, e ele não se anuncia. O caminho de degradação
+funciona — o pod fica `Running`, o log fica verde — e nada diz que ele foi tomado.
+
+Já aconteceu com: canais de notificação desligados por quatro meses; `aws` e `gcp` alertando sem
+nunca mandar o all-clear; um slug removido do código apodrecendo no manifesto enquanto o loader
+logava e seguia; payload malformado capturado pelo scheduler sem virar `MonitorStatus.ERROR`, o que
+impedia a notificação de monitor morto; a chave `target` descartada do log, deixando
+`notification channel failed` sem dizer qual canal; o `StateStore` logando numa árvore sem handler;
+um rename que faria o release parar de atualizar a tag imprimindo "not found, skipping".
+
+Todos foram encontrados por acaso. Nenhum foi encontrado procurando.
+
+**Ao escrever um caminho de degradação, escreva o sinal junto.** Sinal aqui é uma destas três
+coisas, nesta ordem de preferência:
+
+1. devolver `MonitorStatus.ERROR` com um `reason` legível — é o contrato dos módulos, e o que faz a
+   `NotificationManager` contar a falha e avisar sobre monitor morto;
+2. registrar em log pelo logger da aplicação — `service_monitor` ou um filho dele. Um
+   `getLogger(__name__)` fora dessa árvore **não tem handler**, porque `configure_logging` monta só
+   ela e com `propagate = False`;
+3. re-levantar, quando quem chama tem contexto melhor para registrar.
+
+Chave de `extra` que não está em `_EXTRA_KEYS` some do JSON. Acrescente lá ao criar uma.
+
+`tests/test_silent_fallbacks.py::test_no_new_silent_fallback` varre `app/` e falha quando aparece um
+`except` que não faz nenhuma das três. Há uma allowlist para os casos legitimamente calados, e cada
+entrada carrega o motivo por escrito — allowlist sem motivo vira carimbo. O arquivo também tem um
+guarda do guarda: uma regex quebrada tornaria a varredura verde por vacuidade, e isso já aconteceu
+duas vezes neste repositório.
+
+Silêncio não é só ausência de log. `strftime` com uma diretiva inválida não levanta no Linux: devolve
+o texto literal, e o alerta sai com lixo dentro. Quando o fallback depende de uma exceção que talvez
+nunca ocorra, valide o resultado em vez de confiar no `except`.
+
 ## Onde o manifesto de produção vive
 
 Não é neste repositório. O deploy do cluster é `didevlab/housek8s`, em
