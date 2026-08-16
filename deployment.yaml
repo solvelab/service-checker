@@ -190,3 +190,5 @@ spec:
               value: ""
             - name: WEBHOOK_HEADER_NAME
               value: "Authorization"
+            - name: NOTIFICATION_ERROR_THRESHOLD
+              value: "3"

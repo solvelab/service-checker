@@ -1,0 +1,15 @@
+<b>🛑 Monitoring failure</b>
+<i>Module: {{ module_id }}</i>
+
+<b>Level:</b> <code>{{ level }}</code>
+<b>Event:</b> Service-Checker
+<b>Status:</b> <code>{{ status }}</code>
+<b>What this means:</b> the checker cannot reach this provider. The service itself may be fine — this is about the monitoring.
+{% if reason %}
+<b>Detail:</b> <code>{{ reason }}</code>
+{% endif %}
+<b>Timestamp:</b> {{ timestamp }}
+{% if interval_seconds %}
+<b>Interval:</b> <code>{{ interval_seconds }}s</code>
+{% endif %}
+<i>Check the provider status page directly until monitoring is restored.</i>

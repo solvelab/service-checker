@@ -19,7 +19,9 @@ class NotificationManager:
         self.telegram_notifier: Optional[TelegramNotifier] = None
         self.webhook_notifier: Optional[WebhookNotifier] = None
         self._alert_state: dict[str, AlertState] = {}
+        self._error_state: dict[str, MonitorErrorState] = {}
         self._repeat_seconds = max(config.repeat_minutes, 1) * 60
+        self._error_threshold = max(getattr(config, "error_threshold", 3), 1)
         if config.telegram.enabled:
             self.telegram_notifier = TelegramNotifier(config.telegram)
         if config.webhook.enabled:
@@ -39,6 +41,21 @@ class NotificationManager:
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
     ) -> None:
+        event_time = _ensure_aware(event_time)
+
+        # A failure to evaluate is about the monitor, not about any single component,
+        # so it is handled per module regardless of what the payload looks like.
+        if result.status == MonitorStatus.ERROR:
+            await self._handle_monitor_error(
+                module_id, result, module_config, event_time, http_client, logger
+            )
+            return
+
+        # Any successful evaluation ends a monitoring outage, whatever it concluded.
+        await self._clear_monitor_error(
+            module_id, result, module_config, event_time, http_client, logger
+        )
+
         service_items = _extract_service_items(result.payload)
         if service_items:
             await self._handle_service_result(
@@ -82,16 +99,7 @@ class NotificationManager:
             )
             return
 
-        if result.status != MonitorStatus.ALERT:
-            # ERROR means "could not evaluate", not "the service changed". Overwriting
-            # the state here loses the pending ALERT: the later OK would no longer be a
-            # transition, so the recovery notification is never sent, and the throttle
-            # window is reset, so a returning ALERT is re-sent immediately. Leaving the
-            # state untouched keeps both intact. Nothing reads the ERROR state.
-            return
-
         state = self._alert_state.get(module_id)
-        event_time = _ensure_aware(event_time)
         should_send = False
         if state is None or state.last_status != MonitorStatus.ALERT:
             should_send = True
@@ -118,6 +126,132 @@ class NotificationManager:
             last_alert_at=event_time,
             last_status_text=result.reason or "ALERT",
         )
+
+    async def _handle_monitor_error(
+        self,
+        module_id: str,
+        result: MonitorResult,
+        module_config: ModuleConfig,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
+        """Count a failed evaluation and page once it stops looking transient.
+
+        Never touches ``_alert_state``: a pending ALERT must survive an outage of the
+        upstream, so that the eventual OK is still a transition and the repeat window
+        is not reset.
+        """
+        state = self._error_state.setdefault(module_id, MonitorErrorState())
+        state.consecutive_errors += 1
+        state.last_reason = result.reason or result.message
+
+        if state.consecutive_errors < self._error_threshold:
+            return
+
+        if state.last_notified_at is not None:
+            elapsed = (event_time - state.last_notified_at).total_seconds()
+            if elapsed < self._repeat_seconds:
+                return
+
+        logger.warning(
+            "monitoring failure notification emitted",
+            extra={
+                "event": "monitor_failure",
+                "module_id": module_id,
+                "check_id": module_id,
+                "status": MonitorStatus.ERROR.value,
+                "reason": state.last_reason,
+            },
+        )
+        failure_result = MonitorResult(
+            status=MonitorStatus.ERROR,
+            message="monitoring failure",
+            reason=(
+                f"{state.consecutive_errors} consecutive failed checks; "
+                f"last error: {state.last_reason or 'unknown'}"
+            ),
+            duration_ms=result.duration_ms,
+        )
+        if self.telegram_notifier:
+            await self.telegram_notifier.send_monitor_error(
+                module_id=module_id,
+                result=failure_result,
+                interval_seconds=module_config.interval_seconds,
+                level_name="ERROR",
+                event_name="monitor_failure",
+                event_time=event_time,
+                http_client=http_client,
+                logger=logger,
+            )
+        if self.webhook_notifier:
+            await self.webhook_notifier.send_monitor_error(
+                module_id=module_id,
+                result=failure_result,
+                interval_seconds=module_config.interval_seconds,
+                level_name="ERROR",
+                event_name="monitor_failure",
+                event_time=event_time,
+                http_client=http_client,
+                logger=logger,
+            )
+        state.last_notified_at = event_time
+
+    async def _clear_monitor_error(
+        self,
+        module_id: str,
+        result: MonitorResult,
+        module_config: ModuleConfig,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
+        """End a monitoring outage; only announce the recovery if the failure was announced."""
+        state = self._error_state.pop(module_id, None)
+        if state is None or state.last_notified_at is None:
+            return
+
+        logger.info(
+            "monitoring recovery notification emitted",
+            extra={
+                "event": "monitor_failure_resolved",
+                "module_id": module_id,
+                "check_id": module_id,
+                "from_status": MonitorStatus.ERROR.value,
+                "to_status": result.status.value,
+            },
+        )
+        recovered_result = MonitorResult(
+            status=result.status,
+            message="monitoring restored",
+            reason=(
+                f"upstream reachable again after {state.consecutive_errors} "
+                f"failed check{'s' if state.consecutive_errors != 1 else ''}"
+            ),
+            duration_ms=result.duration_ms,
+        )
+        if self.telegram_notifier:
+            await self.telegram_notifier.send_monitor_recovered(
+                module_id=module_id,
+                result=recovered_result,
+                interval_seconds=module_config.interval_seconds,
+                level_name="INFO",
+                event_name="monitor_failure_resolved",
+                event_time=event_time,
+                http_client=http_client,
+                logger=logger,
+            )
+        if self.webhook_notifier:
+            await self.webhook_notifier.send_monitor_recovered(
+                module_id=module_id,
+                result=recovered_result,
+                interval_seconds=module_config.interval_seconds,
+                level_name="INFO",
+                event_name="monitor_failure_resolved",
+                event_time=event_time,
+                http_client=http_client,
+                logger=logger,
+            )
 
     async def _handle_service_result(
         self,
@@ -171,13 +305,8 @@ class NotificationManager:
                 )
             return
 
-        if result.status != MonitorStatus.ALERT:
-            # Same reasoning as the module-level branch: an ERROR is a failure to
-            # evaluate, so per-component alert state is left as it was. No module emits
-            # a list payload on ERROR today, so this branch is currently unreachable
-            # with ERROR — it stays consistent for whichever module does it first.
-            return
-
+        # Only OK and ALERT reach here: handle_result intercepts ERROR before dispatching,
+        # because a failure to evaluate is about the monitor, not about a component.
         for item in service_items:
             key = _service_key(module_id, item)
             state = self._alert_state.get(key)
@@ -285,6 +414,20 @@ class AlertState:
     last_status: MonitorStatus
     last_alert_at: Optional[datetime]
     last_status_text: Optional[str] = None
+
+
+@dataclass
+class MonitorErrorState:
+    """Monitoring-failure bookkeeping, kept in its own map.
+
+    Deliberately not a field of AlertState: an ERROR must never disturb the
+    pending-alert state, and this is keyed per module while AlertState is also
+    keyed per component (``module:component``).
+    """
+
+    consecutive_errors: int = 0
+    last_notified_at: Optional[datetime] = None
+    last_reason: Optional[str] = None
 
 
 def _ensure_aware(value: datetime) -> datetime:

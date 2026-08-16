@@ -92,4 +92,5 @@ services:
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
       WEBHOOK_HEADER_NAME: ${WEBHOOK_HEADER_NAME:-Authorization}
+      NOTIFICATION_ERROR_THRESHOLD: ${NOTIFICATION_ERROR_THRESHOLD:-3}
     command: ["python", "-m", "app"]

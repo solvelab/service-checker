@@ -59,6 +59,7 @@ class NotificationConfig:
     telegram: TelegramConfig
     webhook: WebhookConfig
     repeat_minutes: int
+    error_threshold: int = 3
 
 
 def load_app_config() -> AppConfig:
@@ -201,6 +202,12 @@ def _load_notification_config() -> NotificationConfig:
     repeat_minutes = _get_int("NOTIFICATION_REPEAT_MINUTES", 10)
     if repeat_minutes < 1:
         repeat_minutes = 1
+    error_threshold = _get_int("NOTIFICATION_ERROR_THRESHOLD", 3)
+    if error_threshold < 1:
+        error_threshold = 1
     return NotificationConfig(
-        telegram=telegram, webhook=webhook, repeat_minutes=repeat_minutes
+        telegram=telegram,
+        webhook=webhook,
+        repeat_minutes=repeat_minutes,
+        error_threshold=error_threshold,
     )

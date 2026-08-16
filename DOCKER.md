@@ -48,6 +48,7 @@ These apply across modules:
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
 - `NOTIFICATION_REPEAT_MINUTES`: minimum minutes between repeated alerts for the same service.
+- `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before the monitor reports itself as broken (default `3`, minimum `1`). Raise it to stay quiet about monitoring failures.
 
 ## 🔧 Module configuration
 Each module supports the same environment shape:

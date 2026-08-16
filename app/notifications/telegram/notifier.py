@@ -17,6 +17,8 @@ _TEMPLATE_ENV = Environment(
 _DEFAULT_TEMPLATE = _TEMPLATE_ENV.get_template("telegram_alert.j2")
 _STEAM_TEMPLATE = _TEMPLATE_ENV.get_template("telegram_steam.j2")
 _RESOLVED_TEMPLATE = _TEMPLATE_ENV.get_template("telegram_resolved.j2")
+_MONITOR_ERROR_TEMPLATE = _TEMPLATE_ENV.get_template("telegram_monitor_error.j2")
+_MONITOR_RECOVERED_TEMPLATE = _TEMPLATE_ENV.get_template("telegram_monitor_recovered.j2")
 
 
 class TelegramNotifier:
@@ -136,6 +138,134 @@ class TelegramNotifier:
             event_time,
         )
         text = _render_with_template(_RESOLVED_TEMPLATE, payload, logger, module_id)
+        url = f"{self.config.api_url.rstrip('/')}/bot{self.config.bot_token}/sendMessage"
+
+        for chat_id in self.config.chat_ids:
+            try:
+                response = await http_client.post(
+                    url,
+                    json={
+                        "chat_id": chat_id,
+                        "text": text,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                    },
+                    timeout=10.0,
+                )
+                if response.status_code >= 400:
+                    logger.error(
+                        "telegram notification rejected",
+                        extra={
+                            "event": "notify_error",
+                            "module_id": module_id,
+                            "target": "telegram",
+                            "chat_id": chat_id,
+                            "reason": f"status {response.status_code}: {response.text}",
+                        },
+                    )
+                    continue
+                logger.info(
+                    "telegram notification sent",
+                    extra={
+                        "event": "notify",
+                        "module_id": module_id,
+                        "target": "telegram",
+                        "chat_id": chat_id,
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "telegram notification failed",
+                    extra={
+                        "event": "notify_error",
+                        "module_id": module_id,
+                        "target": "telegram",
+                        "chat_id": chat_id,
+                        "reason": str(exc),
+                    },
+                )
+
+
+    async def send_monitor_error(
+        self,
+        module_id: str,
+        result: MonitorResult,
+        interval_seconds: int,
+        level_name: str,
+        event_name: str,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
+        await self._send_with_template(
+            _MONITOR_ERROR_TEMPLATE,
+            module_id,
+            result,
+            interval_seconds,
+            level_name,
+            event_name,
+            event_time,
+            http_client,
+            logger,
+        )
+
+    async def send_monitor_recovered(
+        self,
+        module_id: str,
+        result: MonitorResult,
+        interval_seconds: int,
+        level_name: str,
+        event_name: str,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
+        await self._send_with_template(
+            _MONITOR_RECOVERED_TEMPLATE,
+            module_id,
+            result,
+            interval_seconds,
+            level_name,
+            event_name,
+            event_time,
+            http_client,
+            logger,
+        )
+
+    async def _send_with_template(
+        self,
+        template,
+        module_id: str,
+        result: MonitorResult,
+        interval_seconds: int,
+        level_name: str,
+        event_name: str,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
+        if not self.config.bot_token or not self.config.chat_ids:
+            logger.warning(
+                "telegram notifier missing token or chat_ids; skipping",
+                extra={
+                    "event": "notify_skip",
+                    "module_id": module_id,
+                    "target": "telegram",
+                },
+            )
+            return
+
+        payload = _build_payload(
+            module_id,
+            result,
+            interval_seconds,
+            self.config.timestamp_format,
+            self.config.timestamp_zone,
+            level_name,
+            event_name,
+            event_time,
+        )
+        text = _render_with_template(template, payload, logger, module_id)
         url = f"{self.config.api_url.rstrip('/')}/bot{self.config.bot_token}/sendMessage"
 
         for chat_id in self.config.chat_ids:
