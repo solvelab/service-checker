@@ -1,3 +1,10 @@
+## [2.8.1](https://github.com/solvelab/service-checker/compare/v2.8.0...v2.8.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **logging:** parar de descartar extras e logar o estado onde da para ver ([#60](https://github.com/solvelab/service-checker/issues/60)) ([cca47ec](https://github.com/solvelab/service-checker/commit/cca47ecab8a75d2505bcd5ac570848c8c6272332)), closes [#59](https://github.com/solvelab/service-checker/issues/59)
+
 # [2.8.0](https://github.com/solvelab/service-checker/compare/v2.7.0...v2.8.0) (2026-08-16)
 
 
