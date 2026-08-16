@@ -1,3 +1,10 @@
+## [2.6.1](https://github.com/solvelab/service-checker/compare/v2.6.0...v2.6.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **notifications:** emitir all-clear de componente que sai do payload ([#52](https://github.com/solvelab/service-checker/issues/52)) ([9e8469f](https://github.com/solvelab/service-checker/commit/9e8469fe13b214c265ede36efc01c524abec3ef8)), closes [#49](https://github.com/solvelab/service-checker/issues/49)
+
 # [2.6.0](https://github.com/solvelab/service-checker/compare/v2.5.2...v2.6.0) (2026-08-16)
 
 
