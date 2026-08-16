@@ -36,6 +36,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from typing import Any, Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -83,41 +84,93 @@ def load_env_file(path: Path) -> int:
     return count
 
 
-async def inspect_upstream(slug: str, url: str, client) -> tuple[int, list[str], str]:
-    """Return (record count, fields absent from every record, note)."""
-    contract = CONTRACTS.get(slug)
-    if contract is None:
-        return -1, [], "no contract (HTML)"
-    try:
-        response = await client.get(url, timeout=20.0)
-        response.raise_for_status()
-    except Exception as exc:  # noqa: BLE001
-        return -1, [], f"fetch failed: {type(exc).__name__}"
+def extract_records(slug: str, response) -> tuple[list[dict], Optional[str]]:
+    """Pull the upstream's records out of an already-fetched response.
 
+    Takes the response rather than a URL on purpose: the raw count and the field
+    check must describe the *same* read as the module evaluated. Fetching again
+    would show a different snapshot whenever an incident opens or closes in
+    between, and the `raw` and `parsed` columns would stop being comparable —
+    which is the one thing an operator reads them for.
+    """
+    contract = CONTRACTS[slug]
     kind = contract["kind"]
     if kind == "rss":
-        records = [
+        return [
             dict.fromkeys(re.findall(r"<(\w+)[ >]", chunk))
             for chunk in re.findall(r"<item>(.*?)</item>", response.text, re.S)
-        ]
-    else:
-        try:
-            data = response.json()
-        except Exception:  # noqa: BLE001
-            return -1, [], "body is not JSON"
-        if kind == "json-collection":
-            data = data.get(contract["collection"], []) if isinstance(data, dict) else []
-        records = [r for r in data if isinstance(r, dict)] if isinstance(data, list) else []
+        ], None
+    try:
+        data = response.json()
+    except Exception:  # noqa: BLE001
+        return [], "body is not JSON"
+    if kind == "json-collection":
+        data = data.get(contract["collection"], []) if isinstance(data, dict) else []
+    if not isinstance(data, list):
+        return [], None
+    return [r for r in data if isinstance(r, dict)], None
 
+
+def check_contract(slug: str, records: list[dict]) -> tuple[int, list[str], str]:
+    """Return (record count, fields absent from every record, note)."""
     if not records:
         return 0, [], "upstream reports no records"
-
     missing = [
         field
-        for field in contract["record_fields"]
+        for field in CONTRACTS[slug]["record_fields"]
         if not any(field in record for record in records)
     ]
     return len(records), missing, ""
+
+
+class RecordingClient:
+    """The shared client, remembering the last response per URL.
+
+    The module's own check already fetched the upstream; asking for it a second time
+    doubles the load on nine third-party services and, worse, reads a different
+    snapshot. When an incident opens or closes between the two reads, the `raw` and
+    `parsed` columns describe different moments — and comparing those two columns is
+    the one thing an operator reads them for.
+    """
+
+    def __init__(self, client) -> None:
+        self._client = client
+        self.responses: dict[str, Any] = {}
+
+    async def get(self, url, **kwargs):
+        response = await self._client.get(url, **kwargs)
+        self.responses[str(url)] = response
+        return response
+
+    async def post(self, url, **kwargs):
+        return await self._client.post(url, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+
+async def inspect_upstream(slug: str, url: str, client) -> tuple[int, list[str], str]:
+    """Report the contract against the response the module already read.
+
+    Falls back to fetching only when the module never reached that URL — it failed
+    before the request, or it uses its own transport (the TLS-impersonating modules
+    do, and they carry no contract anyway).
+    """
+    if slug not in CONTRACTS:
+        return -1, [], "no contract (HTML)"
+
+    response = getattr(client, "responses", {}).get(str(url))
+    if response is None:
+        try:
+            response = await client.get(url, timeout=20.0)
+            response.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            return -1, [], f"fetch failed: {type(exc).__name__}"
+
+    records, note = extract_records(slug, response)
+    if note:
+        return -1, [], note
+    return check_contract(slug, records)
 
 
 def _count_parsed(payload) -> int:
@@ -193,7 +246,8 @@ async def main() -> int:
     async with create_http_client(
         timeout_seconds=config.defaults.timeout_seconds,
         user_agent=config.defaults.user_agent,
-    ) as client:
+    ) as raw_client:
+        client = RecordingClient(raw_client)
 
         async def run_one(monitor, cfg):
             started = time.perf_counter()
@@ -247,7 +301,9 @@ async def main() -> int:
         async with create_http_client(
             timeout_seconds=config.defaults.timeout_seconds,
             user_agent=config.defaults.user_agent,
-        ) as client:
+        ) as raw_retry_client:
+            # The retry deliberately reads again — a fresh read is the whole point there.
+            client = RecordingClient(raw_retry_client)
 
             async def retry_one(slug):
                 monitor, cfg = by_slug[slug]
