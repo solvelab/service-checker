@@ -10,7 +10,7 @@ from typing import Optional
 import httpx
 
 from .config import ModuleConfig, NotificationConfig
-from .types import MonitorResult, MonitorStatus
+from .types import NOTIFIER_METHODS, MonitorResult, MonitorStatus, Notifier
 from ..notifications.telegram.notifier import TelegramNotifier
 from ..notifications.webhook.notifier import WebhookNotifier
 
@@ -18,19 +18,95 @@ from ..notifications.webhook.notifier import WebhookNotifier
 class NotificationManager:
     def __init__(self, config: NotificationConfig) -> None:
         self.config = config
-        self.telegram_notifier: Optional[TelegramNotifier] = None
-        self.webhook_notifier: Optional[WebhookNotifier] = None
+        self._notifiers: dict[str, Notifier] = {}
         self._alert_state: dict[str, AlertState] = {}
         self._error_state: dict[str, MonitorErrorState] = {}
         self._repeat_seconds = max(config.repeat_minutes, 1) * 60
         self._error_threshold = max(getattr(config, "error_threshold", 3), 1)
         if config.telegram.enabled:
-            self.telegram_notifier = TelegramNotifier(config.telegram)
+            self.register("telegram", TelegramNotifier(config.telegram))
         if config.webhook.enabled:
-            self.webhook_notifier = WebhookNotifier(config.webhook)
+            self.register("webhook", WebhookNotifier(config.webhook))
+
+    def register(self, name: str, notifier: Notifier) -> None:
+        """Add a channel to the dispatch set.
+
+        The four methods are checked here rather than trusted: a channel missing
+        `send_monitor_recovered` used to look healthy until the first monitoring
+        outage recovered in production, which is the worst possible moment to find out.
+        """
+        missing = [
+            method
+            for method in NOTIFIER_METHODS
+            if not callable(getattr(notifier, method, None))
+        ]
+        if missing:
+            raise TypeError(
+                f"notifier '{name}' does not implement: {', '.join(missing)}"
+            )
+        self._notifiers[name] = notifier
+
+    def unregister(self, name: str) -> None:
+        self._notifiers.pop(name, None)
 
     def has_notifiers(self) -> bool:
-        return bool(self.telegram_notifier or self.webhook_notifier)
+        return bool(self._notifiers)
+
+    # -- Compatibility shim -------------------------------------------------
+    # The existing suites reach for these attributes to install spies, both
+    # reading and assigning. Keeping them as views over the registry avoids
+    # churning ~64 assertions that guard the alert-state invariants, in the very
+    # change that puts those invariants at risk. Dispatch itself no longer names
+    # any channel; drop these once the tests move to `register()`.
+
+    @property
+    def telegram_notifier(self) -> Optional[Notifier]:
+        return self._notifiers.get("telegram")
+
+    @telegram_notifier.setter
+    def telegram_notifier(self, notifier: Optional[Notifier]) -> None:
+        self._set_channel("telegram", notifier)
+
+    @property
+    def webhook_notifier(self) -> Optional[Notifier]:
+        return self._notifiers.get("webhook")
+
+    @webhook_notifier.setter
+    def webhook_notifier(self, notifier: Optional[Notifier]) -> None:
+        self._set_channel("webhook", notifier)
+
+    def _set_channel(self, name: str, notifier: Optional[Notifier]) -> None:
+        if notifier is None:
+            self.unregister(name)
+        else:
+            self._notifiers[name] = notifier
+
+    # -----------------------------------------------------------------------
+
+    async def _dispatch(self, method: str, **kwargs) -> None:
+        """Deliver one event to every registered channel.
+
+        Each channel is isolated: an exception escaping one used to abort
+        `handle_result` entirely, so a Telegram bot with a bad token could stop the
+        webhook from ever seeing the alert.
+
+        `logger` travels inside kwargs because every channel takes it; it is read
+        back out here rather than passed separately, so the two cannot disagree.
+        """
+        logger: logging.Logger = kwargs["logger"]
+        for name, notifier in list(self._notifiers.items()):
+            try:
+                await getattr(notifier, method)(**kwargs)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "notification channel failed",
+                    extra={
+                        "event": "notify_error",
+                        "module_id": kwargs.get("module_id"),
+                        "target": name,
+                        "reason": f"{method}: {type(exc).__name__}: {exc}",
+                    },
+                )
 
     async def handle_result(
         self,
@@ -175,28 +251,17 @@ class NotificationManager:
             ),
             duration_ms=result.duration_ms,
         )
-        if self.telegram_notifier:
-            await self.telegram_notifier.send_monitor_error(
-                module_id=module_id,
-                result=failure_result,
-                interval_seconds=module_config.interval_seconds,
-                level_name="ERROR",
-                event_name="monitor_failure",
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
-        if self.webhook_notifier:
-            await self.webhook_notifier.send_monitor_error(
-                module_id=module_id,
-                result=failure_result,
-                interval_seconds=module_config.interval_seconds,
-                level_name="ERROR",
-                event_name="monitor_failure",
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
+        await self._dispatch(
+            "send_monitor_error",
+            module_id=module_id,
+            result=failure_result,
+            interval_seconds=module_config.interval_seconds,
+            level_name="ERROR",
+            event_name="monitor_failure",
+            event_time=event_time,
+            http_client=http_client,
+            logger=logger,
+        )
         state.last_notified_at = event_time
 
     async def _clear_monitor_error(
@@ -232,28 +297,17 @@ class NotificationManager:
             ),
             duration_ms=result.duration_ms,
         )
-        if self.telegram_notifier:
-            await self.telegram_notifier.send_monitor_recovered(
-                module_id=module_id,
-                result=recovered_result,
-                interval_seconds=module_config.interval_seconds,
-                level_name="INFO",
-                event_name="monitor_failure_resolved",
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
-        if self.webhook_notifier:
-            await self.webhook_notifier.send_monitor_recovered(
-                module_id=module_id,
-                result=recovered_result,
-                interval_seconds=module_config.interval_seconds,
-                level_name="INFO",
-                event_name="monitor_failure_resolved",
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
+        await self._dispatch(
+            "send_monitor_recovered",
+            module_id=module_id,
+            result=recovered_result,
+            interval_seconds=module_config.interval_seconds,
+            level_name="INFO",
+            event_name="monitor_failure_resolved",
+            event_time=event_time,
+            http_client=http_client,
+            logger=logger,
+        )
 
     async def _handle_service_result(
         self,
@@ -353,28 +407,17 @@ class NotificationManager:
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
     ) -> None:
-        if self.telegram_notifier:
-            await self.telegram_notifier.send_alert(
-                module_id=module_id,
-                result=result,
-                interval_seconds=module_config.interval_seconds,
-                level_name=level_name,
-                event_name=event_name,
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
-        if self.webhook_notifier:
-            await self.webhook_notifier.send_alert(
-                module_id=module_id,
-                result=result,
-                interval_seconds=module_config.interval_seconds,
-                level_name=level_name,
-                event_name=event_name,
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
+        await self._dispatch(
+            "send_alert",
+            module_id=module_id,
+            result=result,
+            interval_seconds=module_config.interval_seconds,
+            level_name=level_name,
+            event_name=event_name,
+            event_time=event_time,
+            http_client=http_client,
+            logger=logger,
+        )
 
     async def _notify_recovery(
         self,
@@ -387,28 +430,17 @@ class NotificationManager:
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
     ) -> None:
-        if self.telegram_notifier:
-            await self.telegram_notifier.send_recovery(
-                module_id=module_id,
-                result=result,
-                interval_seconds=module_config.interval_seconds,
-                level_name=level_name,
-                event_name=event_name,
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
-        if self.webhook_notifier:
-            await self.webhook_notifier.send_recovery(
-                module_id=module_id,
-                result=result,
-                interval_seconds=module_config.interval_seconds,
-                level_name=level_name,
-                event_name=event_name,
-                event_time=event_time,
-                http_client=http_client,
-                logger=logger,
-            )
+        await self._dispatch(
+            "send_recovery",
+            module_id=module_id,
+            result=result,
+            interval_seconds=module_config.interval_seconds,
+            level_name=level_name,
+            event_name=event_name,
+            event_time=event_time,
+            http_client=http_client,
+            logger=logger,
+        )
 
 
 @dataclass

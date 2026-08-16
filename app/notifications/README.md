@@ -11,7 +11,8 @@ The `NotificationManager` (in `app/core/notifications.py`) receives module resul
 - For modules that return a list of services (Steam/OpenAI/etc.), the lifecycle is per service (independent alert, repeat, and resolution).
 - Recovery notifications identify the exact component that transitioned back to OK, including name, id/slug, and the previous status. This keeps component-level recoveries distinct from provider-level "overall" recoveries.
 - Each recovery notification is logged with `check_id` (e.g., `openai:api`) and the `from_status` → `to_status` transition for auditability.
-- Available channels: Telegram (`app/notifications/telegram`) and Webhook (`app/notifications/webhook`). New destinations can be added following the same contract.
+- Available channels: Telegram (`app/notifications/telegram`) and Webhook (`app/notifications/webhook`).
+- Channels are registered, not hardcoded — see *Adding a channel* below.
 - Notification failures are logged at `ERROR` level but do not stop the main monitor.
 
 ## 🛑 Monitoring failure vs. service degradation
@@ -38,6 +39,53 @@ Details of the lifecycle:
   original alert text as `from_status`.
 - **To silence monitoring-failure notifications**, set `NOTIFICATION_ERROR_THRESHOLD` to a
   value higher than any outage you expect to see. The minimum accepted value is `1`.
+
+## 🔌 Adding a channel
+
+`NotificationManager` keeps a registry and dispatches to every entry; it does not know
+any channel by name. A channel is any object implementing the four methods of the
+`Notifier` protocol in `app/core/types.py`:
+
+| Method | Fired when |
+|---|---|
+| `send_alert` | a monitored service degraded |
+| `send_recovery` | that service came back |
+| `send_monitor_error` | the checker cannot reach the provider at all |
+| `send_monitor_recovered` | the checker can reach it again |
+
+All four take the same keyword arguments: `module_id`, `result`, `interval_seconds`,
+`level_name`, `event_name`, `event_time`, `http_client`, `logger`.
+
+To wire one up, build it from config in `NotificationManager.__init__` and register it:
+
+```python
+if config.mychannel.enabled:
+    self.register("mychannel", MyChannelNotifier(config.mychannel))
+```
+
+`register()` verifies the four methods and raises on construction if any is missing —
+a channel lacking `send_monitor_recovered` must not look healthy until the first
+monitoring outage recovers in production.
+
+**Channels are isolated.** An exception escaping one is logged as `notify_error` with
+that channel's name, and the remaining channels still receive the event. Implementations
+should still swallow their own transport failures; the isolation is a backstop, not a
+license.
+
+Two things to get right, both learned the hard way:
+- Render from `MonitorResult.reason_items`, never by re-splitting the `reason` string —
+  no separator is safe across providers.
+- Keep the four events visually distinct. "The service is down" and "I cannot check"
+  are different pages for whoever is on call.
+
+To check a change end to end, without touching any provider or sending anything:
+
+```bash
+python scripts/simulate_notifications.py
+```
+
+It drives the real state machine through a full lifecycle with the real notifiers and
+templates, intercepting only the outbound POST, and fails if any channel misses any event.
 
 ## 🔧 Variables
 - `TELEGRAM_*`: enables the bot, provides the token, allows multiple chat_ids (`TELEGRAM_CHAT_IDS`), and optionally overrides the API URL (`TELEGRAM_API_URL`). Use negative IDs for groups.
