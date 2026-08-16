@@ -177,6 +177,11 @@ monitor plus the notification lifecycle. They describe the guarantees in verifia
 is what the module READMEs do not: those describe *configuration*, the specs describe *behaviour*.
 
 ## 🐳 Docker usage
+
+> **Onde o manifesto de produção vive.** Não é neste repositório. O deploy do cluster de casa é
+> `didevlab/housek8s`, em `02-k8s/app/service-checker/01_deployment.yaml`, sincronizado pelo ArgoCD.
+> O `deployment.example.yaml` daqui é referência para quem for fazer o próprio deploy — editá-lo não
+> muda nada em cluster nenhum.
 See [DOCKER.md](DOCKER.md) for GHCR image usage, dev builds (`docker-compose-dev.yml`), and full environment reference.
 
 ## 🧯 Troubleshooting

@@ -4,6 +4,11 @@ This guide covers two Docker Compose setups:
 - **Release image** (`docker-compose.yml`): runs a published GHCR image.
 - **Local build** (`docker-compose-dev.yml`): builds from the local Dockerfile.
 
+> **Onde o manifesto de produção vive.** Não é neste repositório. O deploy do cluster de casa é
+> `didevlab/housek8s`, em `02-k8s/app/service-checker/01_deployment.yaml`, sincronizado pelo ArgoCD.
+> O `deployment.example.yaml` daqui é referência para quem for fazer o próprio deploy — editá-lo não
+> muda nada em cluster nenhum.
+
 ## ✅ Prerequisites
 - Docker Engine and Docker Compose v2
 - A `.env` file at the repo root (start from `.env.example`)
