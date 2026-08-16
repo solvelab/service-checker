@@ -1,7 +1,8 @@
 # bitbucket-monitor Specification
 
 ## Purpose
-TBD - created by archiving change add-bitbucket-monitor. Update Purpose after archive.
+Garantir visibilidade de incidentes do Bitbucket Cloud consumindo a Statuspage oficial da Atlassian. Define como o monitor `bitbucket` avalia o estado dos componentes, restringe a avaliação a um subconjunto deles, enriquece o alerta com incidentes e manutenções em aberto, e degrada de forma controlada quando o upstream falha.
+
 ## Requirements
 ### Requirement: Bitbucket Status Monitor
 O sistema SHALL fornecer um monitor independente, identificado pelo slug `bitbucket`, que consulta o endpoint Statuspage v2 oficial da Atlassian (`https://bitbucket.status.atlassian.com/api/v2/summary.json`) e avalia o estado dos componentes do Bitbucket Cloud.

@@ -1,7 +1,8 @@
 # rockstar-monitor Specification
 
 ## Purpose
-TBD - created by archiving change replace-cfx-with-rockstar-monitor. Update Purpose after archive.
+Garantir visibilidade de incidentes dos serviços Rockstar Games — incluindo FiveM e RedM, que migraram do Cfx.re após a aquisição. Define como o monitor `rockstar` avalia a página oficial de status, filtra por serviço, normaliza a severidade e degrada de forma controlada, sem propagar exceção para o scheduler.
+
 ## Requirements
 ### Requirement: Rockstar Services Status Monitor
 O sistema SHALL fornecer um monitor independente, identificado pelo slug `rockstar`, que avalia o estado dos serviços oficiais da Rockstar Games (incluindo FiveM e RedM, anteriormente cobertos pelo monitor `cfx`) consultando a fonte de dados oficial usada por `https://support.rockstargames.com/servicestatus`.
