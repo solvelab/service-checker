@@ -110,4 +110,14 @@ services:
       ALERTMANAGER_RESOLVE_AFTER_SECONDS: ${ALERTMANAGER_RESOLVE_AFTER_SECONDS:-0}
       NOTIFICATION_REPEAT_MINUTES: ${NOTIFICATION_REPEAT_MINUTES:-10}
       NOTIFICATION_ERROR_THRESHOLD: ${NOTIFICATION_ERROR_THRESHOLD:-3}
+      # Onde os alertas pendentes ficam para sobreviver a um restart. Sem isso o
+      # estado e so em memoria, e um incidente que atravessa o restart nunca
+      # recebe o all-clear.
+      NOTIFICATION_STATE_PATH: ${NOTIFICATION_STATE_PATH:-/var/lib/service-checker/state.json}
+      NOTIFICATION_STATE_MAX_AGE_MINUTES: ${NOTIFICATION_STATE_MAX_AGE_MINUTES:-1440}
+    volumes:
+      - service-checker-state:/var/lib/service-checker
     command: ["python", "-m", "app"]
+
+volumes:
+  service-checker-state:

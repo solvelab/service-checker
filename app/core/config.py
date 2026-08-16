@@ -91,6 +91,10 @@ class NotificationConfig:
     error_threshold: int = 3
     google_chat: Optional["GoogleChatConfig"] = None
     alertmanager: Optional["AlertmanagerConfig"] = None
+    # Where pending alerts are kept so a restart does not swallow the all-clear.
+    # Empty means in-memory only, which is the previous behaviour.
+    state_path: Optional[str] = None
+    state_max_age_minutes: int = 1440
 
 
 def load_app_config() -> AppConfig:
@@ -257,11 +261,15 @@ def _load_notification_config() -> NotificationConfig:
         extra_labels=_get_label_map("ALERTMANAGER_EXTRA_LABELS"),
         repeat_minutes=repeat_minutes,
     )
+    state_path = (os.getenv("NOTIFICATION_STATE_PATH") or "").strip() or None
+    state_max_age_minutes = max(_get_int("NOTIFICATION_STATE_MAX_AGE_MINUTES", 1440), 0)
     return NotificationConfig(
         telegram=telegram,
         webhook=webhook,
         repeat_minutes=repeat_minutes,
         error_threshold=error_threshold,
+        state_path=state_path,
+        state_max_age_minutes=state_max_age_minutes,
         google_chat=google_chat,
         alertmanager=alertmanager,
     )
