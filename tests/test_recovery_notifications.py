@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -480,3 +480,235 @@ def test_json_formatter_includes_new_keys():
     assert data["from_status"] == "major_outage"
     assert data["to_status"] == "operational"
     assert data["event"] == "service_recovery"
+
+
+# ---------------------------------------------------------------------------
+# ERROR must not clobber pending alert state (issue #5)
+#
+# Every module returns payload=None (network failure) or a dict (filter unmatched)
+# on ERROR, never a list of components — so a real ERROR always lands on the
+# module-level branch. These tests use those real shapes.
+# ---------------------------------------------------------------------------
+
+def _spy_manager(repeat_minutes=10):
+    """Manager whose telegram notifier records calls instead of sending."""
+    config = _make_notification_config(telegram_enabled=True)
+    config.repeat_minutes = repeat_minutes
+    manager = NotificationManager(config)
+    manager._repeat_seconds = max(repeat_minutes, 1) * 60
+    manager.telegram_notifier = MagicMock()
+    manager.telegram_notifier.send_alert = AsyncMock()
+    manager.telegram_notifier.send_recovery = AsyncMock()
+    return manager
+
+
+async def _feed(manager, module_id, result, event_time):
+    await manager.handle_result(
+        module_id=module_id,
+        result=result,
+        module_config=_make_module_config(module_id),
+        level_name="WARNING",
+        event_name="monitor_check",
+        event_time=event_time,
+        http_client=AsyncMock(),
+        logger=MagicMock(spec=logging.Logger),
+    )
+
+
+def _at(minutes):
+    return _make_event_time() + timedelta(minutes=minutes)
+
+
+def _module_alert(reason="FiveM: down"):
+    return MonitorResult(
+        status=MonitorStatus.ALERT,
+        message="rockstar status degraded",
+        reason=reason,
+        duration_ms=100.0,
+        payload={"hero": "degraded", "services": []},
+    )
+
+
+def _module_error():
+    """Exactly what every monitor returns when the upstream request fails."""
+    return MonitorResult(
+        status=MonitorStatus.ERROR,
+        message="rockstar status request failed",
+        reason="OSError: network unreachable",
+        duration_ms=50.0,
+        payload=None,
+    )
+
+
+def _module_ok():
+    return MonitorResult(
+        status=MonitorStatus.OK,
+        message="rockstar status healthy",
+        duration_ms=80.0,
+        payload={"hero": "All services operational", "services": []},
+    )
+
+
+@pytest.mark.asyncio
+async def test_error_between_alert_and_ok_still_emits_recovery():
+    manager = _spy_manager()
+    await _feed(manager, "rockstar", _module_alert(), _at(0))
+    await _feed(manager, "rockstar", _module_error(), _at(1))
+    await _feed(manager, "rockstar", _module_ok(), _at(2))
+
+    manager.telegram_notifier.send_alert.assert_called_once()
+    manager.telegram_notifier.send_recovery.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_recovery_after_error_keeps_original_alert_text():
+    """from_status must be the alert reason, never 'ERROR'."""
+    manager = _spy_manager()
+    logger = MagicMock(spec=logging.Logger)
+
+    await _feed(manager, "rockstar", _module_alert("FiveM: There are partial outages"), _at(0))
+    await _feed(manager, "rockstar", _module_error(), _at(1))
+    await manager.handle_result(
+        module_id="rockstar",
+        result=_module_ok(),
+        module_config=_make_module_config("rockstar"),
+        level_name="INFO",
+        event_name="monitor_check",
+        event_time=_at(2),
+        http_client=AsyncMock(),
+        logger=logger,
+    )
+
+    recovery_logs = [
+        c for c in logger.info.call_args_list
+        if c[0][0] == "recovery notification emitted"
+    ]
+    assert len(recovery_logs) == 1
+    extra = recovery_logs[0][1]["extra"]
+    assert extra["from_status"] == "FiveM: There are partial outages"
+    assert extra["to_status"] == "OK"
+    assert "ERROR" not in extra["from_status"]
+
+
+@pytest.mark.asyncio
+async def test_error_does_not_reset_the_repeat_window():
+    """ALERT -> ERROR -> ALERT inside the window must not re-alert."""
+    manager = _spy_manager(repeat_minutes=10)
+    await _feed(manager, "rockstar", _module_alert(), _at(0))
+    await _feed(manager, "rockstar", _module_error(), _at(1))
+    await _feed(manager, "rockstar", _module_alert(), _at(2))
+
+    assert manager.telegram_notifier.send_alert.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_alert_still_repeats_after_the_window_elapses():
+    """The guard must not break throttling in the other direction."""
+    manager = _spy_manager(repeat_minutes=10)
+    await _feed(manager, "rockstar", _module_alert(), _at(0))
+    await _feed(manager, "rockstar", _module_error(), _at(1))
+    await _feed(manager, "rockstar", _module_alert(), _at(11))
+
+    assert manager.telegram_notifier.send_alert.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_ok_error_ok_emits_no_recovery():
+    manager = _spy_manager()
+    await _feed(manager, "rockstar", _module_ok(), _at(0))
+    await _feed(manager, "rockstar", _module_error(), _at(1))
+    await _feed(manager, "rockstar", _module_ok(), _at(2))
+
+    manager.telegram_notifier.send_recovery.assert_not_called()
+    manager.telegram_notifier.send_alert.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_error_first_then_alert_still_alerts():
+    """A module whose very first check fails must still alert when it degrades."""
+    manager = _spy_manager()
+    await _feed(manager, "rockstar", _module_error(), _at(0))
+    await _feed(manager, "rockstar", _module_alert(), _at(1))
+
+    manager.telegram_notifier.send_alert.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_sustained_error_then_recovery_emits_exactly_one_recovery():
+    """An hour of solid failure must not multiply or swallow the recovery."""
+    manager = _spy_manager()
+    await _feed(manager, "rockstar", _module_alert(), _at(0))
+    for minute in range(1, 61):
+        await _feed(manager, "rockstar", _module_error(), _at(minute))
+    await _feed(manager, "rockstar", _module_ok(), _at(61))
+
+    assert manager.telegram_notifier.send_alert.call_count == 1
+    assert manager.telegram_notifier.send_recovery.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_error_with_dict_payload_is_treated_as_module_level():
+    """The filter-unmatched ERROR carries a dict payload; it must behave the same."""
+    manager = _spy_manager()
+    filter_error = MonitorResult(
+        status=MonitorStatus.ERROR,
+        message="github rule evaluation failed",
+        reason="no target components matched filter",
+        duration_ms=40.0,
+        payload={"components": [{"id": "api"}], "filter": ["nope"]},
+    )
+    await _feed(manager, "rockstar", _module_alert(), _at(0))
+    await _feed(manager, "rockstar", filter_error, _at(1))
+    await _feed(manager, "rockstar", _module_ok(), _at(2))
+
+    manager.telegram_notifier.send_recovery.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_error_records_no_state_key_at_all():
+    manager = _spy_manager()
+    await _feed(manager, "rockstar", _module_error(), _at(0))
+    assert manager._alert_state == {}
+
+
+@pytest.mark.asyncio
+async def test_error_does_not_pollute_state_of_per_service_module():
+    """Regression: the module-level junk key must no longer be written."""
+    manager = _spy_manager()
+    alert_items = [{"id": "api", "name": "API", "status": "major_outage", "slug": "api"}]
+    await _feed(
+        manager,
+        "github",
+        MonitorResult(MonitorStatus.ALERT, "deg", "API: major_outage", 10.0, alert_items),
+        _at(0),
+    )
+    await _feed(manager, "github", _module_error(), _at(1))
+
+    assert set(manager._alert_state) == {"github:api"}
+
+
+@pytest.mark.asyncio
+async def test_per_service_recovery_survives_an_error_cycle():
+    """Regression: per-service modules were already unaffected; keep it that way."""
+    manager = _spy_manager()
+    alert_items = [{"id": "api", "name": "API", "status": "major_outage", "slug": "api"}]
+    ok_items = [{"id": "api", "name": "API", "status": "operational", "slug": "api"}]
+
+    await _feed(
+        manager,
+        "github",
+        MonitorResult(MonitorStatus.ALERT, "deg", "API: major_outage", 10.0, alert_items),
+        _at(0),
+    )
+    await _feed(manager, "github", _module_error(), _at(1))
+    await _feed(
+        manager,
+        "github",
+        MonitorResult(MonitorStatus.OK, "healthy", None, 10.0, ok_items),
+        _at(2),
+    )
+
+    manager.telegram_notifier.send_recovery.assert_called_once()
+    item = manager.telegram_notifier.send_recovery.call_args[1]["result"].payload[0]
+    assert item["from_status"] == "major_outage"
+    assert item["to_status"] == "operational"

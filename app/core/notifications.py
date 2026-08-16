@@ -83,9 +83,11 @@ class NotificationManager:
             return
 
         if result.status != MonitorStatus.ALERT:
-            self._alert_state[module_id] = AlertState(
-                last_status=result.status, last_alert_at=None
-            )
+            # ERROR means "could not evaluate", not "the service changed". Overwriting
+            # the state here loses the pending ALERT: the later OK would no longer be a
+            # transition, so the recovery notification is never sent, and the throttle
+            # window is reset, so a returning ALERT is re-sent immediately. Leaving the
+            # state untouched keeps both intact. Nothing reads the ERROR state.
             return
 
         state = self._alert_state.get(module_id)
@@ -170,11 +172,10 @@ class NotificationManager:
             return
 
         if result.status != MonitorStatus.ALERT:
-            for item in service_items:
-                key = _service_key(module_id, item)
-                self._alert_state[key] = AlertState(
-                    last_status=result.status, last_alert_at=None
-                )
+            # Same reasoning as the module-level branch: an ERROR is a failure to
+            # evaluate, so per-component alert state is left as it was. No module emits
+            # a list payload on ERROR today, so this branch is currently unreachable
+            # with ERROR — it stays consistent for whichever module does it first.
             return
 
         for item in service_items:
