@@ -175,3 +175,172 @@ def test_no_sleep_happens_when_there_is_nothing_to_retry():
     runner, _ = _runner({})
     asyncio.run(resolve_with_retry({}, runner, 3, 1.5, sleep=spy))
     assert slept == []
+
+
+# ---------------------------------------------------------------------------
+# One fetch per module (#41)
+#
+# The contract check used to fetch the upstream a second time. That doubled the load
+# on nine third-party services and, worse, read a different snapshot: when an incident
+# opens or closes between the two reads, `raw` and `parsed` describe different moments,
+# and comparing those two columns is the one thing an operator reads them for.
+# ---------------------------------------------------------------------------
+
+from simulate_endpoints import (  # noqa: E402
+    RecordingClient,
+    check_contract,
+    extract_records,
+    inspect_upstream,
+)
+
+
+class _Response:
+    def __init__(self, payload=None, text="", raises=False):
+        self._payload = payload
+        self.text = text
+        self._raises = raises
+
+    def json(self):
+        if self._raises:
+            raise ValueError("not json")
+        return self._payload
+
+    def raise_for_status(self):
+        return None
+
+
+class _Client:
+    def __init__(self, response=None, raises=None):
+        self.gets: list[str] = []
+        self._response = response
+        self._raises = raises
+
+    async def get(self, url, **_kwargs):
+        self.gets.append(str(url))
+        if self._raises:
+            raise self._raises
+        return self._response
+
+
+def _inspect(slug, url, client):
+    return asyncio.run(inspect_upstream(slug, url, client))
+
+
+# --- the recording wrapper -------------------------------------------------
+
+def test_the_wrapper_remembers_the_response_per_url():
+    response = _Response(payload=[{"arn": "a"}])
+    client = RecordingClient(_Client(response))
+    asyncio.run(client.get("https://example.com/a"))
+    assert client.responses["https://example.com/a"] is response
+
+
+def test_the_wrapper_passes_the_call_through():
+    inner = _Client(_Response(payload=[]))
+    asyncio.run(RecordingClient(inner).get("https://example.com/a"))
+    assert inner.gets == ["https://example.com/a"]
+
+
+def test_the_wrapper_exposes_attributes_of_the_wrapped_client():
+    inner = _Client(_Response())
+    inner.timeout = 42
+    assert RecordingClient(inner).timeout == 42
+
+
+# --- the point of the change ----------------------------------------------
+
+def test_a_recorded_response_is_reused_instead_of_refetched():
+    url = "https://health.aws.amazon.com/public/currentevents"
+    inner = _Client(_Response(payload=[{"arn": "a", "service": "s", "status": "1", "summary": "x"}]))
+    client = RecordingClient(inner)
+    asyncio.run(client.get(url))
+    inner.gets.clear()
+
+    records, missing, note = _inspect("aws", url, client)
+
+    assert inner.gets == []          # no second request
+    assert (records, missing, note) == (1, [], "")
+
+
+def test_a_module_that_never_reached_the_url_falls_back_to_fetching():
+    """It failed before the request, so there is nothing recorded to reuse."""
+    url = "https://health.aws.amazon.com/public/currentevents"
+    inner = _Client(_Response(payload=[{"arn": "a", "service": "s", "status": "1", "summary": "x"}]))
+    client = RecordingClient(inner)
+
+    records, _missing, _note = _inspect("aws", url, client)
+
+    assert inner.gets == [url]
+    assert records == 1
+
+
+def test_a_plain_client_without_recording_still_works():
+    """The retry path passes a fresh client; it must not depend on the wrapper."""
+    url = "https://health.aws.amazon.com/public/currentevents"
+    inner = _Client(_Response(payload=[{"arn": "a", "service": "s", "status": "1", "summary": "x"}]))
+    assert _inspect("aws", url, inner)[0] == 1
+
+
+def test_a_module_without_a_contract_never_fetches():
+    inner = _Client(_Response())
+    records, _missing, note = _inspect("steam", "https://steamstat.us/", RecordingClient(inner))
+    assert inner.gets == []
+    assert records == -1
+    assert "no contract" in note
+
+
+def test_a_fetch_failure_on_the_fallback_is_reported_not_raised():
+    inner = _Client(raises=OSError("down"))
+    records, _missing, note = _inspect("aws", "https://x", RecordingClient(inner))
+    assert records == -1
+    assert "fetch failed" in note
+
+
+# --- extraction, pure ------------------------------------------------------
+
+def test_extract_reads_a_json_list():
+    records, note = extract_records("aws", _Response(payload=[{"arn": "a"}, {"arn": "b"}]))
+    assert len(records) == 2 and note is None
+
+
+def test_extract_reads_a_json_collection():
+    response = _Response(payload={"components": [{"id": "a"}, {"id": "b"}]})
+    assert len(extract_records("github", response)[0]) == 2
+
+
+def test_extract_reads_rss_items():
+    response = _Response(text="<rss><item><title>a</title></item><item><title>b</title></item></rss>")
+    assert len(extract_records("oci", response)[0]) == 2
+
+
+def test_extract_reports_a_non_json_body():
+    assert extract_records("aws", _Response(raises=True))[1] == "body is not JSON"
+
+
+def test_extract_of_an_unexpected_shape_yields_no_records():
+    assert extract_records("aws", _Response(payload={"nope": 1}))[0] == []
+
+
+def test_extract_skips_non_dict_entries():
+    assert len(extract_records("aws", _Response(payload=["x", 1, {"arn": "a"}]))[0]) == 1
+
+
+# --- contract checking, pure ----------------------------------------------
+
+def test_check_contract_flags_a_field_absent_from_every_record():
+    count, missing, _note = check_contract("aws", [{"service": "s"}, {"service": "t"}])
+    assert count == 2
+    assert "arn" in missing
+
+
+def test_check_contract_accepts_a_field_present_in_any_record():
+    _count, missing, _note = check_contract(
+        "aws", [{"arn": "a", "service": "s", "status": "1", "summary": "x"}, {"service": "t"}]
+    )
+    assert missing == []
+
+
+def test_check_contract_on_no_records_is_not_a_failure():
+    count, missing, note = check_contract("aws", [])
+    assert (count, missing) == (0, [])
+    assert "no records" in note
