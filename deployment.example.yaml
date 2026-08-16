@@ -1,3 +1,17 @@
+# EXEMPLO — este arquivo NAO e aplicado em lugar nenhum.
+#
+# O manifesto de producao vive em `didevlab/housek8s`, em
+# `02-k8s/app/service-checker/01_deployment.yaml`, e e sincronizado pelo ArgoCD.
+# Editar este arquivo aqui nao muda nada em cluster nenhum.
+#
+# Ele existe porque o projeto e publico e um manifesto completo, com todas as env
+# vars suportadas, tem valor para quem for fazer o proprio deploy. O problema nunca
+# foi existir: foi nao estar rotulado. Ao entregar o monitor do Cloudflare, a tarefa
+# de fiacao incluiu "adicionar as variaveis nos quatro lugares de deploy", e este foi
+# um deles — as variaveis foram para um arquivo que ninguem le, e o cluster seguiu
+# sem o modulo.
+#
+# Se voce quer mudar o que roda em producao, e no outro repositorio.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -230,5 +244,9 @@ spec:
               value: "0"
             - name: NOTIFICATION_REPEAT_MINUTES
               value: "10"
+            - name: NOTIFICATION_STATE_PATH
+              value: "/var/lib/service-checker/state.json"
+            - name: NOTIFICATION_STATE_MAX_AGE_MINUTES
+              value: "1440"
             - name: NOTIFICATION_ERROR_THRESHOLD
               value: "3"

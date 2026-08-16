@@ -28,6 +28,18 @@ Três coisas rodam sozinhas e uma depende de decisão humana. Nesta ordem:
 | Simulações de endpoint e de notificação | manual, antes do PR | não, são diagnóstico |
 | Checks obrigatórios para mergear | não configurado | ver a última seção |
 
+## Onde o manifesto de produção vive
+
+Não é neste repositório. O deploy do cluster é `didevlab/housek8s`, em
+`02-k8s/app/service-checker/01_deployment.yaml`, sincronizado pelo ArgoCD com `selfHeal`.
+
+`deployment.example.yaml`, aqui na raiz, é **exemplo**: não é aplicado em lugar nenhum. Uma tarefa
+de fiação que só o atualiza não chega ao cluster — foi assim que o módulo `bitbucket` entrou no
+código e ficou meses fora de produção, e quase aconteceu de novo com o `cloudflare`.
+
+Ao adicionar um módulo ou uma variável, os lugares que importam são: `.env.example`, os dois
+compose, o `deployment.example.yaml` **e** um item de backlog no `housek8s`.
+
 ## Verificação automática
 
 Todo pull request para `main` executa `Lint` (`ruff check app tests scripts`) e `Run Tests`
