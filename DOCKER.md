@@ -131,6 +131,9 @@ Each module supports the same environment shape:
   the ones that flap are the data centers, so leaving this empty falls back to a curated
   allowlist: `Tunnel,Authoritative DNS,Network,CDN/Cache,SSL Certificate Provisioning`.
   Set `*` to watch all 475 and expect dozens of alerts a day.
+  A component name containing a comma must be quoted — every PoP has one:
+  `CLOUDFLARE_SERVICE_FILTER='Tunnel,"Arica, Chile - (ARI)"'`. Applies to every
+  module's `SERVICE_FILTER`.
 
 ## 💾 Alert state across restarts
 
