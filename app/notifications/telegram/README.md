@@ -2,7 +2,7 @@
 ![Channel](https://img.shields.io/badge/Channel-Telegram-2CA5E0)
 ![Format](https://img.shields.io/badge/Format-HTML-0A66C2)
 
-🔗 Nav: [🏠 Home](../../../README.md) · [🎮 Steam](../../modules/steam/README.md) · [🔔 Notifications](../README.md) · [🐳 Docker](../../../DOCKER.md)
+🔗 Nav: [🏠 Home](../../../README.md) · [🔔 Notifications](../README.md) · [🔗 Webhook](../webhook/README.md) · [💬 Google Chat](../google_chat/README.md) · [🔥 Alertmanager](../alertmanager/README.md) · [🐳 Docker](../../../DOCKER.md)
 
 Sends HTML cards to configured chats or groups when a module returns `ALERT` and when a service is resolved (`RESOLVED`). The default text includes module, status, reason, send time, payload summary, and measured check duration.
 

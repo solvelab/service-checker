@@ -2,7 +2,7 @@
 ![Channel](https://img.shields.io/badge/Channel-Google%20Chat-1A73E8)
 ![Method](https://img.shields.io/badge/Method-POST%20cardsV2-0A66C2)
 
-🔗 Nav: [🏠 Home](../../../README.md) · [🔔 Notifications](../README.md) · [✈️ Telegram](../telegram/README.md) · [🔗 Webhook](../webhook/README.md) · [🐳 Docker](../../../DOCKER.md)
+🔗 Nav: [🏠 Home](../../../README.md) · [🔔 Notifications](../README.md) · [✈️ Telegram](../telegram/README.md) · [🔗 Webhook](../webhook/README.md) · [🔥 Alertmanager](../alertmanager/README.md) · [🐳 Docker](../../../DOCKER.md)
 
 Posts a card to a Google Chat space through an incoming webhook, for all four lifecycle
 events: service alert, service recovery, monitoring failure and monitoring recovery.

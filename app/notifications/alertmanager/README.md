@@ -2,7 +2,7 @@
 ![Channel](https://img.shields.io/badge/Channel-Alertmanager-E6522C)
 ![Method](https://img.shields.io/badge/Method-POST%20%2Fapi%2Fv2%2Falerts-0A66C2)
 
-🔗 Nav: [🏠 Home](../../../README.md) · [🔔 Notifications](../README.md) · [✈️ Telegram](../telegram/README.md) · [💬 Google Chat](../google_chat/README.md) · [🔗 Webhook](../webhook/README.md) · [🐳 Docker](../../../DOCKER.md)
+🔗 Nav: [🏠 Home](../../../README.md) · [🔔 Notifications](../README.md) · [✈️ Telegram](../telegram/README.md) · [🔗 Webhook](../webhook/README.md) · [💬 Google Chat](../google_chat/README.md) · [🐳 Docker](../../../DOCKER.md)
 
 Pushes incidents into an existing Alertmanager, so upstream provider outages land in the
 same place as internal alerts and reuse the silences, grouping, inhibition and on-call
