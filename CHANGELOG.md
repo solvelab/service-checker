@@ -1,3 +1,10 @@
+# [2.7.0](https://github.com/solvelab/service-checker/compare/v2.6.1...v2.7.0) (2026-08-16)
+
+
+### Features
+
+* **cloudflare:** adicionar monitor com allowlist curada dos 475 componentes ([#53](https://github.com/solvelab/service-checker/issues/53)) ([1846b91](https://github.com/solvelab/service-checker/commit/1846b91b8f6581fab5b613e719dd87e5aff6101a)), closes [#51](https://github.com/solvelab/service-checker/issues/51)
+
 ## [2.6.1](https://github.com/solvelab/service-checker/compare/v2.6.0...v2.6.1) (2026-08-16)
 
 
