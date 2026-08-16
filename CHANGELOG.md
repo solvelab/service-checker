@@ -1,3 +1,10 @@
+## [2.8.5](https://github.com/solvelab/service-checker/compare/v2.8.4...v2.8.5) (2026-08-16)
+
+
+### Bug Fixes
+
+* **alertmanager:** recuperacao com startsAt anterior a endsAt ([#68](https://github.com/solvelab/service-checker/issues/68)) ([5a0e3fb](https://github.com/solvelab/service-checker/commit/5a0e3fbf510cbbdd99254136f30744d1be0c84cd)), closes [#8](https://github.com/solvelab/service-checker/issues/8) [#67](https://github.com/solvelab/service-checker/issues/67)
+
 ## [2.8.4](https://github.com/solvelab/service-checker/compare/v2.8.3...v2.8.4) (2026-08-16)
 
 
