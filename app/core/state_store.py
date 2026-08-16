@@ -48,12 +48,23 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _parse_dt(raw) -> Optional[datetime]:
+def _parse_dt(raw, on_reject=None) -> Optional[datetime]:
+    """Le um instante ISO-8601, chamando `on_reject` quando nao consegue.
+
+    Devolver `None` calado bastava para o chamador, que conta os descartes — mas a
+    contagem nao diz **o que** foi descartado nem por que.
+    """
+    if raw is None:
+        return None
     if not isinstance(raw, str):
+        if on_reject:
+            on_reject(f"{raw!r} is not a timestamp string")
         return None
     try:
         value = datetime.fromisoformat(raw)
     except ValueError:
+        if on_reject:
+            on_reject(f"{raw!r} is not a valid ISO-8601 timestamp")
         return None
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
@@ -121,7 +132,10 @@ class StateStore:
             if not isinstance(key, str) or not isinstance(raw, dict):
                 dropped += 1
                 continue
-            when = _parse_dt(raw.get("last_alert_at"))
+            rejected: list = []
+            when = _parse_dt(raw.get("last_alert_at"), rejected.append)
+            if rejected:
+                self._warn(f"discarding state for {key!r}: {rejected[0]}", None)
             if when is None:
                 dropped += 1
                 continue

@@ -1,7 +1,7 @@
 import asyncio
 
 from ._version import __version__
-from .core.config import AppConfig, load_app_config
+from .core.config import AppConfig, drain_config_warnings, load_app_config
 from .core.http_client import create_http_client
 from .core.loader import load_monitors
 from .core.logging import configure_logging
@@ -12,6 +12,13 @@ from .core.scheduler import schedule_monitors
 async def run_monitor_service() -> None:
     config: AppConfig = load_app_config()
     logger = configure_logging(config.log_level)
+
+    # A configuracao e lida antes de o logger existir, entao os avisos dela ficam
+    # guardados e saem agora. Sem isto, um valor recusado — `INTERVAL_SECONDS=6O`, com a
+    # letra O — vira o default em silencio, e o operador segue acreditando que
+    # configurou o que digitou.
+    for warning in drain_config_warnings():
+        logger.warning(warning, extra={"event": "config_fallback"})
 
     logger.info(
         "service monitor starting",
