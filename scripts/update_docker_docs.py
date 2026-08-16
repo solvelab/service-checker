@@ -5,7 +5,11 @@ from pathlib import Path
 
 def _update_file(path: Path, pattern: str, new_tag: str) -> bool:
     if not path.exists():
-        print(f"{path} not found, skipping")
+        # Loud, and non-zero at the end: a release that quietly stops bumping a file
+        # leaves the repo claiming an old version forever. `deployment.yaml` was renamed
+        # to `deployment.example.yaml` once, and this branch was the only thing between
+        # that rename and a version bump that silently did nothing.
+        print(f"ERROR: {path} not found — the release would silently stop updating it")
         return False
 
     content = path.read_text(encoding="utf-8")
@@ -35,7 +39,7 @@ def main() -> int:
 
     _update_file(Path("DOCKER.md"), tag_pattern, new_tag)
     _update_file(
-        Path("deployment.yaml"),
+        Path("deployment.example.yaml"),
         r"(image:\s*ghcr\.io/[^/]+/service-checker:)(?:latest|v\d+\.\d+\.\d+)",
         rf"\g<1>{new_tag}",
     )
