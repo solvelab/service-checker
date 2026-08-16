@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/solvelab/service-checker/compare/v2.4.0...v2.5.0) (2026-08-16)
+
+
+### Features
+
+* **notifications:** adicionar Alertmanager como canal ([bc1c910](https://github.com/solvelab/service-checker/commit/bc1c910c590a61ae28fd67aefc45cbbef060aa53)), closes [#23](https://github.com/solvelab/service-checker/issues/23)
+
 # [2.4.0](https://github.com/solvelab/service-checker/compare/v2.3.3...v2.4.0) (2026-08-16)
 
 
