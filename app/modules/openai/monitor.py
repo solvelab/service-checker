@@ -44,7 +44,7 @@ class OpenAIStatusMonitor:
 
         duration_ms = (time.perf_counter() - start) * 1000
 
-        rule_status, rule_reason, payload = self._evaluate_rule(data)
+        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(data)
         if rule_status == MonitorStatus.ERROR:
             return MonitorResult(
                 status=MonitorStatus.ERROR,
@@ -52,6 +52,7 @@ class OpenAIStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         if rule_status == MonitorStatus.ALERT:
@@ -61,6 +62,7 @@ class OpenAIStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         return MonitorResult(
@@ -70,9 +72,11 @@ class OpenAIStatusMonitor:
             payload=payload,
         )
 
-    def _evaluate_rule(self, data: Dict) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    def _evaluate_rule(
+        self, data: Dict
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if self.config is None:
-            return MonitorStatus.ERROR, "missing config", None
+            return MonitorStatus.ERROR, "missing config", None, None
 
         rule_kind = self.config.rule.kind
         rule_value = self.config.rule.value
@@ -84,30 +88,30 @@ class OpenAIStatusMonitor:
 
         if rule_kind == "keyword":
             if rule_value.lower() in raw_text.lower():
-                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None, None
+            return MonitorStatus.OK, None, None, None
 
         if rule_kind == "regex":
             try:
                 pattern = re.compile(rule_value, re.IGNORECASE)
             except re.error as exc:
-                return MonitorStatus.ERROR, f"invalid regex: {exc}", None
+                return MonitorStatus.ERROR, f"invalid regex: {exc}", None, None
             if pattern.search(raw_text) is not None:
-                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None, None
+            return MonitorStatus.OK, None, None, None
 
-        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None
+        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None, None
 
     def _evaluate_status_rule(
         self, data: Dict, rule_value: str
-    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         targets = {item.strip().lower() for item in rule_value.split(",") if item.strip()}
         if not targets:
             targets = {"degraded_performance", "partial_outage", "major_outage"}
 
         components = _extract_components(data)
         if not components:
-            return MonitorStatus.ERROR, "no components in status response", None
+            return MonitorStatus.ERROR, "no components in status response", None, None
 
         filtered = components
         if self.config and self.config.service_filter:
@@ -122,14 +126,15 @@ class OpenAIStatusMonitor:
                     MonitorStatus.ERROR,
                     "no target components matched filter",
                     {"components": components, "filter": self.config.service_filter},
+                    None,
                 )
 
         matches = [c for c in filtered if c["status"].lower() in targets]
         if matches:
-            reason = ", ".join(f"{c['name']}: {c['status']}" for c in matches)
-            return MonitorStatus.ALERT, reason, matches
+            items = [f"{c['name']}: {c['status']}" for c in matches]
+            return MonitorStatus.ALERT, ", ".join(items), matches, items
 
-        return MonitorStatus.OK, None, filtered
+        return MonitorStatus.OK, None, filtered, None
 
 
 def _extract_components(data: Dict) -> List[Dict]:
