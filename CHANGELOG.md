@@ -1,3 +1,10 @@
+## [2.8.4](https://github.com/solvelab/service-checker/compare/v2.8.3...v2.8.4) (2026-08-16)
+
+
+### Bug Fixes
+
+* **observability:** dar voz aos sete silencios e criar o detector ([#66](https://github.com/solvelab/service-checker/issues/66)) ([848a061](https://github.com/solvelab/service-checker/commit/848a0615f321a481cd406a88b508ae69fc3e6b4c)), closes [#65](https://github.com/solvelab/service-checker/issues/65)
+
 ## [2.8.3](https://github.com/solvelab/service-checker/compare/v2.8.2...v2.8.3) (2026-08-16)
 
 
