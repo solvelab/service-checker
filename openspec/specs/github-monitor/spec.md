@@ -1,7 +1,8 @@
 # github-monitor Specification
 
 ## Purpose
-TBD - created by archiving change add-github-status-monitor. Update Purpose after archive.
+Garantir visibilidade de incidentes do GitHub consumindo a Statuspage oficial. Define como o monitor `github` ingere o estado dos componentes, normaliza a severidade upstream para o modelo `OK`/`ALERT`/`ERROR` do Service Checker, detalha a degradação no resultado e nos logs, e nunca propaga instabilidade da API para o scheduler.
+
 ## Requirements
 ### Requirement: Independent GitHub status monitor
 The Service Checker SHALL provide an independent monitor named `github` that follows the same monitor interface, return format, error conventions, and configurable polling cadence used by other monitors.
