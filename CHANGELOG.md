@@ -1,3 +1,10 @@
+## [2.3.3](https://github.com/solvelab/service-checker/compare/v2.3.2...v2.3.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* **notifications:** um bullet por incidente no card do Telegram ([f96a417](https://github.com/solvelab/service-checker/commit/f96a417596af7cd910b46e8b25a7795435501db3))
+
 ## [2.3.2](https://github.com/solvelab/service-checker/compare/v2.3.1...v2.3.2) (2026-08-16)
 
 
