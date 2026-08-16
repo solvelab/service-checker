@@ -16,11 +16,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.core.config import ModuleConfig, RuleConfig
+from app.core.statuspage import extract_components as _extract_components
+from app.core.statuspage import slugify as _slugify
 from app.core.types import MonitorStatus
 from app.modules.claude.monitor import (
     ClaudeStatusMonitor,
-    _extract_components,
-    _slugify,
     get_monitor,
 )
 

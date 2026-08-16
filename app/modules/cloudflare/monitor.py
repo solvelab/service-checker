@@ -30,6 +30,10 @@ import httpx
 
 from ...core.config import ModuleConfig
 from ...core.types import MonitorResult, MonitorStatus
+# Parsing compartilhado: cinco modulos liam o mesmo documento com copias
+# byte-identicas, e foi a duplicacao que fez o mesmo defeito precisar ser
+# corrigido cinco vezes. Ver `app/core/statuspage.py`.
+from ...core.statuspage import extract_components
 
 _INCIDENTS_PATH = "/api/v2/incidents/unresolved.json"
 _MAINTENANCES_PATH = "/api/v2/scheduled-maintenances/active.json"
@@ -175,7 +179,7 @@ class CloudflareStatusMonitor:
         if not targets:
             targets = {"degraded_performance", "partial_outage", "major_outage"}
 
-        components = _extract_components(data)
+        components = extract_components(data)
         if not components:
             return MonitorStatus.ERROR, "no components in status response", None, None
 
@@ -306,35 +310,7 @@ class CloudflareStatusMonitor:
             return None
 
 
-def _extract_components(data: Dict) -> List[Dict]:
-    components = data.get("components") or []
-    # Shape, not just presence. `components` arriving as a dict or holding strings used
-    # to raise `AttributeError` from here — and this runs outside the request's
-    # try/except, so the exception left `check` entirely. The scheduler does catch it,
-    # but by then the module never returned a MonitorStatus.ERROR, so the dead-monitor
-    # notification never fired and the breakage lived in the log alone.
-    if not isinstance(components, list):
-        return []
-    cleaned: List[Dict] = []
-    for comp in components:
-        if not isinstance(comp, dict):
-            continue
-        name = comp.get("name") or "unknown"
-        comp_id = comp.get("id") or _slugify(name)
-        status = comp.get("status") or "unknown"
-        cleaned.append(
-            {
-                "id": comp_id,
-                "name": name,
-                "status": status,
-                "slug": _slugify(name),
-            }
-        )
-    return cleaned
 
-
-def _slugify(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
 
 def get_monitor(slug: str = "cloudflare") -> CloudflareStatusMonitor:
