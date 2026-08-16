@@ -54,6 +54,24 @@ e é determinística:
 python scripts/simulate_notifications.py
 ```
 
+Alcançar o provedor não é o mesmo que alertar sobre ele. O módulo `aws` lia quatro campos que o
+feed nunca publicou: reportava `OK` com três incidentes ativos e passaria nos dois scripts acima.
+Para provar que a degradação vira alerta entregue, e a volta vira recuperação:
+
+```bash
+python scripts/simulate_alerts.py [.env]
+```
+
+Ele parte do payload real de cada provedor — fixture quando existe, ao vivo quando não —, injeta
+uma degradação fiel à forma daquele provedor, roda o módulo real e conduz o resultado pela
+`NotificationManager` real até os quatro canais, interceptando só o transporte. As degradações
+ficam no script, não nos módulos: é conhecimento de diagnóstico, e código de produção não carrega
+andaime para isso. A lógica de veredito é testável sem rede em `tests/test_simulate_alerts.py`.
+
+Hoje ele sai não-zero: `aws` e `gcp` alertam e nunca recuperam
+([#49](https://github.com/solvelab/service-checker/issues/49)). É defeito real que o script achou,
+não execução instável — o vermelho fica até a correção.
+
 ## Aviso de arquivamento pendente
 
 O job `Lint` roda também:
