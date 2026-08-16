@@ -326,7 +326,7 @@ def _build_payload(
 ) -> dict:
     timestamp = _format_timestamp(event_time, timestamp_format, timestamp_zone)
     reason = result.reason or result.message or "sem detalhes"
-    reason_items = _split_reason(reason)
+    reason_items = _reason_items(result, reason)
     duration_ms = f"{result.duration_ms:.2f}" if result.duration_ms is not None else "0.00"
     message = result.message or "sem detalhes"
     return {
@@ -342,6 +342,20 @@ def _build_payload(
         "duration_ms": duration_ms,
         "interval_seconds": interval_seconds,
     }
+
+
+def _reason_items(result: MonitorResult, reason: str) -> List[str]:
+    """One bullet per incident.
+
+    The monitor already knows where one incident ends and the next begins, so it
+    hands the list over on `MonitorResult.reason_items`. Re-splitting the joined
+    sentence is the fallback and it is lossy by nature: every candidate separator
+    appears inside some provider's content — OCI titles carry "|", GitHub incident
+    titles carry "," and ";".
+    """
+    if result.reason_items:
+        return [item.strip() for item in result.reason_items if item and item.strip()]
+    return _split_reason(reason)
 
 
 def _split_reason(reason: str) -> List[str]:

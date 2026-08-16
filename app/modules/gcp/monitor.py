@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 
@@ -43,7 +43,7 @@ class GcpStatusMonitor:
             )
 
         duration_ms = (time.perf_counter() - start) * 1000
-        rule_status, rule_reason, payload = self._evaluate_rule(data)
+        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(data)
 
         if rule_status == MonitorStatus.ERROR:
             return MonitorResult(
@@ -52,6 +52,7 @@ class GcpStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         if rule_status == MonitorStatus.ALERT:
@@ -61,6 +62,7 @@ class GcpStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         return MonitorResult(
@@ -70,9 +72,11 @@ class GcpStatusMonitor:
             payload=payload,
         )
 
-    def _evaluate_rule(self, data: object) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    def _evaluate_rule(
+        self, data: object
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if self.config is None:
-            return MonitorStatus.ERROR, "missing config", None
+            return MonitorStatus.ERROR, "missing config", None, None
 
         rule_kind = self.config.rule.kind
         rule_value = self.config.rule.value
@@ -82,29 +86,29 @@ class GcpStatusMonitor:
 
         text_body = json.dumps(data)
         if not rule_value:
-            return MonitorStatus.OK, None, None
+            return MonitorStatus.OK, None, None, None
 
         if rule_kind == "keyword":
             if rule_value.lower() in text_body.lower():
-                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None, None
+            return MonitorStatus.OK, None, None, None
 
         if rule_kind == "regex":
             try:
                 pattern = re.compile(rule_value, re.IGNORECASE)
             except re.error as exc:
-                return MonitorStatus.ERROR, f"invalid regex: {exc}", None
+                return MonitorStatus.ERROR, f"invalid regex: {exc}", None, None
             if pattern.search(text_body) is not None:
-                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None, None
+            return MonitorStatus.OK, None, None, None
 
-        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None
+        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None, None
 
     def _evaluate_status_rule(
         self, data: object, rule_value: str
-    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if not isinstance(data, list):
-            return MonitorStatus.ERROR, "unexpected incidents payload", None
+            return MonitorStatus.ERROR, "unexpected incidents payload", None, None
 
         statuses = {item.strip().lower() for item in (rule_value or "").split(",") if item.strip()}
         if not statuses:
@@ -152,12 +156,15 @@ class GcpStatusMonitor:
             )
 
         if active_incidents:
-            reason = "; ".join(
-                f"{inc['regions']}: {inc['status'] or 'unknown'}" for inc in active_incidents
-            )
-            return MonitorStatus.ALERT, reason, active_incidents
+            # `regions` is a list: interpolating it directly leaked a Python repr
+            # (`['us-central1', 'us-east1']: service_outage`) straight into the alert.
+            items = [
+                f"{', '.join(str(r) for r in inc['regions'])}: {inc['status'] or 'unknown'}"
+                for inc in active_incidents
+            ]
+            return MonitorStatus.ALERT, "; ".join(items), active_incidents, items
 
-        return MonitorStatus.OK, None, []
+        return MonitorStatus.OK, None, [], None
 
 
 def _matches_location(location: Dict, targets: set[str]) -> bool:

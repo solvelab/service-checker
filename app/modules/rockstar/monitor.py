@@ -133,15 +133,14 @@ class RockstarStatusMonitor:
         }
 
         if degraded:
-            reason = ", ".join(
-                f"{s['name']}: {s['status_text']}" for s in degraded
-            )
+            items = [f"{s['name']}: {s['status_text']}" for s in degraded]
             return MonitorResult(
                 status=MonitorStatus.ALERT,
                 message="rockstar status degraded",
-                reason=reason,
+                reason=", ".join(items),
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=items,
             )
 
         if not hero_ok and not filter_list:
@@ -151,6 +150,7 @@ class RockstarStatusMonitor:
                 reason=hero_text,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=[hero_text],
             )
 
         return MonitorResult(

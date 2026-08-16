@@ -49,7 +49,7 @@ class GitHubStatusMonitor:
 
         duration_ms = (time.perf_counter() - start) * 1000
 
-        rule_status, rule_reason, payload = self._evaluate_rule(data)
+        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(data)
         if rule_status == MonitorStatus.ERROR:
             return MonitorResult(
                 status=MonitorStatus.ERROR,
@@ -57,11 +57,12 @@ class GitHubStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         if rule_status == MonitorStatus.ALERT:
-            enriched_reason = await self._enrich_reason(
-                rule_reason, http_client, logger
+            enriched_reason, enriched_items = await self._enrich_reason(
+                rule_reason, reason_items, http_client, logger
             )
             return MonitorResult(
                 status=MonitorStatus.ALERT,
@@ -69,6 +70,7 @@ class GitHubStatusMonitor:
                 reason=enriched_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=enriched_items,
             )
 
         return MonitorResult(
@@ -80,9 +82,9 @@ class GitHubStatusMonitor:
 
     def _evaluate_rule(
         self, data: Dict
-    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if self.config is None:
-            return MonitorStatus.ERROR, "missing config", None
+            return MonitorStatus.ERROR, "missing config", None, None
 
         rule_kind = self.config.rule.kind
         rule_value = self.config.rule.value
@@ -94,23 +96,23 @@ class GitHubStatusMonitor:
 
         if rule_kind == "keyword":
             if rule_value.lower() in raw_text.lower():
-                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None, None
+            return MonitorStatus.OK, None, None, None
 
         if rule_kind == "regex":
             try:
                 pattern = re.compile(rule_value, re.IGNORECASE)
             except re.error as exc:
-                return MonitorStatus.ERROR, f"invalid regex: {exc}", None
+                return MonitorStatus.ERROR, f"invalid regex: {exc}", None, None
             if pattern.search(raw_text) is not None:
-                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None, None
+            return MonitorStatus.OK, None, None, None
 
-        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None
+        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None, None
 
     def _evaluate_status_rule(
         self, data: Dict, rule_value: str
-    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         targets = {
             item.strip().lower() for item in rule_value.split(",") if item.strip()
         }
@@ -119,7 +121,7 @@ class GitHubStatusMonitor:
 
         components = _extract_components(data)
         if not components:
-            return MonitorStatus.ERROR, "no components in status response", None
+            return MonitorStatus.ERROR, "no components in status response", None, None
 
         filtered = components
         if self.config and self.config.service_filter:
@@ -136,27 +138,35 @@ class GitHubStatusMonitor:
                     MonitorStatus.ERROR,
                     "no target components matched filter",
                     {"components": components, "filter": self.config.service_filter},
+                    None,
                 )
 
         matches = [c for c in filtered if c["status"].lower() in targets]
         if matches:
-            reason = ", ".join(f"{c['name']}: {c['status']}" for c in matches)
-            return MonitorStatus.ALERT, reason, matches
+            items = [f"{c['name']}: {c['status']}" for c in matches]
+            return MonitorStatus.ALERT, ", ".join(items), matches, items
 
-        return MonitorStatus.OK, None, filtered
+        return MonitorStatus.OK, None, filtered, None
 
     async def _enrich_reason(
         self,
         base_reason: Optional[str],
+        base_items: Optional[List[str]],
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> Optional[str]:
-        """Fetch incidents and maintenances to enrich the alert reason."""
+    ) -> tuple[Optional[str], Optional[List[str]]]:
+        """Fetch incidents and maintenances to enrich the alert reason.
+
+        Returns the joined sentence and the same content as one entry per finding.
+        Splitting the sentence back apart is not an option: incident titles routinely
+        contain commas and semicolons.
+        """
         if self.config is None or base_reason is None:
-            return base_reason
+            return base_reason, base_items
 
         base_url = self.config.url.rsplit("/api/", 1)[0]
-        parts = [base_reason]
+        parts = list(base_items) if base_items else [base_reason]
+        base_len = len(parts)
 
         incidents = await self._fetch_extra(
             http_client, f"{base_url}{_INCIDENTS_PATH}", logger
@@ -178,7 +188,11 @@ class GitHubStatusMonitor:
                 scheduled = mnt.get("scheduled_for") or mnt.get("updated_at") or ""
                 parts.append(f"Maintenance: {name} ({status}, {scheduled})")
 
-        return "; ".join(parts) if len(parts) > 1 else base_reason
+        if len(parts) == base_len:
+            # Nothing was enriched: leave `reason` byte-identical to what the
+            # rule produced, so the webhook contract does not shift.
+            return base_reason, base_items
+        return "; ".join(parts), parts
 
     async def _fetch_extra(
         self,

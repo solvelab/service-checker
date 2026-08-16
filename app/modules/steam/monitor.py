@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import time
-from typing import Optional
+from typing import List, Optional
 
 import httpx
 
@@ -46,7 +46,7 @@ class SteamMonitor:
 
         duration_ms = (time.perf_counter() - start) * 1000
 
-        rule_status, rule_reason, payload = self._evaluate_rule(body)
+        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(body)
         if rule_status == MonitorStatus.ERROR:
             return MonitorResult(
                 status=MonitorStatus.ERROR,
@@ -54,6 +54,7 @@ class SteamMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         if rule_status == MonitorStatus.ALERT:
@@ -63,6 +64,7 @@ class SteamMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         return MonitorResult(
@@ -89,44 +91,46 @@ class SteamMonitor:
             raise RuntimeError("upstream returned empty body")
         return text
 
-    def _evaluate_rule(self, body: str) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    def _evaluate_rule(
+        self, body: str
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if self.config is None:
-            return MonitorStatus.ERROR, "missing config", None
+            return MonitorStatus.ERROR, "missing config", None, None
 
         rule_kind = self.config.rule.kind
         rule_value = self.config.rule.value
         if not rule_value:
-            return MonitorStatus.OK, None, None
+            return MonitorStatus.OK, None, None, None
 
         if rule_kind == "status":
             return self._evaluate_status_classes(body, rule_value)
 
         if rule_kind == "keyword":
             if rule_value.lower() in body.lower():
-                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"keyword '{rule_value}' detected", None, None
+            return MonitorStatus.OK, None, None, None
 
         if rule_kind == "regex":
             try:
                 pattern = re.compile(rule_value, re.IGNORECASE)
             except re.error as exc:
-                return MonitorStatus.ERROR, f"invalid regex: {exc}", None
+                return MonitorStatus.ERROR, f"invalid regex: {exc}", None, None
             if pattern.search(body) is not None:
-                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None
-            return MonitorStatus.OK, None, None
+                return MonitorStatus.ALERT, f"regex '{rule_value}' matched", None, None
+            return MonitorStatus.OK, None, None, None
 
-        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None
+        return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None, None
 
     def _evaluate_status_classes(
         self, body: str, rule_value: str
-    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         targets = {item.strip().lower() for item in rule_value.split(",") if item.strip()}
         if not targets:
             targets = {"major", "minor"}
 
         services = list(_parse_services(body))
         if not services:
-            return MonitorStatus.ERROR, "no services found on page", None
+            return MonitorStatus.ERROR, "no services found on page", None, None
 
         filtered_services = services
         if self.config and self.config.service_filter:
@@ -137,18 +141,19 @@ class SteamMonitor:
                     MonitorStatus.ERROR,
                     "no target services matched filter",
                     {"services": services, "filter": self.config.service_filter},
+                    None,
                 )
 
         matches = [svc for svc in filtered_services if svc.get("severity") in targets]
 
         if matches:
-            reason = ", ".join(
+            items = [
                 f"{svc['name']}: {svc['status_text']} ({svc['severity']})"
                 for svc in matches
-            )
-            return MonitorStatus.ALERT, reason, matches
+            ]
+            return MonitorStatus.ALERT, ", ".join(items), matches, items
 
-        return MonitorStatus.OK, None, filtered_services
+        return MonitorStatus.OK, None, filtered_services, None
 
 
 def _parse_services(body: str):

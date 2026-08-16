@@ -61,7 +61,7 @@ class AwsStatusMonitor:
             )
 
         duration_ms = (time.perf_counter() - start) * 1000
-        rule_status, rule_reason, payload = self._evaluate_rule(data)
+        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(data)
 
         if rule_status == MonitorStatus.ERROR:
             return MonitorResult(
@@ -70,6 +70,7 @@ class AwsStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         if rule_status == MonitorStatus.ALERT:
@@ -79,6 +80,7 @@ class AwsStatusMonitor:
                 reason=rule_reason,
                 duration_ms=round(duration_ms, 2),
                 payload=payload,
+                reason_items=reason_items,
             )
 
         return MonitorResult(
@@ -90,12 +92,12 @@ class AwsStatusMonitor:
 
     def _evaluate_rule(
         self, data: object
-    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if self.config is None:
-            return MonitorStatus.ERROR, "missing config", None
+            return MonitorStatus.ERROR, "missing config", None, None
 
         if not isinstance(data, list):
-            return MonitorStatus.ERROR, "unexpected incidents payload", None
+            return MonitorStatus.ERROR, "unexpected incidents payload", None, None
 
         targets = {
             item.strip().lower()
@@ -129,13 +131,13 @@ class AwsStatusMonitor:
             active_events.append(parsed)
 
         if active_events:
-            reason = "; ".join(
+            items = [
                 f"{evt['region_name'] or evt['region']} / {evt['name']}: {evt['summary']}"
                 for evt in active_events
-            )
-            return MonitorStatus.ALERT, reason, active_events
+            ]
+            return MonitorStatus.ALERT, "; ".join(items), active_events, items
 
-        return MonitorStatus.OK, None, []
+        return MonitorStatus.OK, None, [], None
 
 
 def _parse_event(event: Dict) -> Dict:

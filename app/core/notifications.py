@@ -498,10 +498,14 @@ def _build_service_result(
     status: MonitorStatus,
     message: str,
 ) -> MonitorResult:
+    reason = _service_reason(item)
     return MonitorResult(
         status=status,
         message=message,
-        reason=_service_reason(item),
+        reason=reason,
+        # One component per notification here, so the bullet list is exactly this
+        # one entry — never the comma-split of a name that may contain commas.
+        reason_items=[reason],
         duration_ms=base.duration_ms,
         payload=[item],
     )
