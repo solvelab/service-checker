@@ -10,6 +10,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
 from ...core.config import ModuleConfig
+from ...core.impersonated_fetch import (
+    DEFAULT_ATTEMPTS,
+    DEFAULT_BACKOFF_SECONDS,
+    fetch_html,
+)
 from ...core.types import MonitorResult, MonitorStatus
 
 _HERO_HEADING_RE = re.compile(
@@ -39,6 +44,9 @@ class RockstarStatusMonitor:
         self._impersonate = os.getenv(
             "ROCKSTAR_IMPERSONATE_PROFILE", _DEFAULT_IMPERSONATE
         )
+        self._attempts = _attempts_from_env("ROCKSTAR_FETCH_ATTEMPTS")
+        self._backoff = _backoff_from_env("ROCKSTAR_FETCH_BACKOFF_SECONDS")
+        self._logger = logging.getLogger("service_monitor.rockstar")
 
     def configure(self, config: ModuleConfig) -> None:
         self.config = config
@@ -65,23 +73,19 @@ class RockstarStatusMonitor:
         return self._evaluate(html, duration_ms)
 
     def _fetch_html(self) -> str:
-        # Imported lazily so the rest of the app does not hard-depend on curl_cffi.
-        from curl_cffi import requests as cffi_requests
-
         assert self.config is not None
-        response = cffi_requests.get(
+        # A borda da Cloudflare recusa de vez em quando mesmo com o fingerprint certo —
+        # medido em ~30%, e 83% dessas some na tentativa seguinte. Sem repetir, tres
+        # recusas seguidas viravam notificacao de monitor morto por ruido.
+        return fetch_html(
             self.config.url,
             impersonate=self._impersonate,
-            timeout=self.config.timeout_seconds,
+            timeout_seconds=self.config.timeout_seconds,
+            logger=self._logger,
+            module_id=self.id,
+            attempts=self._attempts,
+            backoff_seconds=self._backoff,
         )
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f"upstream returned HTTP {response.status_code}"
-            )
-        text = response.text
-        if not text:
-            raise RuntimeError("upstream returned empty body")
-        return text
 
     def _evaluate(self, html: str, duration_ms: float) -> MonitorResult:
         hero_match = _HERO_HEADING_RE.search(html)
@@ -250,3 +254,34 @@ def _slugify(value: str) -> str:
 
 def get_monitor(slug: str = "rockstar") -> RockstarStatusMonitor:
     return RockstarStatusMonitor(slug=slug)
+
+
+def _attempts_from_env(name: str) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return DEFAULT_ATTEMPTS
+    try:
+        return max(int(raw), 1)
+    except ValueError:
+        logging.getLogger("service_monitor.rockstar").warning(
+            "fetch attempts is not a whole number; using the default",
+            extra={"event": "config_fallback", "module_id": "rockstar",
+                   "reason": f"{name}={raw!r}, default {DEFAULT_ATTEMPTS}"},
+        )
+        return DEFAULT_ATTEMPTS
+
+
+def _backoff_from_env(name: str) -> float:
+    """Pausa entre tentativas. Zero e legitimo: os testes usam para nao dormir."""
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return DEFAULT_BACKOFF_SECONDS
+    try:
+        return max(float(raw), 0.0)
+    except ValueError:
+        logging.getLogger("service_monitor.rockstar").warning(
+            "fetch backoff is not a number; using the default",
+            extra={"event": "config_fallback", "module_id": "rockstar",
+                   "reason": f"{name}={raw!r}, default {DEFAULT_BACKOFF_SECONDS}"},
+        )
+        return DEFAULT_BACKOFF_SECONDS
