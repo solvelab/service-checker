@@ -42,3 +42,45 @@ e é determinística:
 ```bash
 python scripts/simulate_notifications.py
 ```
+
+## Proteção da branch `main`
+
+`main` tem um ruleset chamado `main-protection`, com duas regras **ativas**:
+
+| Regra | Efeito |
+|---|---|
+| `deletion` | `main` não pode ser apagada |
+| `non_fast_forward` | `main` não aceita force-push |
+
+Nenhuma das duas interfere no pipeline: o `@semantic-release/git` empurra um commit no topo de
+`main` — fast-forward — e nunca apaga nada.
+
+### Por que os checks ainda não são obrigatórios
+
+A intenção era exigir `Lint` e `Run Tests` para poder mergear, mas isso **quebraria o release**.
+Required status checks valem também para push direto, e o `@semantic-release/git` empurra o commit
+`chore(release)` direto em `main` usando o `GITHUB_TOKEN` padrão, que é o app embutido do Actions.
+
+Esse app **não pode** ser adicionado como ator de bypass num ruleset de repositório:
+
+```
+$ gh api -X PUT .../rulesets/<id> -f bypass_actors='[{"actor_type":"Integration","actor_id":15368}]'
+422  Actor GitHub Actions integration must be part of the ruleset source or owner organization
+```
+
+Então exigir os checks depende de resolver antes **como a automação de release se autentica**. Dois
+caminhos:
+
+1. Trocar o `GITHUB_TOKEN` por um token de GitHub App próprio da organização, e adicionar esse app
+   ao bypass do ruleset.
+2. Criar o ruleset no nível da **organização**, onde o app do Actions é ator de bypass elegível.
+
+Enquanto isso não for decidido, um PR com check vermelho continua tecnicamente mergeável. Os checks
+existem e são visíveis desde a #16 — o que falta é torná-los obrigatórios sem derrubar o release.
+
+### Reverter ou ajustar
+
+```bash
+gh api /repos/solvelab/service-checker/rulesets            # listar
+gh api -X DELETE /repos/solvelab/service-checker/rulesets/<id>   # remover
+```
