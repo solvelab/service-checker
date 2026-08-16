@@ -1,12 +1,31 @@
 import logging
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 
 from ...core.config import ModuleConfig
 from ...core.types import MonitorResult, MonitorStatus
+
+# The public feed carries no typeCode/region/endTime fields — everything the rule
+# engine needs is encoded in the event ARN:
+#
+#   arn:aws:health:eu-central-1::event/DIRECTCONNECT/AWS_DIRECTCONNECT_OPERATIONAL_ISSUE/
+#                  └── region ──┘                    └──────── type code ──────────┘
+#   AWS_DIRECTCONNECT_OPERATIONAL_ISSUE_E23AA_ADAB9D3D11F
+#   └──────────── unique event id ─────────────────────┘
+#
+# Verified against the live endpoint on 2026-08-15.
+_ARN_RE = re.compile(
+    r"^arn:aws:health:(?P<region>[^:]*):[^:]*:event/(?P<category>[^/]+)/"
+    r"(?P<type_code>[^/]+)/(?P<event_id>.+)$",
+    re.IGNORECASE,
+)
+# Fallback for the region: the service code is "<servicecode>-<region-code>".
+_SERVICE_REGION_RE = re.compile(
+    r"-(?P<region>[a-z]{2}(?:-[a-z]+)+-\d+)$", re.IGNORECASE
+)
 
 
 class AwsStatusMonitor:
@@ -69,52 +88,49 @@ class AwsStatusMonitor:
             payload=payload,
         )
 
-    def _evaluate_rule(self, data: object) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
+    def _evaluate_rule(
+        self, data: object
+    ) -> tuple[MonitorStatus, Optional[str], Optional[object]]:
         if self.config is None:
             return MonitorStatus.ERROR, "missing config", None
 
         if not isinstance(data, list):
             return MonitorStatus.ERROR, "unexpected incidents payload", None
 
-        targets = {item.strip().lower() for item in (self.config.service_filter or []) if item.strip()}
-        code_tokens = {item.strip().lower() for item in (self.config.rule.value or "").split(",") if item.strip()}
+        targets = {
+            item.strip().lower()
+            for item in (self.config.service_filter or [])
+            if item.strip()
+        }
+        code_tokens = {
+            item.strip().lower()
+            for item in (self.config.rule.value or "").split(",")
+            if item.strip()
+        }
         if not code_tokens:
             code_tokens = {"operational_issue"}
 
-        active_events = []
+        active_events: List[Dict] = []
         for event in data:
             if not isinstance(event, dict):
                 continue
-            region = (event.get("region") or "").lower()
-            if targets and region not in targets:
+
+            parsed = _parse_event(event)
+
+            # Everything the endpoint returns is by definition a current event: it
+            # exposes no end timestamp and no resolved entries (verified 2026-08-15).
+            if not _matches_filter(parsed, targets):
                 continue
 
-            end_time = event.get("endTime")
-            if end_time:
+            type_code = (parsed["type_code"] or "").lower()
+            if type_code and not any(token in type_code for token in code_tokens):
                 continue
 
-            type_code = (event.get("typeCode") or "").lower()
-            status_code = _extract_status_code(event)
-
-            if not type_code:
-                continue
-
-            if not any(token in type_code for token in code_tokens):
-                continue
-
-            active_events.append(
-                {
-                    "service": event.get("service"),
-                    "region": event.get("region"),
-                    "typeCode": event.get("typeCode"),
-                    "status": status_code,
-                    "startTime": event.get("startTime"),
-                }
-            )
+            active_events.append(parsed)
 
         if active_events:
             reason = "; ".join(
-                f"{evt.get('region')}: {evt.get('typeCode') or evt.get('status') or 'active'}"
+                f"{evt['region_name'] or evt['region']} / {evt['name']}: {evt['summary']}"
                 for evt in active_events
             )
             return MonitorStatus.ALERT, reason, active_events
@@ -122,15 +138,49 @@ class AwsStatusMonitor:
         return MonitorStatus.OK, None, []
 
 
-def _extract_status_code(event: Dict) -> str:
-    status = event.get("status")
-    if status is not None:
-        return str(status)
-    type_code = event.get("typeCode") or ""
-    match = re.search(r"(operational_issue|availability|performance|degradation)", type_code, re.IGNORECASE)
-    if match:
-        return match.group(1).lower()
-    return "unknown"
+def _parse_event(event: Dict) -> Dict:
+    """Normalise one raw AWS event into the payload shape the notifier expects."""
+    arn = event.get("arn") or ""
+    match = _ARN_RE.match(arn)
+    region = match.group("region") if match else ""
+    type_code = match.group("type_code") if match else ""
+    event_id = match.group("event_id") if match else ""
+
+    service_code = event.get("service") or ""
+    if not region:
+        service_match = _SERVICE_REGION_RE.search(service_code)
+        region = service_match.group("region") if service_match else ""
+
+    return {
+        "id": _slugify(event_id) or _slugify(arn) or _slugify(service_code),
+        "name": event.get("service_name") or service_code or "unknown",
+        "service": service_code,
+        "region": region,
+        "region_name": event.get("region_name") or "",
+        "type_code": type_code,
+        # Undocumented numeric severity ("1", "2", "3" observed; higher looks worse).
+        # Carried through as metadata only — never used to decide whether to alert.
+        "status": str(event.get("status") or "unknown"),
+        "summary": event.get("summary") or "",
+        "started_at": event.get("date") or "",
+    }
+
+
+def _matches_filter(event: Dict, targets: set) -> bool:
+    if not targets:
+        return True
+    candidates = {
+        (event.get("region") or "").lower(),
+        (event.get("region_name") or "").lower(),
+        (event.get("service") or "").lower(),
+        (event.get("name") or "").lower(),
+    }
+    candidates.discard("")
+    return bool(candidates & targets)
+
+
+def _slugify(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
 
 
 def get_monitor(slug: str = "aws") -> AwsStatusMonitor:
