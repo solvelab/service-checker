@@ -1,0 +1,341 @@
+[
+  {
+    "id": "3BvH3LVGcupoYqV6F4Nw",
+    "number": "11738310674864064645",
+    "begin": "2026-07-15T23:57:00+00:00",
+    "created": "2026-07-16T03:30:59+00:00",
+    "end": "2026-07-16T12:25:00+00:00",
+    "modified": "2026-07-25T13:16:55+00:00",
+    "external_desc": "Google Cloud VMware Engine (GCVE), Google Cloud NetApp Volumes, and Bare Metal Solutions (BMS) services are experiencing a service outage in europe-west4-a due to a cooling failure.",
+    "updates": [
+      {
+        "created": "2026-07-25T13:16:55+00:00",
+        "modified": "2026-07-25T13:16:55+00:00",
+        "when": "2026-07-25T13:16:55+00:00",
+        "text": "## \\# Incident Report\n## \\#\\# Summary\nOn Wednesday, 15 July 2026, Google Cloud VMware Engine (GCVE), Bare Metal Solution (BMS), and Google Cloud NetApp Volumes (GCNV) experienced service interruptions for a total duration of 14 hours, 55 minutes.\nThe root cause for this outage is a 3ms voltage drop in the power feed from the utility provider and subsequent utility breaker protective action. This incident was mitigated by the data center provider rectifying the failed systems followed by the Google engineering team restoring the services.\n## \\#\\# Root Cause\nA regional data center hosting services in europe-west4-a experienced an upstream voltage transient affecting both utility power feeds A and B. During this event, the utility breakers on both A and B feeds tripped and initiated the transfer to the back-up power source DRUPS (Diesel Rotary Uninterruptible Power Supply). The transition of side B to DRUPS system was successful without any power interruption. The DRUPS back-up power system for side A failed to take over the facility load due to electrical component failures.\nThe DRUPS failure to take over load initiated automatic transfer of the affected 3 rows from feed A to redundant power feed B. Rows 1 and 2 transferred to power feed B successfully. Row 3 failed to transfer to power feed B and experienced complete power loss due to an overload protection breaker trip. The root cause of the failed transfer on the affected row was identified as load deployment discrepancy which is under further investigation by Google engineering team. This resulted in loss of both redundant power feeds to the single row.\nDuring the voltage transient event, the server data hall experienced an increased temperature due to a cooling system failure. The chiller controller dropped offline during the voltage transient event, failing to signal the chilled water distribution pumps to restart and ultimately causing the chiller system A to shut down. The redundant source was not available due to known ongoing construction work at the facility. This resulted in the data hall temperatures reaching 44\u00b0C and subsequent shutdown of the affected data hall machines. Google engineering teams initiated machine shutdown procedures for the remainder of reachable devices as part of the cooling emergency shutdown process.\nA timeline of events during the incident is provided below.\n### DataCenter Events\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:24 | An electrical fault occurred on the utility grid upstream of the data center, disrupting the electrical distribution. |\n| 07-15-2026 16:24 | DRUPS back-up power system for side A failed to take over the data hall load. |\n| 07-15-2026 16:24 | The chiller controller dropped offline during the voltage transient event causing distribution pumps to stop and unable to restart. |\n| 07-15-2026 16:37 | Rows 1 and 2 transferred to power feed B successfully. Row 3 failed to transfer to power feed B and lost power. |\n| 07-15-2026 18:29 | Data hall temperatures reached 44C and crossed the safe machine operating threshold. |\n| 07-15-2026 19:55 | Machine shutdown procedures implemented. |\n| 07-15-2026 21:05 | Cooling system fully recovered and temperatures in the data hall returned to normal operating range. |\n| 07-15-2026 21:24 | Notification about cooling recovery sent by provider |\n| 07-15-2026 21:46 | Notification about power recovery sent by provider |\n### GCVE Timelines\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:30 | GCVE service power monitoring alert received |\n| 07-15-2026 16:41 | First symptom detected, servers reporting redundancy power feed failure. |\n| 07-15-2026 17:05 | Switch temperature \\>60\u00b0C alerts triggered. |\n| 07-15-2026 17:09 | Start of user impact, first prober alert failure for north south traffic for customers. |\n| 07-15-2026 19:00 | Server / Network devices shutdown initiated. |\n| 07-15-2026 19:55 | All reachable server/network devices were shut down. |\n| 07-15-2026 21:24 | Cooling system fully recovered and temperatures in the datahall were returning to normal operating range. |\n| 07-15-2026 21:56 | Network restoration started with reachable hydra devices. |\n| 07-15-2026 22:40 | Onsite technician arrived, to recover the console servers. |\n| 07-15-2026 23:10 | Console server reboot/recovery complete. |\n| 07-16-2026 00:33 | Network recovery for all Placement Groups complete. |\n| 07-16-2026 02:36 | Incident mitigated, after recovering all the customer PCs are fully healthy. |\nThis outage impacted 24 private clouds of 20 distinct customers in europe-west4-a region.\n### Bare Metal Solutions (BMS) Timelines\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:41 | First symptom detected, servers and storage reporting redundancy power feed failure |\n| 07-15-2026 17:52 | Automated monitoring detected rising temperatures |\n| 07-15-2026 18:37 | Four Netapp SAN storage nodes failed and were shut down due to overheating, resulting in storage availability issue |\n| 07-15-2026 18:37 | Customer impact started, first server shutdown detected |\n| 07-15-2026 18:59 | Reserve and buffer servers started to get powered off |\n| 07-15-2026 20:43 | Drop in the temperature has been detected |\n| 07-15-2026 20:52 | Four Netapp SAN storage nodes recovered, mitigating storage availability issue |\n| 07-15-2026 21:05 | The cooling system fully recovered and temperatures in the datahall were returning to normal operating range. |\n| 07-15-2026 23:23 | First customer server reboot started |\n| 07-16-2026 06:32 | Last customer server reboot started |\n| 07-16-2026 08:42 | Incident mitigated. All impacted customer servers were rebooted and confirmed in healthy state. |\nThis outage impacted 9 distinct BMS customers in europe-west4\n### NetApp Timelines\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:32 | Netapp facility remote monitoring alert on high temp and network switches switches failure received |\n| 07-15-2026 17:32 | All 6 clusters failed and were shut down automatically due to high temperature |\n| 07-15-2026 21:05 | Cooling capacity restored |\n| 07-15-2026 22:08 | Cluster recovery process initiated for all 6 clusters. 1st cluster recovered |\n| 07-15-2026 23:55 | All 6 Netapp Clusters and all customers recovered and validated as healthy & operational |\n## \\#\\# Remediation and Prevention\nGoogle engineers were alerted to the infrastructure power loss on Wednesday, 15 July 2026 at 16:30 US/Pacific and subsequent increase in data hall temperatures at 17:44 US/Pacific via our automated monitoring and telemetry, and immediately began investigating.\nDuring the voltage transient event, the chillers maintained power but shut down because the distribution pumps failed to restart, resulting in no water flow. The pumps were manually switched from auto to hand mode to restore circulation and cooling. The facility team deployed an interim portable UPS to support the chiller controllers and prevent localized controller power loss.\nUpon confirmation of utility power restoration, the facility returned to utility power via automatic switching with the exception of two Remote Power Panels (RPPs), which required manual verification before restoration of power to affected server row. To provide full resiliency the facility team aligned a swing DRUPS unit to restore the redundant configuration on the A feed and is working on repairing the faulty DRUPS.\nTo remediate the power loss at Row 3, once the electrical fault was confirmed to be fully isolated, teams reset the tripped breakers, successfully restoring both redundant power to the impacted server racks.\nGoogle is committed to preventing a repeat of this issue in the future and is completing the following actions:\n* Detailed investigation by the engineering team of the sequence of events that prevented transfer of load to DRUPS system and identified system improvements **\\[ETA Aug 2026\\].**\n* Determine and resolve the cause of overload conditions that caused power loss to Row 3 **\\[ETA Aug 2026\\].**\n* Perform investigation of chiller pump control system redundancy setup to ensure cooling system resiliency **\\[ETA Sep 2026\\].**\n* Implement improvements to facility system monitoring alerts for power events and configure early alert thresholds for cooling excursion detection. **\\[ETA Aug 2026\\].**\n* The GCVE engineering team is working to improve the automated triggering of shutdown during quickly evolving thermal runoff situations **\\[ETA Oct 2026\\]**.\n* The BMS engineering team is working with partner teams to update the incident classification and SLO definitions to improve personnel availability during major datacenter events **\\[ETA Sep 2026\\]**.\n* The GCNV engineering team is collaborate with the data center team to review incident handling SLA and runbooks, identify potential future occurrences and create playbooks to address/mitigate them, establish monthly joint emergency drill, and review if the Netapp cluster recovery process can be expedited **\\[ETA Aug 2026\\].**\n## \\#\\# Detailed Description of Impact\nOn 15 July 2026 from 16:39 to 16 July 2026 07:34 US/Pacific, customers experienced service disruptions across several products in europe-west4-a zone:\n* **Google Cloud VMware Engine**: Customers lost connectivity to their private clouds and workloads as foundational hosts and network switches were powered off for thermal protection.\n* **Bare Metal Solution**: Customers experienced connectivity loss to their database servers and storage appliances as the underlying hardware was powered down.\n* **Google Cloud NetApp Volumes**: Customers in the STANDARD, PREMIUM, and EXTREME service levels were unable to access their storage volumes. Control plane operations, including the creation of new storage pools, volumes, and backups, experienced failures in the affected region.",
+        "status": "AVAILABLE",
+        "affected_locations": []
+      },
+      {
+        "created": "2026-07-16T03:30:59+00:00",
+        "modified": "2026-07-16T06:30:59+00:00",
+        "when": "2026-07-16T03:30:59+00:00",
+        "text": "**Summary**\nGoogle Cloud VMware Engine (GCVE), Google Cloud NetApp Volumes, and Bare Metal Solution (BMS) services are experiencing temperature alerts in europe-west4-a.\n**Description**\n**GCVE:** Our engineering teams are currently working with data center facility teams to address the rising temperatures. A shutdown has already occurred for some private clouds, and we expect that others will shut down as well. **We recommend shutting down your VMware workload VMs for precaution so that recovery is safer. A shutdown of all systems started at 19:00 PDT \\[4:00 Local Time (GMT+2)\\]** We will notify you as soon as your Private Cloud has been powered back up and it is safe to restart the VMs.\n**BMS:** Some Bare Metal Solution servers are experiencing high temperatures and we are in the process of shutting them down. Customers may be unable to access their systems until we resolve the issue.\n**Google Cloud NetApp Volumes** Our engineering team has proactively shut down ONTAP clusters to protect the data stored on them. Customers may experience unavailability of Cloud NetApp Volumes until this issue is resolved. There is no estimated time for resolution. We will provide an update by Wednesday, 2026-07-15 21:30 PDT with current details. We apologize to all who are affected by the disruption.\n**Customer Symptoms**\n**GCVE:** Customers may have already observed a loss of connectivity to their private cloud. As a protective measure for hardware integrity and a recovery, we are shutting down all Private Clouds in this zone.\n**BMS:** Customers may have already lost connectivity to their BMS machines. As a protective measure for hardware integrity and a recovery, we are shutting down servers in this zone.\n**Google Cloud NetApp Volumes** Customers may have already lost connectivity to ONTAP clusters, or will lose connectivity to them shortly, as we proactively shut them down for their protection. Only Standard, Premium, and Extreme service levels are affected.\n**Workaround**\nThere are no workarounds available for this issue at this time. Customers with multi-regional deployments are advised to route traffic to an alternate site.",
+        "status": "SERVICE_DISRUPTION",
+        "affected_locations": [
+          {
+            "title": "Netherlands (europe-west4)",
+            "id": "europe-west4"
+          }
+        ]
+      }
+    ],
+    "most_recent_update": {
+      "created": "2026-07-25T13:16:55+00:00",
+      "modified": "2026-07-25T13:16:55+00:00",
+      "when": "2026-07-25T13:16:55+00:00",
+      "text": "## \\# Incident Report\n## \\#\\# Summary\nOn Wednesday, 15 July 2026, Google Cloud VMware Engine (GCVE), Bare Metal Solution (BMS), and Google Cloud NetApp Volumes (GCNV) experienced service interruptions for a total duration of 14 hours, 55 minutes.\nThe root cause for this outage is a 3ms voltage drop in the power feed from the utility provider and subsequent utility breaker protective action. This incident was mitigated by the data center provider rectifying the failed systems followed by the Google engineering team restoring the services.\n## \\#\\# Root Cause\nA regional data center hosting services in europe-west4-a experienced an upstream voltage transient affecting both utility power feeds A and B. During this event, the utility breakers on both A and B feeds tripped and initiated the transfer to the back-up power source DRUPS (Diesel Rotary Uninterruptible Power Supply). The transition of side B to DRUPS system was successful without any power interruption. The DRUPS back-up power system for side A failed to take over the facility load due to electrical component failures.\nThe DRUPS failure to take over load initiated automatic transfer of the affected 3 rows from feed A to redundant power feed B. Rows 1 and 2 transferred to power feed B successfully. Row 3 failed to transfer to power feed B and experienced complete power loss due to an overload protection breaker trip. The root cause of the failed transfer on the affected row was identified as load deployment discrepancy which is under further investigation by Google engineering team. This resulted in loss of both redundant power feeds to the single row.\nDuring the voltage transient event, the server data hall experienced an increased temperature due to a cooling system failure. The chiller controller dropped offline during the voltage transient event, failing to signal the chilled water distribution pumps to restart and ultimately causing the chiller system A to shut down. The redundant source was not available due to known ongoing construction work at the facility. This resulted in the data hall temperatures reaching 44\u00b0C and subsequent shutdown of the affected data hall machines. Google engineering teams initiated machine shutdown procedures for the remainder of reachable devices as part of the cooling emergency shutdown process.\nA timeline of events during the incident is provided below.\n### DataCenter Events\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:24 | An electrical fault occurred on the utility grid upstream of the data center, disrupting the electrical distribution. |\n| 07-15-2026 16:24 | DRUPS back-up power system for side A failed to take over the data hall load. |\n| 07-15-2026 16:24 | The chiller controller dropped offline during the voltage transient event causing distribution pumps to stop and unable to restart. |\n| 07-15-2026 16:37 | Rows 1 and 2 transferred to power feed B successfully. Row 3 failed to transfer to power feed B and lost power. |\n| 07-15-2026 18:29 | Data hall temperatures reached 44C and crossed the safe machine operating threshold. |\n| 07-15-2026 19:55 | Machine shutdown procedures implemented. |\n| 07-15-2026 21:05 | Cooling system fully recovered and temperatures in the data hall returned to normal operating range. |\n| 07-15-2026 21:24 | Notification about cooling recovery sent by provider |\n| 07-15-2026 21:46 | Notification about power recovery sent by provider |\n### GCVE Timelines\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:30 | GCVE service power monitoring alert received |\n| 07-15-2026 16:41 | First symptom detected, servers reporting redundancy power feed failure. |\n| 07-15-2026 17:05 | Switch temperature \\>60\u00b0C alerts triggered. |\n| 07-15-2026 17:09 | Start of user impact, first prober alert failure for north south traffic for customers. |\n| 07-15-2026 19:00 | Server / Network devices shutdown initiated. |\n| 07-15-2026 19:55 | All reachable server/network devices were shut down. |\n| 07-15-2026 21:24 | Cooling system fully recovered and temperatures in the datahall were returning to normal operating range. |\n| 07-15-2026 21:56 | Network restoration started with reachable hydra devices. |\n| 07-15-2026 22:40 | Onsite technician arrived, to recover the console servers. |\n| 07-15-2026 23:10 | Console server reboot/recovery complete. |\n| 07-16-2026 00:33 | Network recovery for all Placement Groups complete. |\n| 07-16-2026 02:36 | Incident mitigated, after recovering all the customer PCs are fully healthy. |\nThis outage impacted 24 private clouds of 20 distinct customers in europe-west4-a region.\n### Bare Metal Solutions (BMS) Timelines\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:41 | First symptom detected, servers and storage reporting redundancy power feed failure |\n| 07-15-2026 17:52 | Automated monitoring detected rising temperatures |\n| 07-15-2026 18:37 | Four Netapp SAN storage nodes failed and were shut down due to overheating, resulting in storage availability issue |\n| 07-15-2026 18:37 | Customer impact started, first server shutdown detected |\n| 07-15-2026 18:59 | Reserve and buffer servers started to get powered off |\n| 07-15-2026 20:43 | Drop in the temperature has been detected |\n| 07-15-2026 20:52 | Four Netapp SAN storage nodes recovered, mitigating storage availability issue |\n| 07-15-2026 21:05 | The cooling system fully recovered and temperatures in the datahall were returning to normal operating range. |\n| 07-15-2026 23:23 | First customer server reboot started |\n| 07-16-2026 06:32 | Last customer server reboot started |\n| 07-16-2026 08:42 | Incident mitigated. All impacted customer servers were rebooted and confirmed in healthy state. |\nThis outage impacted 9 distinct BMS customers in europe-west4\n### NetApp Timelines\n| Timestamp(PST) | Event Description |\n| :---- | :---- |\n| 07-15-2026 16:32 | Netapp facility remote monitoring alert on high temp and network switches switches failure received |\n| 07-15-2026 17:32 | All 6 clusters failed and were shut down automatically due to high temperature |\n| 07-15-2026 21:05 | Cooling capacity restored |\n| 07-15-2026 22:08 | Cluster recovery process initiated for all 6 clusters. 1st cluster recovered |\n| 07-15-2026 23:55 | All 6 Netapp Clusters and all customers recovered and validated as healthy & operational |\n## \\#\\# Remediation and Prevention\nGoogle engineers were alerted to the infrastructure power loss on Wednesday, 15 July 2026 at 16:30 US/Pacific and subsequent increase in data hall temperatures at 17:44 US/Pacific via our automated monitoring and telemetry, and immediately began investigating.\nDuring the voltage transient event, the chillers maintained power but shut down because the distribution pumps failed to restart, resulting in no water flow. The pumps were manually switched from auto to hand mode to restore circulation and cooling. The facility team deployed an interim portable UPS to support the chiller controllers and prevent localized controller power loss.\nUpon confirmation of utility power restoration, the facility returned to utility power via automatic switching with the exception of two Remote Power Panels (RPPs), which required manual verification before restoration of power to affected server row. To provide full resiliency the facility team aligned a swing DRUPS unit to restore the redundant configuration on the A feed and is working on repairing the faulty DRUPS.\nTo remediate the power loss at Row 3, once the electrical fault was confirmed to be fully isolated, teams reset the tripped breakers, successfully restoring both redundant power to the impacted server racks.\nGoogle is committed to preventing a repeat of this issue in the future and is completing the following actions:\n* Detailed investigation by the engineering team of the sequence of events that prevented transfer of load to DRUPS system and identified system improvements **\\[ETA Aug 2026\\].**\n* Determine and resolve the cause of overload conditions that caused power loss to Row 3 **\\[ETA Aug 2026\\].**\n* Perform investigation of chiller pump control system redundancy setup to ensure cooling system resiliency **\\[ETA Sep 2026\\].**\n* Implement improvements to facility system monitoring alerts for power events and configure early alert thresholds for cooling excursion detection. **\\[ETA Aug 2026\\].**\n* The GCVE engineering team is working to improve the automated triggering of shutdown during quickly evolving thermal runoff situations **\\[ETA Oct 2026\\]**.\n* The BMS engineering team is working with partner teams to update the incident classification and SLO definitions to improve personnel availability during major datacenter events **\\[ETA Sep 2026\\]**.\n* The GCNV engineering team is collaborate with the data center team to review incident handling SLA and runbooks, identify potential future occurrences and create playbooks to address/mitigate them, establish monthly joint emergency drill, and review if the Netapp cluster recovery process can be expedited **\\[ETA Aug 2026\\].**\n## \\#\\# Detailed Description of Impact\nOn 15 July 2026 from 16:39 to 16 July 2026 07:34 US/Pacific, customers experienced service disruptions across several products in europe-west4-a zone:\n* **Google Cloud VMware Engine**: Customers lost connectivity to their private clouds and workloads as foundational hosts and network switches were powered off for thermal protection.\n* **Bare Metal Solution**: Customers experienced connectivity loss to their database servers and storage appliances as the underlying hardware was powered down.\n* **Google Cloud NetApp Volumes**: Customers in the STANDARD, PREMIUM, and EXTREME service levels were unable to access their storage volumes. Control plane operations, including the creation of new storage pools, volumes, and backups, experienced failures in the affected region.",
+      "status": "AVAILABLE",
+      "affected_locations": []
+    },
+    "status_impact": "SERVICE_DISRUPTION",
+    "severity": "medium",
+    "service_key": "zall",
+    "service_name": "Multiple Products",
+    "affected_products": [
+      {
+        "title": "Bare Metal Solution",
+        "id": "5gQF7Qk9XfQ32pStX6Hb",
+        "current_title": "Bare Metal Solution"
+      },
+      {
+        "title": "Google Cloud NetApp Volumes",
+        "id": "vtzMUyQ4z9CbA1x6z85s",
+        "current_title": "Google Cloud NetApp Volumes"
+      },
+      {
+        "title": "VMWare engine",
+        "id": "9H6gWUHvb2ZubeoxzQ1Y",
+        "current_title": "VMWare engine"
+      }
+    ],
+    "uri": "incidents/3BvH3LVGcupoYqV6F4Nw",
+    "currently_affected_locations": [],
+    "previously_affected_locations": [
+      {
+        "title": "Netherlands (europe-west4)",
+        "id": "europe-west4"
+      }
+    ]
+  },
+  {
+    "id": "T8gmtofFSTGT5tbhyciF",
+    "number": "5362718329524538692",
+    "begin": "2026-07-14T17:00:00+00:00",
+    "created": "2026-07-14T20:24:18+00:00",
+    "end": "2026-07-15T03:40:00+00:00",
+    "modified": "2026-07-24T07:14:47+00:00",
+    "external_desc": "Google Cloud VMware Engine (GCVE) Stretched Cluster customers are experiencing zonal outages impacting network connectivity across multiple regions.",
+    "updates": [
+      {
+        "created": "2026-07-24T07:10:18+00:00",
+        "modified": "2026-07-24T07:14:47+00:00",
+        "when": "2026-07-24T07:10:18+00:00",
+        "text": "## Incident Report\n## Summary\nOn Tuesday, 14 July 2026 10:00 PT, Google Cloud VMware Engine (GCVE) Stretched Cluster customers in the australia-southeast2 and europe-west3 zones experienced inter-site communication failures.\nThe disruption was traced to a network configuration update that introduced a conflict, causing inter-site communication failures, which triggered VMware Stretched Cluster failover events. Google engineers successfully mitigated the impact by rolling back the issue-causing configuration change and resetting the network state.\nWe sincerely apologize for the disruption this incident caused to your business. We know how much you rely on Google Cloud, and we regret the impact on your productivity. We are working to address the root cause and prevent this from occurring in the future.\n## Root Cause\nA network configuration update intended to prepare the cloud network infrastructure for new capabilities was deployed to the foundational network control plane. While the configuration payload itself was structurally valid, it exposed an implementation gap within the control plane's routing logic.\nThis logical gap caused the underlying network hosts to misconfigure program routing tables. As a result, traffic destined for the private IP address space used by GCVE Stretched Clusters was dropped. Because Stretched Clusters rely on this private address space to establish routing sessions for inter-zonal connectivity, the traffic drops severed communications between the active zones of the clusters, triggering VMware High Availability (HA) failovers.\nStandard routing health-checking protocols, such as Border Gateway Protocol (BGP) and Bidirectional Forwarding Detection (BFD), remained fully functional because their control plane sessions run on separate, unaffected address spaces. Because the control plane remained healthy, standard failover mechanisms failed to detect that the selective private IP range used for inter-zonal data tunneling was being dropped. Automated safeguards did not block the deployment because the configuration passed initial payload validations. The impact only manifested once the update began routing data traffic through the specific affected IP range.\n## Remediation and Prevention\nTo stabilize the environment, engineers identified the working network paths and deployed configuration changes to reroute traffic and restore connectivity. GCVE Stretched Cluster inter-zonal connectivity was completely restored for all supported locations on Tuesday, 14 July 2026 at 20:40 US/Pacific.\nGoogle is committed preventing a repeat of this issue in the future and is completing the following actions:\n* **Expanded Testing:** We are adding more detailed GCVE network setups to our existing testing environments. This allows us to automatically test future network updates against these configurations before they go live.\n* **Service-Level Data Path Failover:** We are implementing additional service-level data path failover mechanisms that actively probe the specific data-tunneling traffic space. This will ensure a path failover is triggered if the data plane itself is degraded even when the BGP control plane remains functional.\n* **Detailed Alerting**: We are adding faster, more specific alerts for connection issues between zones. This builds on our current platform monitoring to catch minor disruptions early and speed up our response.\n* **Improved Cluster Resilience:** We are fine-tuning the cluster's high-availability and storage settings. This makes virtual machines more resilient to short network drops, preventing them from restarting unnecessarily if the main site is still healthy.\n* **Workload Resilience Alignment (Shared Responsibility):** We are proactively reaching out to customers utilizing non-vSAN replicated virtual machine configurations within Stretched Clusters. Because these workloads are pinned to a single zone without active cross-site replication, they cannot survive inter-site network disruptions. We are ready to assist customers in auditing their storage policies, adjusting Stretched Cluster configurations, and planning the secondary zone capacity required to enable robust high-availability failovers.\n## Detailed Description of Impact\nOn Tuesday, 14 July 2026 from 10:00 to 20:40 US/Pacific, customers utilizing GCVE Stretched Clusters in the affected zones (australia-southeast2, and europe-west3) experienced inter-site communication failures. For some customers, depending on their architecture, this disruption led to a VMWare HA event causing VM restarts/movement across zones as designed, host disconnects, VSAN alarms and intermittent access to VMware Management (vCenter/NSX Manager) components.",
+        "status": "AVAILABLE",
+        "affected_locations": []
+      },
+      {
+        "created": "2026-07-14T20:24:18+00:00",
+        "modified": "2026-07-14T21:31:52+00:00",
+        "when": "2026-07-14T20:24:18+00:00",
+        "text": "**Summary**\nGoogle Cloud VMware Engine (GCVE) Stretched Cluster customers are experiencing zonal outages impacting network connectivity across multiple regions.\n**Description**\nWe are experiencing an issue with Google Cloud VMware Engine (GCVE) beginning Tuesday, 2026-07-14 at 10:00 PDT.\nWe are continuing to investigate and mitigate the issue. We believe this disruption is isolated to network connectivity issues for stretch clusters, while Storage and Compute services appear to be unaffected. GCVE VMs are running as expected but customers may experience connectivity issues to the VMs.\nWe will provide another update by Tuesday, 2026-07-14 14:00 PDT with current details.\n**Customer Symptoms**\nSome GCVE customers may experience inter-site communication failures to their GCVE environments within the affected zones.\n**Workaround**\nNone at this time.",
+        "status": "SERVICE_DISRUPTION",
+        "affected_locations": [
+          {
+            "title": "Melbourne (australia-southeast2)",
+            "id": "australia-southeast2"
+          },
+          {
+            "title": "Frankfurt (europe-west3)",
+            "id": "europe-west3"
+          },
+          {
+            "title": "Toronto (northamerica-northeast2)",
+            "id": "northamerica-northeast2"
+          }
+        ]
+      }
+    ],
+    "most_recent_update": {
+      "created": "2026-07-24T07:10:18+00:00",
+      "modified": "2026-07-24T07:14:47+00:00",
+      "when": "2026-07-24T07:10:18+00:00",
+      "text": "## Incident Report\n## Summary\nOn Tuesday, 14 July 2026 10:00 PT, Google Cloud VMware Engine (GCVE) Stretched Cluster customers in the australia-southeast2 and europe-west3 zones experienced inter-site communication failures.\nThe disruption was traced to a network configuration update that introduced a conflict, causing inter-site communication failures, which triggered VMware Stretched Cluster failover events. Google engineers successfully mitigated the impact by rolling back the issue-causing configuration change and resetting the network state.\nWe sincerely apologize for the disruption this incident caused to your business. We know how much you rely on Google Cloud, and we regret the impact on your productivity. We are working to address the root cause and prevent this from occurring in the future.\n## Root Cause\nA network configuration update intended to prepare the cloud network infrastructure for new capabilities was deployed to the foundational network control plane. While the configuration payload itself was structurally valid, it exposed an implementation gap within the control plane's routing logic.\nThis logical gap caused the underlying network hosts to misconfigure program routing tables. As a result, traffic destined for the private IP address space used by GCVE Stretched Clusters was dropped. Because Stretched Clusters rely on this private address space to establish routing sessions for inter-zonal connectivity, the traffic drops severed communications between the active zones of the clusters, triggering VMware High Availability (HA) failovers.\nStandard routing health-checking protocols, such as Border Gateway Protocol (BGP) and Bidirectional Forwarding Detection (BFD), remained fully functional because their control plane sessions run on separate, unaffected address spaces. Because the control plane remained healthy, standard failover mechanisms failed to detect that the selective private IP range used for inter-zonal data tunneling was being dropped. Automated safeguards did not block the deployment because the configuration passed initial payload validations. The impact only manifested once the update began routing data traffic through the specific affected IP range.\n## Remediation and Prevention\nTo stabilize the environment, engineers identified the working network paths and deployed configuration changes to reroute traffic and restore connectivity. GCVE Stretched Cluster inter-zonal connectivity was completely restored for all supported locations on Tuesday, 14 July 2026 at 20:40 US/Pacific.\nGoogle is committed preventing a repeat of this issue in the future and is completing the following actions:\n* **Expanded Testing:** We are adding more detailed GCVE network setups to our existing testing environments. This allows us to automatically test future network updates against these configurations before they go live.\n* **Service-Level Data Path Failover:** We are implementing additional service-level data path failover mechanisms that actively probe the specific data-tunneling traffic space. This will ensure a path failover is triggered if the data plane itself is degraded even when the BGP control plane remains functional.\n* **Detailed Alerting**: We are adding faster, more specific alerts for connection issues between zones. This builds on our current platform monitoring to catch minor disruptions early and speed up our response.\n* **Improved Cluster Resilience:** We are fine-tuning the cluster's high-availability and storage settings. This makes virtual machines more resilient to short network drops, preventing them from restarting unnecessarily if the main site is still healthy.\n* **Workload Resilience Alignment (Shared Responsibility):** We are proactively reaching out to customers utilizing non-vSAN replicated virtual machine configurations within Stretched Clusters. Because these workloads are pinned to a single zone without active cross-site replication, they cannot survive inter-site network disruptions. We are ready to assist customers in auditing their storage policies, adjusting Stretched Cluster configurations, and planning the secondary zone capacity required to enable robust high-availability failovers.\n## Detailed Description of Impact\nOn Tuesday, 14 July 2026 from 10:00 to 20:40 US/Pacific, customers utilizing GCVE Stretched Clusters in the affected zones (australia-southeast2, and europe-west3) experienced inter-site communication failures. For some customers, depending on their architecture, this disruption led to a VMWare HA event causing VM restarts/movement across zones as designed, host disconnects, VSAN alarms and intermittent access to VMware Management (vCenter/NSX Manager) components.",
+      "status": "AVAILABLE",
+      "affected_locations": []
+    },
+    "status_impact": "SERVICE_DISRUPTION",
+    "severity": "medium",
+    "service_key": "9H6gWUHvb2ZubeoxzQ1Y",
+    "service_name": "VMWare engine",
+    "affected_products": [
+      {
+        "title": "VMWare engine",
+        "id": "9H6gWUHvb2ZubeoxzQ1Y",
+        "current_title": "VMWare engine"
+      }
+    ],
+    "uri": "incidents/T8gmtofFSTGT5tbhyciF",
+    "currently_affected_locations": [],
+    "previously_affected_locations": [
+      {
+        "title": "Melbourne (australia-southeast2)",
+        "id": "australia-southeast2"
+      },
+      {
+        "title": "Frankfurt (europe-west3)",
+        "id": "europe-west3"
+      }
+    ]
+  },
+  {
+    "id": "5fGQt4VbkDnr3Yp8PXPr",
+    "number": "1464522124090870782",
+    "begin": "2026-06-05T07:00:00+00:00",
+    "created": "2026-06-10T01:13:50+00:00",
+    "end": "2026-06-26T19:00:00+00:00",
+    "modified": "2026-06-29T23:06:10+00:00",
+    "external_desc": "Network traffic to Google Cloud originating from Delhi, Chennai, Mumbai and surrounding areas is experiencing intermittent periods of elevated latency and possible packet loss.",
+    "updates": [
+      {
+        "created": "2026-06-29T23:06:10+00:00",
+        "modified": "2026-06-29T23:06:10+00:00",
+        "when": "2026-06-29T23:06:10+00:00",
+        "text": "**Summary**\nNetwork traffic to Google Cloud originating from Delhi, Chennai, Mumbai and surrounding areas experienced intermittent periods of elevated latency and possible packet loss.\n**Description**\nTraffic rerouting from the impacted Delhi facility caused a subset of Hybrid Connectivity, Virtual Private Cloud (VPC) and Media CDN customers to experience intermittent latency spikes as demand exceeded regional capacity.\nWe completed the augmentation of out-of-region Internet Edge regional peering capacity in Chennai to provide additional load-balancing and redundancy to large ISPs in India. Service to a large portion of Internet Edge peering capacity has been restored to reduce latency in the local Delhi metropolitan area. We are now recovered and returned to normal service as of Friday, 2026-06-26 PDT.\nFollowing safety clearance, our team restored all lost capacity. We have restored capacity between Delhi-Chennai and Delhi-Mumbai and will continue to closely monitor latency deviations and packet drops.\nWe thank you for your patience during the resolution of this issue.\n**Symptoms**\nThe impacted customers may have experienced slightly elevated latency and non-optimal network routing into Google Cloud.\n**Workaround**\nNone",
+        "status": "AVAILABLE",
+        "affected_locations": []
+      },
+      {
+        "created": "2026-06-10T01:13:50+00:00",
+        "modified": "2026-06-10T22:25:38+00:00",
+        "when": "2026-06-10T01:13:50+00:00",
+        "text": "**Summary**\nNetwork traffic to Google Cloud originating from Delhi, Chennai, Mumbai and surrounding areas is experiencing intermittent periods of elevated latency and possible packet loss.\n**Description**\nA fire at a third-party data center facility required an emergency power shutdown of networking equipment, isolating a non-compute local Point of Presence (POP) in Delhi and reducing available network capacity in the metro area.\nWe rerouted significant traffic from the impacted facility in Delhi to address reduced local serving capabilities. As a result, a subset of Hybrid Connectivity and Virtual Private Cloud (VPC) customers may be impacted by the routing changes made to address reduced local, latency-optimized serving capabilities in Delhi. Affected customers may experience intermittent latency spikes due to demand exceeding capacity across Indian metros and regional ISPs.\nWe are investigating additional traffic mitigations and Internet Edge peering augmentation to alleviate the latency issues affecting our customers.\nWe will provide our next update by Wednesday, 2026-06-10 17:00 PDT.\n**Symptoms**\nCustomers may experience slightly elevated latency and non-optimal network routing into Google Cloud until the affected facility is fully restored.\n**Workaround**\nThere is no workaround at this time.",
+        "status": "SERVICE_DISRUPTION",
+        "affected_locations": [
+          {
+            "title": "Delhi (asia-south2)",
+            "id": "asia-south2"
+          }
+        ]
+      }
+    ],
+    "most_recent_update": {
+      "created": "2026-06-29T23:06:10+00:00",
+      "modified": "2026-06-29T23:06:10+00:00",
+      "when": "2026-06-29T23:06:10+00:00",
+      "text": "**Summary**\nNetwork traffic to Google Cloud originating from Delhi, Chennai, Mumbai and surrounding areas experienced intermittent periods of elevated latency and possible packet loss.\n**Description**\nTraffic rerouting from the impacted Delhi facility caused a subset of Hybrid Connectivity, Virtual Private Cloud (VPC) and Media CDN customers to experience intermittent latency spikes as demand exceeded regional capacity.\nWe completed the augmentation of out-of-region Internet Edge regional peering capacity in Chennai to provide additional load-balancing and redundancy to large ISPs in India. Service to a large portion of Internet Edge peering capacity has been restored to reduce latency in the local Delhi metropolitan area. We are now recovered and returned to normal service as of Friday, 2026-06-26 PDT.\nFollowing safety clearance, our team restored all lost capacity. We have restored capacity between Delhi-Chennai and Delhi-Mumbai and will continue to closely monitor latency deviations and packet drops.\nWe thank you for your patience during the resolution of this issue.\n**Symptoms**\nThe impacted customers may have experienced slightly elevated latency and non-optimal network routing into Google Cloud.\n**Workaround**\nNone",
+      "status": "AVAILABLE",
+      "affected_locations": []
+    },
+    "status_impact": "SERVICE_DISRUPTION",
+    "severity": "medium",
+    "service_key": "zall",
+    "service_name": "Multiple Products",
+    "affected_products": [
+      {
+        "title": "Hybrid Connectivity",
+        "id": "5x6CGnZvSHQZ26KtxpK1",
+        "current_title": "Hybrid Connectivity"
+      },
+      {
+        "title": "Media CDN",
+        "id": "FK8WX6iZ3FuQL6qUwski",
+        "current_title": "Media CDN"
+      },
+      {
+        "title": "Virtual Private Cloud (VPC)",
+        "id": "BSGtCUnz6ZmyajsjgTKv",
+        "current_title": "Virtual Private Cloud (VPC)"
+      }
+    ],
+    "uri": "incidents/5fGQt4VbkDnr3Yp8PXPr",
+    "currently_affected_locations": [],
+    "previously_affected_locations": [
+      {
+        "title": "Delhi (asia-south2)",
+        "id": "asia-south2"
+      },
+      {
+        "title": "Global",
+        "id": "global"
+      }
+    ]
+  },
+  {
+    "id": "41E5S3mkTGDfkZuJZH5k",
+    "number": "6876619551109882402",
+    "begin": "2026-02-27T12:37:00+00:00",
+    "created": "2026-02-27T16:12:30+00:00",
+    "end": "2026-02-27T14:35:00+00:00",
+    "modified": "2026-03-09T05:25:43+00:00",
+    "external_desc": "Vertex AI Gemini API customers experienced increased error rates when accessing the global endpoint.",
+    "updates": [
+      {
+        "created": "2026-03-09T05:25:43+00:00",
+        "modified": "2026-03-09T05:25:43+00:00",
+        "when": "2026-03-09T05:25:43+00:00",
+        "text": "# Incident Report\n## Summary\nOn Friday, 27 February 2026 at 04:37 US/Pacific, customers using Vertex AI Gemini API models experienced increased error rates. Impacted services included Google Cloud Support, Agent Assist, Vertex Gemini API and Dialogflow CX in US regions and the global endpoint. The issue persisted for a duration of 1 hour and 58 minutes.\nThis is not the level of quality and reliability we strive to offer you, and we have taken immediate steps to improve the platform\u2019s performance and availability.\n## Root Cause\nThis incident was caused by a configuration change to a safety filtering service that supports all Gemini models. For some specific requests, this created code paths that eventually led to service disruptions and capacity loss for the safety filtering service. Consequently, customers encountered overload (429 and 503) errors for their queries, with some users reporting elevated error rates for specific models in US regions.\n## Remediation and Prevention\nGoogle engineers were alerted to the issue via our automated monitoring system on Friday, 27 February 2026 04:54 US/Pacific and immediately started an investigation.\nEngineers identified the faulty configuration change and initiated a rollback to restore the previous stable configuration. Engineers also added more capacity to the service to stabilize it. Full service restoration was confirmed by 06:35 US/Pacific as the rollback propagated and servers became healthy. \\ \\\nGoogle is committed to preventing a repeat of this issue and is taking the following actions:\n* Reinforcing rollout processes to include mandatory validation checkpoints.\n* Improving alerting systems to monitor critical dependencies more closely.\n## ## Detailed Description of Impact\nOn Friday, 27 February 2026 between 04:37 and 06:35 US/Pacific, customers accessing Vertex Gemini APIs may have experienced the following:\n* **Affected Models:** All Vertex AI Gemini API models were affected, including gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro, gemini-3.0-flash-preview, gemini-3.0-pro-preview, gemini-2.0-flash, gemini-2.0-flash-lite.\n* **Error Experience:** * **PayGo Customers:** Experienced primarily 429 Resource Exhausted errors. * **Provisioned Throughput (PT) Customers:** Received 503 Service Unavailable errors. * For PT customers, most errors stopped at **06:00**. For PayGo customers, most errors stopped at **06:20**.\n* **Geographic Scope:** Global endpoint, us-central1, us-east4, and other US regions were impacted.",
+        "status": "AVAILABLE",
+        "affected_locations": []
+      },
+      {
+        "created": "2026-02-27T16:12:30+00:00",
+        "modified": "2026-03-04T23:23:18+00:00",
+        "when": "2026-02-27T16:12:30+00:00",
+        "text": "**Description** \\\nBetween Friday, 2026-02-27, 04:36 and 06:45 PST, customers experienced increased error rates when accessing the Vertex Gemini API Global endpoint. The issue impacted API requests to multiple Gemini models.\nThe incident also caused downstream impact to Dialogflow CX, Agent Assist, Google Cloud Support AI agent, and Customer Experience Agent Studio, which rely on Gemini APIs.\nPreliminary analysis indicates the issue was triggered by a recent configuration change. Service was fully restored after the configuration change was rolled back.\nWe thank you for your patience while we worked on resolving the issue.\n**Symptom**\n\\\nCustomers experienced increased error rates when sending API requests to impacted multiple Gemini models through the global endpoint.",
+        "status": "SERVICE_INFORMATION",
+        "affected_locations": [
+          {
+            "title": "Montr\u00e9al (northamerica-northeast1)",
+            "id": "northamerica-northeast1"
+          },
+          {
+            "title": "S\u00e3o Paulo (southamerica-east1)",
+            "id": "southamerica-east1"
+          },
+          {
+            "title": "Iowa (us-central1)",
+            "id": "us-central1"
+          },
+          {
+            "title": "South Carolina (us-east1)",
+            "id": "us-east1"
+          },
+          {
+            "title": "Northern Virginia (us-east4)",
+            "id": "us-east4"
+          },
+          {
+            "title": "Columbus (us-east5)",
+            "id": "us-east5"
+          },
+          {
+            "title": "Oregon (us-west1)",
+            "id": "us-west1"
+          }
+        ]
+      }
+    ],
+    "most_recent_update": {
+      "created": "2026-03-09T05:25:43+00:00",
+      "modified": "2026-03-09T05:25:43+00:00",
+      "when": "2026-03-09T05:25:43+00:00",
+      "text": "# Incident Report\n## Summary\nOn Friday, 27 February 2026 at 04:37 US/Pacific, customers using Vertex AI Gemini API models experienced increased error rates. Impacted services included Google Cloud Support, Agent Assist, Vertex Gemini API and Dialogflow CX in US regions and the global endpoint. The issue persisted for a duration of 1 hour and 58 minutes.\nThis is not the level of quality and reliability we strive to offer you, and we have taken immediate steps to improve the platform\u2019s performance and availability.\n## Root Cause\nThis incident was caused by a configuration change to a safety filtering service that supports all Gemini models. For some specific requests, this created code paths that eventually led to service disruptions and capacity loss for the safety filtering service. Consequently, customers encountered overload (429 and 503) errors for their queries, with some users reporting elevated error rates for specific models in US regions.\n## Remediation and Prevention\nGoogle engineers were alerted to the issue via our automated monitoring system on Friday, 27 February 2026 04:54 US/Pacific and immediately started an investigation.\nEngineers identified the faulty configuration change and initiated a rollback to restore the previous stable configuration. Engineers also added more capacity to the service to stabilize it. Full service restoration was confirmed by 06:35 US/Pacific as the rollback propagated and servers became healthy. \\ \\\nGoogle is committed to preventing a repeat of this issue and is taking the following actions:\n* Reinforcing rollout processes to include mandatory validation checkpoints.\n* Improving alerting systems to monitor critical dependencies more closely.\n## ## Detailed Description of Impact\nOn Friday, 27 February 2026 between 04:37 and 06:35 US/Pacific, customers accessing Vertex Gemini APIs may have experienced the following:\n* **Affected Models:** All Vertex AI Gemini API models were affected, including gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro, gemini-3.0-flash-preview, gemini-3.0-pro-preview, gemini-2.0-flash, gemini-2.0-flash-lite.\n* **Error Experience:** * **PayGo Customers:** Experienced primarily 429 Resource Exhausted errors. * **Provisioned Throughput (PT) Customers:** Received 503 Service Unavailable errors. * For PT customers, most errors stopped at **06:00**. For PayGo customers, most errors stopped at **06:20**.\n* **Geographic Scope:** Global endpoint, us-central1, us-east4, and other US regions were impacted.",
+      "status": "AVAILABLE",
+      "affected_locations": []
+    },
+    "status_impact": "SERVICE_INFORMATION",
+    "severity": "low",
+    "service_key": "zall",
+    "service_name": "Multiple Products",
+    "affected_products": [
+      {
+        "title": "Agent Assist",
+        "id": "eUntUKqUrHdbBLNcVVXq",
+        "current_title": "Agent Assist"
+      },
+      {
+        "title": "Dialogflow CX",
+        "id": "BnCicQdHSdxaCv8Ya6Vm",
+        "current_title": "Dialogflow CX"
+      },
+      {
+        "title": "Vertex Gemini API",
+        "id": "Z0FZJAMvEB4j3NbCJs6B",
+        "current_title": "Gemini on Agent Platform"
+      },
+      {
+        "title": "Google Cloud Support",
+        "id": "bGThzF7oEGP5jcuDdMuk",
+        "current_title": "Google Cloud Support"
+      }
+    ],
+    "uri": "incidents/41E5S3mkTGDfkZuJZH5k",
+    "currently_affected_locations": [],
+    "previously_affected_locations": [
+      {
+        "title": "Global",
+        "id": "global"
+      },
+      {
+        "title": "Montr\u00e9al (northamerica-northeast1)",
+        "id": "northamerica-northeast1"
+      },
+      {
+        "title": "S\u00e3o Paulo (southamerica-east1)",
+        "id": "southamerica-east1"
+      },
+      {
+        "title": "Iowa (us-central1)",
+        "id": "us-central1"
+      },
+      {
+        "title": "South Carolina (us-east1)",
+        "id": "us-east1"
+      },
+      {
+        "title": "Northern Virginia (us-east4)",
+        "id": "us-east4"
+      },
+      {
+        "title": "Columbus (us-east5)",
+        "id": "us-east5"
+      },
+      {
+        "title": "Oregon (us-west1)",
+        "id": "us-west1"
+      }
+    ]
+  }
+]
