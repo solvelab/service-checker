@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/solvelab/service-checker/compare/v2.3.3...v2.4.0) (2026-08-16)
+
+
+### Features
+
+* **notifications:** adicionar Google Chat como canal ([8825763](https://github.com/solvelab/service-checker/commit/88257635aeb7c105a012189d6e7fc16da3e1d489))
+
 ## [2.3.3](https://github.com/solvelab/service-checker/compare/v2.3.2...v2.3.3) (2026-08-16)
 
 
