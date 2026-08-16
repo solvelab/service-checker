@@ -29,7 +29,7 @@ jobs:
         run: pip install ruff==0.6.9
 
       - name: Ruff check
-        run: ruff check app tests
+        run: ruff check app tests scripts
 
   test:
     name: Run Tests
