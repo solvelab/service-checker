@@ -47,6 +47,10 @@ These apply across modules:
 - `SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS`: default polling interval in seconds.
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
+- `GOOGLE_CHAT_ENABLED`: `false`. Enables the Google Chat channel.
+- `GOOGLE_CHAT_WEBHOOK_URL`: empty. **Credential** — the incoming-webhook URL carries `key` and `token`; store it as a secret, never in the image or in version control.
+- `GOOGLE_CHAT_MIN_INTERVAL_SECONDS`: `1.1`. Minimum gap between sends; a Chat space accepts 1 request/second, shared by every webhook in it.
+- `GOOGLE_CHAT_THREAD_BY_CHECK`: `true`. Groups an alert and its recovery into one conversation.
 - `NOTIFICATION_REPEAT_MINUTES`: minimum minutes between repeated alerts for the same service.
 - `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before the monitor reports itself as broken (default `3`, minimum `1`). Raise it to stay quiet about monitoring failures.
 

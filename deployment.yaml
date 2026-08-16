@@ -190,6 +190,15 @@ spec:
               value: ""
             - name: WEBHOOK_HEADER_NAME
               value: "Authorization"
+            - name: GOOGLE_CHAT_ENABLED
+              value: "false"
+            # Credential — move to a Secret before enabling.
+            - name: GOOGLE_CHAT_WEBHOOK_URL
+              value: ""
+            - name: GOOGLE_CHAT_MIN_INTERVAL_SECONDS
+              value: "1.1"
+            - name: GOOGLE_CHAT_THREAD_BY_CHECK
+              value: "true"
             - name: NOTIFICATION_REPEAT_MINUTES
               value: "10"
             - name: NOTIFICATION_ERROR_THRESHOLD

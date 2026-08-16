@@ -11,7 +11,7 @@ The `NotificationManager` (in `app/core/notifications.py`) receives module resul
 - For modules that return a list of services (Steam/OpenAI/etc.), the lifecycle is per service (independent alert, repeat, and resolution).
 - Recovery notifications identify the exact component that transitioned back to OK, including name, id/slug, and the previous status. This keeps component-level recoveries distinct from provider-level "overall" recoveries.
 - Each recovery notification is logged with `check_id` (e.g., `openai:api`) and the `from_status` → `to_status` transition for auditability.
-- Available channels: Telegram (`app/notifications/telegram`) and Webhook (`app/notifications/webhook`).
+- Available channels: Telegram (`app/notifications/telegram`), Webhook (`app/notifications/webhook`) and Google Chat (`app/notifications/google_chat`).
 - Channels are registered, not hardcoded — see *Adding a channel* below.
 - Notification failures are logged at `ERROR` level but do not stop the main monitor.
 
@@ -96,3 +96,4 @@ templates, intercepting only the outbound POST, and fails if any channel misses 
 ## 📚 Recommended reading
 - [Telegram](telegram/README.md): how to validate the token (`getMe`), find `chat_id` via `getUpdates`, and the card template.
 - [Webhook](webhook/README.md): payload, headers, and usage examples.
+- [Google Chat](google_chat/README.md): incoming-webhook setup, why the URL is a credential, the per-space quota, and threading.
