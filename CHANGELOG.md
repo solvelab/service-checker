@@ -1,3 +1,10 @@
+## [2.8.3](https://github.com/solvelab/service-checker/compare/v2.8.2...v2.8.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* **config:** SERVICE_FILTER passa a aceitar nome com virgula ([#62](https://github.com/solvelab/service-checker/issues/62)) ([1fe7fbe](https://github.com/solvelab/service-checker/commit/1fe7fbeabeb7ff0a85760f8c5cfc04f8e338d29d)), closes [#56](https://github.com/solvelab/service-checker/issues/56)
+
 ## [2.8.2](https://github.com/solvelab/service-checker/compare/v2.8.1...v2.8.2) (2026-08-16)
 
 
