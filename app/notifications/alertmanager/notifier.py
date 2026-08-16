@@ -39,6 +39,10 @@ RESERVED_LABELS = frozenset(
 
 _FLOOR_SECONDS = 300.0
 
+#: Quanto o `startsAt` recua numa recuperacao. So precisa ser maior que zero: o que o
+#: servidor valida e `startsAt < endsAt`, nao o tamanho do intervalo.
+_RESOLVE_BACKDATE_SECONDS = 1.0
+
 
 class AlertmanagerNotifier:
     def __init__(self, config) -> None:
@@ -170,16 +174,27 @@ class AlertmanagerNotifier:
             annotations["incidents"] = "\n".join(result.reason_items)
         annotations["event"] = event_name
 
-        ends_at = event_time + timedelta(
-            seconds=self._resolve_after(interval_seconds)
-            if firing
-            else -1.0
-        )
+        if firing:
+            starts_at = event_time
+            ends_at = event_time + timedelta(seconds=self._resolve_after(interval_seconds))
+        else:
+            # Resolver exige duas coisas ao mesmo tempo, e antes so uma era respeitada:
+            # `endsAt` no passado — para o Alertmanager considerar resolvido — **e**
+            # `startsAt < endsAt`, que ele valida antes de aceitar o corpo. Recuar o
+            # `endsAt` para tras do `startsAt` satisfazia a primeira e violava a
+            # segunda, e o servidor devolvia `400 "start time must be before end time"`
+            # em toda recuperacao.
+            #
+            # Recuar o `startsAt` atende as duas. O custo e a duracao registrada ficar
+            # ligeiramente errada; reportar a real exigiria guardar o instante do
+            # primeiro disparo por componente, e isso e outro item.
+            ends_at = event_time
+            starts_at = event_time - timedelta(seconds=_RESOLVE_BACKDATE_SECONDS)
 
         return {
             "labels": labels,
             "annotations": annotations,
-            "startsAt": _rfc3339(event_time),
+            "startsAt": _rfc3339(starts_at),
             "endsAt": _rfc3339(ends_at),
         }
 

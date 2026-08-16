@@ -153,9 +153,36 @@ def test_a_firing_alert_ends_in_the_future():
 
 
 @pytest.mark.parametrize("method", ["send_recovery", "send_monitor_recovered"])
-def test_a_recovery_ends_in_the_past(method):
+def test_a_recovery_ends_no_later_than_the_event(method):
+    """Resolvido é `endsAt` já no passado — não `endsAt` antes de `startsAt`.
+
+    A versão anterior deste teste exigia `endsAt - startsAt < 0`, que é exatamente o
+    corpo que o Alertmanager recusa com `400 "start time must be before end time"`.
+    Passou com 62 testes verdes e o canal nunca resolveu nada em produção: foi
+    verificado o modelo mental do autor, não o contrato do servidor.
+    """
     client, _ = _send(AlertmanagerNotifier(_config()), method)
-    assert _seconds_ahead(_alert(client)) < 0
+    alert = _alert(client)
+    assert datetime.fromisoformat(alert["endsAt"]) <= _NOW
+
+
+@pytest.mark.parametrize("method", ["send_alert", "send_recovery", "send_monitor_error",
+                                    "send_monitor_recovered"])
+def test_starts_at_always_precedes_ends_at(method):
+    """A invariante que o servidor valida, em todos os métodos e nos dois estados."""
+    client, _ = _send(AlertmanagerNotifier(_config()), method)
+    assert _seconds_ahead(_alert(client)) > 0
+
+
+@pytest.mark.parametrize("interval", [1, 30, 60, 3600, 86400])
+@pytest.mark.parametrize("repeat", [1, 10, 120])
+def test_the_invariant_holds_across_every_window(interval, repeat):
+    for method in ("send_alert", "send_recovery"):
+        client, _ = _send(
+            AlertmanagerNotifier(_config(repeat_minutes=repeat)), method,
+            interval=interval,
+        )
+        assert _seconds_ahead(_alert(client)) > 0, (method, interval, repeat)
 
 
 def test_the_margin_exceeds_the_real_gap_between_two_sends():
