@@ -29,3 +29,16 @@ Antes de abrir o PR, rode os dois localmente com Python 3.11 e as dependências 
 ```bash
 python scripts/simulate_endpoints.py .env.example
 ```
+
+Esse script consulta **nove provedores reais**, então é diagnóstico e não gate determinístico.
+Um módulo que falha é reexecutado antes de o script declarar falha: falha que não se repete sai
+como `TRANSIENT` e não derruba a execução, falha que se repete sai não-zero. `SIMULATE_ATTEMPTS=1`
+desliga a repetição.
+
+Não coloque esse script na CI esperando sinal estável — um provedor instável por alguns minutos
+ainda vai deixar a execução vermelha. Para verificar a entrega de notificação, que não toca a rede
+e é determinística:
+
+```bash
+python scripts/simulate_notifications.py
+```

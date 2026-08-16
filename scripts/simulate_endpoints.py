@@ -12,8 +12,18 @@ actually present in the payload.
 
     python scripts/simulate_endpoints.py [path/to/.env]
 
-Exit code is non-zero when a module fails to load, raises, returns ERROR, or reads
-fields absent from every upstream record.
+This queries nine real providers, so it is a diagnostic, **not a deterministic gate**.
+A momentary hiccup on any of them is indistinguishable, in a single run, from a module
+that is genuinely broken — and the difference is the whole point: the AWS blindness was
+permanent and reproducible, a network timeout is not.
+
+So a module that fails is retried before the script calls it a failure. A failure that
+does not repeat is reported as transient and does not fail the run; one that repeats
+does. Set `SIMULATE_ATTEMPTS=1` to disable the retry and restore the previous behaviour.
+
+Do not wire this into CI expecting a stable signal: a transient upstream will still be
+reported, just not as a failure, and a provider that is flaky for minutes will still go
+red.
 
 The field expectations live here rather than in the modules on purpose: this is a
 diagnostic tool, and production code should not carry scaffolding for it.
@@ -43,6 +53,22 @@ CONTRACTS: dict[str, dict] = {
     # steam and rockstar parse HTML behind TLS impersonation; the module's own parse
     # count is the only meaningful signal, so they carry no field contract.
 }
+
+
+def _attempts() -> int:
+    """How many times a failing module is tried before the run calls it a failure."""
+    try:
+        return max(int(os.getenv("SIMULATE_ATTEMPTS", "2")), 1)
+    except ValueError:
+        return 2
+
+
+def _retry_delay() -> float:
+    """Pause between attempts, so a struggling provider is not hammered."""
+    try:
+        return max(float(os.getenv("SIMULATE_RETRY_DELAY", "2.0")), 0.0)
+    except ValueError:
+        return 2.0
 
 
 def load_env_file(path: Path) -> int:
@@ -108,6 +134,36 @@ def _count_parsed(payload) -> int:
     return 0
 
 
+async def resolve_with_retry(slugs, runner, attempts, delay, sleep=None):
+    """Separate a provider hiccup from a module that is genuinely broken.
+
+    `runner(slug)` is awaited and returns `(ok, detail)`. Only slugs that failed are
+    retried, so a healthy module is never queried twice.
+
+    Returns `(transient, persistent)`, both mapping slug to the detail of the *first*
+    failure. A transient failure is still named in the report — silencing it would hide
+    a provider that is flaky every few minutes, which is real information.
+    """
+    sleeper = sleep or asyncio.sleep
+    first_detail = dict(slugs)
+    pending = list(first_detail)
+    for _ in range(max(attempts, 1) - 1):
+        if not pending:
+            break
+        await sleeper(delay)
+        still_failing = []
+        for slug in pending:
+            ok, _detail = await runner(slug)
+            if not ok:
+                still_failing.append(slug)
+        pending = still_failing
+    persistent = {slug: first_detail[slug] for slug in pending}
+    transient = {
+        slug: detail for slug, detail in first_detail.items() if slug not in persistent
+    }
+    return transient, persistent
+
+
 async def main() -> int:
     from app.core.config import load_app_config
     from app.core.http_client import create_http_client
@@ -131,7 +187,8 @@ async def main() -> int:
         print(f"FAILED TO LOAD: {', '.join(missing_modules)}")
     print()
 
-    failures: list[tuple[str, str]] = [(s, "module failed to load") for s in missing_modules]
+    failures: dict[str, str] = {s: "module failed to load" for s in missing_modules}
+    by_slug = {cfg.slug: (monitor, cfg) for monitor, cfg in monitors}
 
     async with create_http_client(
         timeout_seconds=config.defaults.timeout_seconds,
@@ -158,7 +215,7 @@ async def main() -> int:
     for slug, result, raised, elapsed, records, missing, note in sorted(results):
         if raised is not None:
             print(f"{slug:<11} {'RAISED':<7} {elapsed:>7.0f} {'-':>5} {'-':>7}  {raised}")
-            failures.append((slug, f"uncaught exception: {raised}"))
+            failures[slug] = f"uncaught exception: {raised}"
             continue
 
         parsed = _count_parsed(result.payload)
@@ -166,19 +223,65 @@ async def main() -> int:
         verdict = note or "ok"
         if missing:
             verdict = f"BLIND — fields absent upstream: {', '.join(missing)}"
-            failures.append((slug, verdict))
+            failures[slug] = verdict
         print(
             f"{slug:<11} {result.status.value:<7} {elapsed:>7.0f} {raw:>5} {parsed:>7}  {verdict}"
         )
         if result.reason:
             print(f"{'':<11} {'':<7} {'':>7} {'':>5} {'':>7}  reason: {result.reason[:80]}")
         if result.status.value == "ERROR":
-            failures.append((slug, result.reason or result.message))
+            failures[slug] = result.reason or result.message
 
     print("-" * 96)
-    if failures:
-        print(f"\n{len(failures)} FAILURE(S):")
-        for slug, why in failures:
+
+    attempts = _attempts()
+    transient: dict[str, str] = {}
+    persistent = dict(failures)
+    retryable = {s: w for s, w in failures.items() if s not in missing_modules}
+
+    if retryable and attempts > 1:
+        print(f"\n{len(retryable)} module(s) failed; retrying only those "
+              f"({attempts - 1} more attempt(s)) to tell a provider hiccup "
+              f"from a broken module\n")
+
+        async with create_http_client(
+            timeout_seconds=config.defaults.timeout_seconds,
+            user_agent=config.defaults.user_agent,
+        ) as client:
+
+            async def retry_one(slug):
+                monitor, cfg = by_slug[slug]
+                try:
+                    result = await monitor.check(
+                        http_client=client, logger=logger.getChild(slug)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    return False, f"{type(exc).__name__}: {exc}"
+                if result.status.value == "ERROR":
+                    return False, result.reason or result.message
+                _records, missing_fields, _note = await inspect_upstream(
+                    slug, cfg.url, client
+                )
+                if missing_fields:
+                    return False, f"fields absent upstream: {', '.join(missing_fields)}"
+                return True, ""
+
+            transient, retried_persistent = await resolve_with_retry(
+                retryable, retry_one, attempts, _retry_delay()
+            )
+        persistent = {
+            slug: why
+            for slug, why in failures.items()
+            if slug in missing_modules or slug in retried_persistent
+        }
+
+    for slug, why in transient.items():
+        print(f"  TRANSIENT  {slug}: {why}")
+        print("             passed on retry — reported, not counted as a failure")
+
+    if persistent:
+        print(f"\n{len(persistent)} FAILURE(S):")
+        for slug, why in persistent.items():
             print(f"  - {slug}: {why}")
         return 1
 
