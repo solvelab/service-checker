@@ -143,6 +143,15 @@ class NotificationManager:
         )
 
         service_items = _extract_service_items(result.payload)
+
+        # Reconcile before dispatching, and for ALERT as much as for OK: a component
+        # can drop out of the payload while others are still degraded, and that is a
+        # recovery too. This must not be gated on the branch below, because the whole
+        # defect was that an emptied payload never reaches it.
+        await self._recover_vanished_services(
+            module_id, result, service_items, module_config, event_time, http_client, logger
+        )
+
         if service_items:
             await self._handle_service_result(
                 module_id,
@@ -317,6 +326,77 @@ class NotificationManager:
             logger=logger,
         )
 
+    async def _recover_vanished_services(
+        self,
+        module_id: str,
+        result: MonitorResult,
+        service_items: list[dict],
+        module_config: ModuleConfig,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
+        """Emit the all-clear for components that dropped out of the payload.
+
+        A provider whose feed lists only *open* incidents says a component recovered by
+        omitting it, never by publishing it as healthy. `aws` and `gcp` do exactly that,
+        and their healthy payload is therefore an empty list — which is falsy, so the
+        whole result used to route to the per-module branch and look up `<module_id>`,
+        a key the per-service alert had never written. The alert fired on every channel
+        and the all-clear could not fire at all: the operator was told AWS Direct Connect
+        was degraded and was never told it was over.
+
+        Presence is the wrong thing to reconcile against. The set of items in this cycle
+        is the right one, and it is right whatever the overall status: three open events
+        dropping to two is a recovery for the third even though the module still reports
+        ALERT.
+        """
+        prefix = f"{module_id}:"
+        present = {_service_key(module_id, item) for item in service_items}
+        vanished = [
+            key
+            for key, state in self._alert_state.items()
+            if key.startswith(prefix)
+            and key not in present
+            and state.last_status == MonitorStatus.ALERT
+        ]
+
+        for key in vanished:
+            # Popped, not set to OK: the component is gone from the feed, so keeping a
+            # key for it would grow the map for the process's whole life. Absence and
+            # a recorded OK are equivalent to every reader of this state.
+            state = self._alert_state.pop(key)
+            from_status = state.last_status_text or "ALERT"
+            item = state.last_item or {"name": key.split(":", 1)[1]}
+            enriched_item = {
+                **item,
+                "from_status": from_status,
+                "to_status": "operational",
+            }
+            recovery_result = _build_service_result(
+                result, enriched_item, MonitorStatus.OK, "service restored"
+            )
+            logger.info(
+                "recovery notification emitted",
+                extra={
+                    "event": "service_recovery",
+                    "module_id": module_id,
+                    "check_id": key,
+                    "from_status": from_status,
+                    "to_status": "operational",
+                },
+            )
+            await self._notify_recovery(
+                module_id,
+                recovery_result,
+                module_config,
+                level_name="INFO",
+                event_name="service_resolved",
+                event_time=_ensure_aware(event_time),
+                http_client=http_client,
+                logger=logger,
+            )
+
     async def _handle_service_result(
         self,
         module_id: str,
@@ -364,9 +444,11 @@ class NotificationManager:
                         http_client=http_client,
                         logger=logger,
                     )
-                self._alert_state[key] = AlertState(
-                    last_status=MonitorStatus.OK, last_alert_at=None
-                )
+                # Dropped rather than recorded as OK, for the same reason as in
+                # `_recover_vanished_services`: a healthy component needs no bookkeeping,
+                # and `state is None` reads identically to `last_status == OK` everywhere
+                # this map is consulted.
+                self._alert_state.pop(key, None)
             return
 
         # Only OK and ALERT reach here: handle_result intercepts ERROR before dispatching,
@@ -402,6 +484,7 @@ class NotificationManager:
                 last_status=MonitorStatus.ALERT,
                 last_alert_at=event_time,
                 last_status_text=item.get("status") or item.get("severity") or item.get("status_text") or "ALERT",
+                last_item=item,
             )
 
     async def _notify_alert(
@@ -456,6 +539,10 @@ class AlertState:
     last_status: MonitorStatus
     last_alert_at: Optional[datetime]
     last_status_text: Optional[str] = None
+    # The component as it looked when it alerted. A provider that publishes only open
+    # incidents announces a recovery by *omitting* the component, so by the time the
+    # all-clear is due there is no item left to describe it with.
+    last_item: Optional[dict] = None
 
 
 @dataclass
