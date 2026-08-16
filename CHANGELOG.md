@@ -1,3 +1,10 @@
+## [2.3.2](https://github.com/solvelab/service-checker/compare/v2.3.1...v2.3.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* **aws:** ler os campos que o feed realmente devolve ([4207df1](https://github.com/solvelab/service-checker/commit/4207df14b932320fa005068f33f782d00c811360))
+
 ## [2.3.1](https://github.com/solvelab/service-checker/compare/v2.3.0...v2.3.1) (2026-08-16)
 
 
