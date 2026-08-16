@@ -132,6 +132,23 @@ Each module supports the same environment shape:
   allowlist: `Tunnel,Authoritative DNS,Network,CDN/Cache,SSL Certificate Provisioning`.
   Set `*` to watch all 475 and expect dozens of alerts a day.
 
+## 💾 Alert state across restarts
+
+- `NOTIFICATION_STATE_PATH`: file where pending alerts are kept. **Empty means in-memory
+  only**, which is the previous behaviour — and it means an incident that spans a restart
+  never gets its all-clear, because no provider announces the same degradation twice.
+- `NOTIFICATION_STATE_MAX_AGE_MINUTES` (default `1440`): an alert older than this is
+  discarded at startup instead of producing a late, surprising resolution. `0` = no limit.
+
+The path must live on storage that outlives the container. The compose files mount a
+named volume at `/var/lib/service-checker` for exactly this. On Kubernetes an `emptyDir`
+does **not** work — it disappears with the pod, which is the case this exists to survive.
+
+Writes are atomic (temp file + rename) and skipped when nothing changed, so a healthy
+fleet costs no disk traffic. Every failure — unreadable file, bad JSON, full disk — is
+logged and swallowed: a monitor that will not start because it could not persist
+bookkeeping is worse than one that forgets.
+
 ## 🔔 Notifications
 **Telegram**
 - `TELEGRAM_ENABLED` (default `false`)

@@ -10,6 +10,7 @@ from typing import Optional
 import httpx
 
 from .config import ModuleConfig, NotificationConfig
+from .state_store import StateStore
 from .types import NOTIFIER_METHODS, MonitorResult, MonitorStatus, Notifier
 from ..notifications.alertmanager.notifier import AlertmanagerNotifier
 from ..notifications.google_chat.notifier import GoogleChatNotifier
@@ -25,6 +26,14 @@ class NotificationManager:
         self._error_state: dict[str, MonitorErrorState] = {}
         self._repeat_seconds = max(config.repeat_minutes, 1) * 60
         self._error_threshold = max(getattr(config, "error_threshold", 3), 1)
+        # Pending alerts survive a restart when a path is configured. Without one this
+        # is a no-op and the manager behaves exactly as it always did.
+        self._store = StateStore(
+            getattr(config, "state_path", None),
+            getattr(config, "state_max_age_minutes", 1440),
+        )
+        if self._store.enabled:
+            self._alert_state, self._error_state = self._store.load()
         if config.telegram.enabled:
             self.register("telegram", TelegramNotifier(config.telegram))
         if config.webhook.enabled:
@@ -116,7 +125,20 @@ class NotificationManager:
                     },
                 )
 
-    async def handle_result(
+    async def handle_result(self, **kwargs) -> None:
+        """Handle one monitor result, then persist whatever the state became.
+
+        A thin wrapper on purpose: `_handle_result` returns from several places, and a
+        flush written at each of them is a flush the next edit forgets. Persisting here
+        means every path is covered by construction.
+        """
+        try:
+            await self._handle_result(**kwargs)
+        finally:
+            if self._store.enabled:
+                self._store.save(self._alert_state, self._error_state)
+
+    async def _handle_result(
         self,
         module_id: str,
         result: MonitorResult,

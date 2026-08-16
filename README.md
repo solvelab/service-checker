@@ -160,6 +160,17 @@ signal.
 ([#49](https://github.com/solvelab/service-checker/issues/49)). That is a real defect the script
 found, not a flaky run — the exit code stays red until it is fixed.
 
+## 💾 Alert state across restarts
+Notification state lives in memory, so a restart used to swallow the all-clear: the
+operator was told a component was down and, if the process restarted before the provider
+recovered, the "resolved" message never arrived. No provider announces the same
+degradation twice, so there was no transition left to notify.
+
+Set `NOTIFICATION_STATE_PATH` to a file on storage that outlives the container and
+pending alerts survive the restart. Leave it empty for the old in-memory behaviour.
+`NOTIFICATION_STATE_MAX_AGE_MINUTES` (default 24h) drops alerts old enough that a late
+resolution would confuse more than it helps. Details in [DOCKER.md](DOCKER.md).
+
 ## 📐 What the project guarantees
 [`openspec/specs/`](openspec/specs) holds one spec per capability — ten of them, one for each
 monitor plus the notification lifecycle. They describe the guarantees in verifiable scenarios, which
