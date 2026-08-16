@@ -1,3 +1,10 @@
+## [2.5.2](https://github.com/solvelab/service-checker/compare/v2.5.1...v2.5.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* **scripts:** buscar cada endpoint uma vez por execucao ([3af3b4e](https://github.com/solvelab/service-checker/commit/3af3b4e896d6e06408003a4c7d4fcc5f6e6c49f5)), closes [#34](https://github.com/solvelab/service-checker/issues/34)
+
 ## [2.5.1](https://github.com/solvelab/service-checker/compare/v2.5.0...v2.5.1) (2026-08-16)
 
 
