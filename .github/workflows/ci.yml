@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -56,6 +59,9 @@ jobs:
   release:
     name: Semantic Release
     needs: [test]
+    # Only a merged commit cuts a version. On a pull request the pipeline stops
+    # after lint and tests, so reviewing a branch never tags or publishes.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       new_release: ${{ steps.check_release.outputs.new_release }}
@@ -100,7 +106,9 @@ jobs:
   publish:
     name: Publish Docker
     needs: [release]
-    if: needs.release.outputs.new_release == 'true'
+    # Skipping `release` already skips this job by dependency; the explicit event
+    # check states the intent instead of leaving it emergent.
+    if: github.event_name != 'pull_request' && needs.release.outputs.new_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
