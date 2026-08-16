@@ -1,3 +1,10 @@
+# [2.8.0](https://github.com/solvelab/service-checker/compare/v2.7.0...v2.8.0) (2026-08-16)
+
+
+### Features
+
+* **notifications:** manter alertas pendentes entre reinicios ([#58](https://github.com/solvelab/service-checker/issues/58)) ([6e8a5a6](https://github.com/solvelab/service-checker/commit/6e8a5a6a2a1a681b0d71e84d2f80b3c2e38ff5eb)), closes [#57](https://github.com/solvelab/service-checker/issues/57)
+
 # [2.7.0](https://github.com/solvelab/service-checker/compare/v2.6.1...v2.7.0) (2026-08-16)
 
 
