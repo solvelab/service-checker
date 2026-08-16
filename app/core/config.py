@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -67,12 +67,30 @@ class GoogleChatConfig:
 
 
 @dataclass
+class AlertmanagerConfig:
+    enabled: bool
+    # Base URL, e.g. http://alertmanager:9093 — the channel appends /api/v2/alerts.
+    url: Optional[str]
+    token: Optional[str]
+    header_name: str
+    # How far ahead `endsAt` is placed on a firing alert. 0 means derive it from the
+    # repeat window and the check interval, which is what keeps the alert from
+    # expiring between two sends. See the channel README.
+    resolve_after_seconds: float
+    # Static labels merged into every alert, so Alertmanager can route.
+    extra_labels: Dict[str, str]
+    # Mirrored from NotificationConfig so the channel can size `endsAt`.
+    repeat_minutes: int = 10
+
+
+@dataclass
 class NotificationConfig:
     telegram: TelegramConfig
     webhook: WebhookConfig
     repeat_minutes: int
     error_threshold: int = 3
     google_chat: Optional["GoogleChatConfig"] = None
+    alertmanager: Optional["AlertmanagerConfig"] = None
 
 
 def load_app_config() -> AppConfig:
@@ -226,10 +244,38 @@ def _load_notification_config() -> NotificationConfig:
         ),
         thread_by_check=_get_bool("GOOGLE_CHAT_THREAD_BY_CHECK", True),
     )
+    alertmanager = AlertmanagerConfig(
+        enabled=_get_bool("ALERTMANAGER_ENABLED", False),
+        url=os.getenv("ALERTMANAGER_URL"),
+        token=os.getenv("ALERTMANAGER_TOKEN"),
+        header_name=os.getenv("ALERTMANAGER_HEADER_NAME", "Authorization"),
+        resolve_after_seconds=max(
+            _get_float("ALERTMANAGER_RESOLVE_AFTER_SECONDS", 0.0), 0.0
+        ),
+        extra_labels=_get_label_map("ALERTMANAGER_EXTRA_LABELS"),
+        repeat_minutes=repeat_minutes,
+    )
     return NotificationConfig(
         telegram=telegram,
         webhook=webhook,
         repeat_minutes=repeat_minutes,
         error_threshold=error_threshold,
         google_chat=google_chat,
+        alertmanager=alertmanager,
     )
+
+
+def _get_label_map(env_name: str) -> Dict[str, str]:
+    """Parse `k=v,k=v` into a dict, skipping anything malformed.
+
+    A typo in a routing label must not stop the service from starting; the pairs
+    that do parse are still useful, and the ones that do not are simply absent.
+    """
+    raw = os.getenv(env_name, "")
+    labels: Dict[str, str] = {}
+    for pair in raw.split(","):
+        key, separator, value = pair.partition("=")
+        key, value = key.strip(), value.strip()
+        if separator and key and value:
+            labels[key] = value
+    return labels

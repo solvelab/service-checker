@@ -11,6 +11,7 @@ import httpx
 
 from .config import ModuleConfig, NotificationConfig
 from .types import NOTIFIER_METHODS, MonitorResult, MonitorStatus, Notifier
+from ..notifications.alertmanager.notifier import AlertmanagerNotifier
 from ..notifications.google_chat.notifier import GoogleChatNotifier
 from ..notifications.telegram.notifier import TelegramNotifier
 from ..notifications.webhook.notifier import WebhookNotifier
@@ -31,6 +32,9 @@ class NotificationManager:
         google_chat = getattr(config, "google_chat", None)
         if google_chat is not None and google_chat.enabled:
             self.register("google_chat", GoogleChatNotifier(google_chat))
+        alertmanager = getattr(config, "alertmanager", None)
+        if alertmanager is not None and alertmanager.enabled:
+            self.register("alertmanager", AlertmanagerNotifier(alertmanager))
 
     def register(self, name: str, notifier: Notifier) -> None:
         """Add a channel to the dispatch set.
