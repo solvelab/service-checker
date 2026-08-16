@@ -34,6 +34,11 @@ jobs:
       - name: Ruff check
         run: ruff check app tests scripts
 
+      # Warns, never blocks: a change can legitimately have every task ticked and
+      # not be deployed yet. See AGENTS.md.
+      - name: OpenSpec archive reminder
+        run: python scripts/check_openspec_archive.py
+
   test:
     name: Run Tests
     needs: [lint]
