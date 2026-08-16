@@ -51,6 +51,11 @@ These apply across modules:
 - `GOOGLE_CHAT_WEBHOOK_URL`: empty. **Credential** — the incoming-webhook URL carries `key` and `token`; store it as a secret, never in the image or in version control.
 - `GOOGLE_CHAT_MIN_INTERVAL_SECONDS`: `1.1`. Minimum gap between sends; a Chat space accepts 1 request/second, shared by every webhook in it.
 - `GOOGLE_CHAT_THREAD_BY_CHECK`: `true`. Groups an alert and its recovery into one conversation.
+- `ALERTMANAGER_ENABLED`: `false`. Enables the Alertmanager channel.
+- `ALERTMANAGER_URL`: empty. Base URL only, e.g. `http://alertmanager:9093`; the channel appends `/api/v2/alerts`.
+- `ALERTMANAGER_TOKEN` / `ALERTMANAGER_HEADER_NAME`: optional auth header (default header `Authorization`). **Credential** — store as a secret.
+- `ALERTMANAGER_EXTRA_LABELS`: empty. Static labels merged into every alert for routing, as `env=prod,cluster=main`. Cannot override the labels that identify the alert.
+- `ALERTMANAGER_RESOLVE_AFTER_SECONDS`: `0` (auto). How far ahead `endsAt` sits on a firing alert; auto derives it from the repeat window and the check interval. Read `app/notifications/alertmanager/README.md` before changing it — too small and alerts flap.
 - `NOTIFICATION_REPEAT_MINUTES`: minimum minutes between repeated alerts for the same service.
 - `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before the monitor reports itself as broken (default `3`, minimum `1`). Raise it to stay quiet about monitoring failures.
 

@@ -31,6 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from app.core.config import (  # noqa: E402
+    AlertmanagerConfig,
     GoogleChatConfig,
     ModuleConfig,
     NotificationConfig,
@@ -139,6 +140,15 @@ def _notification_config() -> NotificationConfig:
             min_interval_seconds=0.0,
             thread_by_check=True,
         ),
+        alertmanager=AlertmanagerConfig(
+            enabled=True,
+            url="http://alertmanager.simulated:9093",
+            token=None,
+            header_name="Authorization",
+            resolve_after_seconds=0.0,
+            extra_labels={"env": "simulated"},
+            repeat_minutes=10,
+        ),
         repeat_minutes=10,
         error_threshold=_THRESHOLD,
     )
@@ -181,11 +191,18 @@ def _channel_of(url: str) -> str:
         return "webhook"
     if "chat.googleapis.com" in url:
         return "google_chat"
+    if "alertmanager" in url:
+        return "alertmanager"
     return url
 
 
 def _describe(kwargs: dict) -> str:
     body: Any = kwargs.get("json") or {}
+    if isinstance(body, list) and body and "labels" in body[0]:  # alertmanager
+        alert = body[0]
+        firing = alert["endsAt"] > alert["startsAt"]
+        return (f"{alert['labels']['alertname']} {alert['labels']['check_id']} "
+                f"({'firing' if firing else 'resolved'})")
     if "cardsV2" in body:  # google chat
         header = body["cardsV2"][0]["card"]["header"]
         thread = body.get("thread", {}).get("threadKey", "-")
@@ -223,8 +240,8 @@ async def main() -> int:
         )
         return client.posts[before:]
 
-    print("channels registered: telegram, webhook, google_chat, witness, "
-          "broken (always raises)\n")
+    print("channels registered: telegram, webhook, google_chat, alertmanager, "
+          "witness, broken (always raises)\n")
     print("driving one full lifecycle through the real state machine:\n")
 
     timeline = [
@@ -254,7 +271,7 @@ async def main() -> int:
     print("delivery matrix")
     print("-" * 72)
     print(f"  {'channel':<12} {'events':>7}  verdict")
-    for channel in ("telegram", "webhook", "google_chat"):
+    for channel in ("telegram", "webhook", "google_chat", "alertmanager"):
         count = posted_by_channel.get(channel, 0)
         ok = count == 4
         print(f"  {channel:<12} {count:>7}  {'ok' if ok else 'MISSING EVENTS'}")
