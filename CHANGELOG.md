@@ -1,3 +1,10 @@
+## [2.2.3](https://github.com/solvelab/service-checker/compare/v2.2.2...v2.2.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* **notifications:** nao descartar estado de alerta pendente num ciclo ERROR ([fe1c3d4](https://github.com/solvelab/service-checker/commit/fe1c3d406b71e6c4743441959ccd503db4443218))
+
 ## [2.2.2](https://github.com/solvelab/service-checker/compare/v2.2.1...v2.2.2) (2026-08-15)
 
 
