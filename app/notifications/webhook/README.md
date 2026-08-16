@@ -2,7 +2,7 @@
 ![Channel](https://img.shields.io/badge/Channel-Webhook-6E56CF)
 ![Method](https://img.shields.io/badge/Method-POST-0A66C2)
 
-🔗 Nav: [🏠 Home](../../../README.md) · [🎮 Steam](../../modules/steam/README.md) · [🔔 Notifications](../README.md) · [🐳 Docker](../../../DOCKER.md)
+🔗 Nav: [🏠 Home](../../../README.md) · [🔔 Notifications](../README.md) · [✈️ Telegram](../telegram/README.md) · [💬 Google Chat](../google_chat/README.md) · [🔥 Alertmanager](../alertmanager/README.md) · [🐳 Docker](../../../DOCKER.md)
 
 Sends a POST to `WEBHOOK_URL` whenever a module enters `ALERT`, when a service returns to `OK` (`RESOLVED` event), when the monitor itself can no longer reach the provider (`MONITOR_ERROR`) and when it recovers (`MONITOR_RECOVERED`). You can attach a token in the header (`WEBHOOK_HEADER_NAME`) for authentication.
 
