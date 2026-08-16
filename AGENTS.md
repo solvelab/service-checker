@@ -68,12 +68,23 @@ $ gh api -X PUT .../rulesets/<id> -f bypass_actors='[{"actor_type":"Integration"
 422  Actor GitHub Actions integration must be part of the ruleset source or owner organization
 ```
 
-Então exigir os checks depende de resolver antes **como a automação de release se autentica**. Dois
-caminhos:
+Isso foi testado ao vivo em 2026-08-16, não deduzido. Com as regras ligadas, um release real falhou
+assim:
 
-1. Trocar o `GITHUB_TOKEN` por um token de GitHub App próprio da organização, e adicionar esse app
-   ao bypass do ruleset.
-2. Criar o ruleset no nível da **organização**, onde o app do Actions é ator de bypass elegível.
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Changes must be made through a pull request.
+ ! [remote rejected] HEAD -> main (push declined due to repository rule violations)
+```
+
+A falha é limpa — o plugin de git roda antes do de release, então nada de tag, release ou imagem
+pela metade. Ainda assim, o pipeline para.
+
+Rulesets de organização, onde o app do Actions seria bypass elegível, exigem plano **Team**;
+`solvelab` está no Free (`403 Upgrade to GitHub Team`).
+
+Resta **um** caminho: trocar o `GITHUB_TOKEN` por um token de GitHub App próprio da organização, e
+adicionar esse App ao bypass do ruleset.
 
 Enquanto isso não for decidido, um PR com check vermelho continua tecnicamente mergeável. Os checks
 existem e são visíveis desde a #16 — o que falta é torná-los obrigatórios sem derrubar o release.
