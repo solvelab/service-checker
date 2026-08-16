@@ -127,11 +127,12 @@ Full reference in [DOCKER.md](DOCKER.md).
 
 ## 🔍 Verifying a change
 The test suite runs against frozen fixtures, so it proves the parsers handle the payload of the day
-they were captured. Two scripts cover what it cannot:
+they were captured. Three scripts cover what it cannot:
 
 ```bash
 python scripts/simulate_notifications.py          # offline, deterministic
 python scripts/simulate_endpoints.py .env.example # queries the nine real providers
+python scripts/simulate_alerts.py                 # degrades each provider and checks it fires
 ```
 
 - **`simulate_notifications.py`** drives the real state machine through a full lifecycle with the
@@ -140,10 +141,23 @@ python scripts/simulate_endpoints.py .env.example # queries the nine real provid
 - **`simulate_endpoints.py`** runs one real check per module and verifies that the fields each
   module depends on still exist upstream. A provider renamed its fields once and a module stayed
   blind for months while the suite was green; this is the detector for that.
+- **`simulate_alerts.py`** closes the gap between the other two. Reaching the provider is not the
+  same as alerting on it: the AWS module read four fields the feed never published, so it reported
+  `OK` past three live incidents and would have passed both scripts above. This one takes each
+  provider's real payload, injects a degradation faithful to that provider's own shape, runs the
+  real module, and drives the result through the real `NotificationManager` to all four channels —
+  then feeds the healthy payload back and checks the all-clear fires. The report says what was
+  changed, how many channels received each event, and which branch of the state machine each phase
+  took.
 
-The second one talks to the internet, so it is a **diagnostic, not a deterministic gate** — a module
-that fails is retried, and a failure that does not repeat is reported as transient rather than
-failing the run. Do not wire it into CI expecting a stable signal.
+The last two talk to the internet, so they are **diagnostics, not deterministic gates**. In
+`simulate_endpoints.py` a module that fails is retried, and a failure that does not repeat is
+reported as transient rather than failing the run. Do not wire either into CI expecting a stable
+signal.
+
+`simulate_alerts.py` currently exits non-zero: `aws` and `gcp` alert and never recover
+([#49](https://github.com/solvelab/service-checker/issues/49)). That is a real defect the script
+found, not a flaky run — the exit code stays red until it is fixed.
 
 ## 📐 What the project guarantees
 [`openspec/specs/`](openspec/specs) holds one spec per capability — ten of them, one for each
