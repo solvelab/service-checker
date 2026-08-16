@@ -1,3 +1,10 @@
+## [2.8.6](https://github.com/solvelab/service-checker/compare/v2.8.5...v2.8.6) (2026-08-16)
+
+
+### Bug Fixes
+
+* **fetch:** repetir a busca quando a borda recusa por transitorio ([#70](https://github.com/solvelab/service-checker/issues/70)) ([082ab0f](https://github.com/solvelab/service-checker/commit/082ab0f6218daaf0f7ca1c795ff0771e6266b66a)), closes [#4](https://github.com/solvelab/service-checker/issues/4) [#54](https://github.com/solvelab/service-checker/issues/54) [#65](https://github.com/solvelab/service-checker/issues/65) [#69](https://github.com/solvelab/service-checker/issues/69)
+
 ## [2.8.5](https://github.com/solvelab/service-checker/compare/v2.8.4...v2.8.5) (2026-08-16)
 
 
