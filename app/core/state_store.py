@@ -73,7 +73,12 @@ class StateStore:
     ) -> None:
         self.path = Path(path) if path else None
         self.max_age = timedelta(minutes=max(max_age_minutes, 0))
-        self._logger = logger or logging.getLogger(__name__)
+        # Filho de `service_monitor`, nao `__name__`: `configure_logging` so configura
+        # aquela arvore, e com `propagate = False`. Um logger de outra arvore nao tem
+        # handler nenhum, entao toda a politica de "engolir a falha mas registrar" vira
+        # so engolir — e persistencia que para em silencio e indistinguivel de
+        # persistencia que funciona.
+        self._logger = logger or logging.getLogger("service_monitor.state")
         # What was last written, so an unchanged state costs nothing. The common case
         # is every provider healthy and the document identical cycle after cycle;
         # without this the daemon would fsync ten times a minute to say nothing.
