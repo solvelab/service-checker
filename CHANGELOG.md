@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/solvelab/service-checker/compare/v2.2.3...v2.3.0) (2026-08-16)
+
+
+### Features
+
+* **notifications:** avisar quando o proprio monitoramento quebra ([27fa5eb](https://github.com/solvelab/service-checker/commit/27fa5eba7e423ed55b113339dc9762723d78884d))
+
 ## [2.2.3](https://github.com/solvelab/service-checker/compare/v2.2.2...v2.2.3) (2026-08-16)
 
 
