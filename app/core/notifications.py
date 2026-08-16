@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -268,7 +270,7 @@ class NotificationManager:
         event_time = _ensure_aware(event_time)
         if result.status == MonitorStatus.OK:
             for item in service_items:
-                key = _service_key(module_id, item)
+                key = _service_key(module_id, item, logger)
                 state = self._alert_state.get(key)
                 if state is not None and state.last_status == MonitorStatus.ALERT:
                     from_status = state.last_status_text or "ALERT"
@@ -308,7 +310,7 @@ class NotificationManager:
         # Only OK and ALERT reach here: handle_result intercepts ERROR before dispatching,
         # because a failure to evaluate is about the monitor, not about a component.
         for item in service_items:
-            key = _service_key(module_id, item)
+            key = _service_key(module_id, item, logger)
             state = self._alert_state.get(key)
             should_send = False
             if state is None or state.last_status != MonitorStatus.ALERT:
@@ -442,9 +444,43 @@ def _extract_service_items(payload) -> list[dict]:
     return []
 
 
-def _service_key(module_id: str, item: dict) -> str:
-    service_id = item.get("id") or item.get("slug") or item.get("name") or "service"
+def _service_key(module_id: str, item: dict, logger: Optional[logging.Logger] = None) -> str:
+    """Alert-state key for one component.
+
+    Must be stable across cycles for the same component and distinct for different
+    ones: a repeated key re-uses another component's throttle window and swallows its
+    alert, while an unstable key re-alerts every cycle.
+
+    A module that ships no usable identifier used to land on the literal ``"service"``,
+    silently collapsing every one of its components onto a single key. The content
+    digest below keeps them apart and the warning makes the gap visible.
+    """
+    service_id = item.get("id") or item.get("slug") or item.get("name")
+    if not service_id:
+        service_id = _content_digest(item)
+        if logger is not None:
+            logger.warning(
+                "component has no id/slug/name; falling back to a content digest",
+                extra={
+                    "event": "service_key_fallback",
+                    "module_id": module_id,
+                    "check_id": f"{module_id}:{service_id}",
+                    "reason": f"available keys: {sorted(item)}",
+                },
+            )
     return f"{module_id}:{service_id}".lower()
+
+
+def _content_digest(item: dict) -> str:
+    """Deterministic key derived from the item's own content.
+
+    Stable across cycles (same content, same digest) and distinct across different
+    content. Two byte-identical items in one payload still collapse — they are
+    indistinguishable anyway, and a positional index would break stability whenever
+    the upstream reorders its list.
+    """
+    canonical = json.dumps(item, sort_keys=True, default=str, ensure_ascii=True)
+    return "sha-" + hashlib.sha1(canonical.encode("utf-8")).hexdigest()[:12]
 
 
 def _service_reason(item: dict) -> str:

@@ -136,18 +136,42 @@ def _parse_incidents(xml_body: str) -> List[Dict]:
         title_text = (item.findtext("title") or "").strip()
         service, region, reference = _split_title(title_text)
         description = item.findtext("description") or ""
+        link = (item.findtext("link") or "").strip()
         incidents.append(
             {
+                "id": _incident_id(reference, title_text, link),
+                # `name` keeps the Telegram card readable: without it the notifier
+                # falls back to the id and shows a bare hex reference.
+                "name": service or title_text or "unknown",
                 "title": title_text,
                 "service": service,
                 "region": region,
                 "reference": reference,
                 "status": _extract_status(description),
-                "link": (item.findtext("link") or "").strip(),
+                "link": link,
             }
         )
 
     return incidents
+
+
+def _incident_id(reference: str, title: str, link: str) -> str:
+    """Stable per-incident identifier.
+
+    The alert state of every component is keyed on this, so it must be identical
+    across cycles for the same incident and different for different ones. OCI puts
+    a unique reference in the third segment of the title (e.g. ``210f910e``); the
+    fallbacks cover titles that do not carry one.
+    """
+    for candidate in (reference, link, title):
+        slug = _slugify(candidate)
+        if slug:
+            return slug
+    return "unknown-incident"
+
+
+def _slugify(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
 
 
 def _split_title(title_text: str) -> tuple[str, str, str]:
