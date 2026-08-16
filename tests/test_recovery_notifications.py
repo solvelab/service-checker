@@ -499,6 +499,8 @@ def _spy_manager(repeat_minutes=10):
     manager.telegram_notifier = MagicMock()
     manager.telegram_notifier.send_alert = AsyncMock()
     manager.telegram_notifier.send_recovery = AsyncMock()
+    manager.telegram_notifier.send_monitor_error = AsyncMock()
+    manager.telegram_notifier.send_monitor_recovered = AsyncMock()
     return manager
 
 

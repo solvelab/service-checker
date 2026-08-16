@@ -1,0 +1,14 @@
+<b>🔄 Monitoring restored</b>
+<i>Module: {{ module_id }}</i>
+
+<b>Level:</b> <code>{{ level }}</code>
+<b>Event:</b> Service-Checker
+<b>Status:</b> <code>{{ status }}</code>
+{% if reason %}
+<b>Detail:</b> <code>{{ reason }}</code>
+{% endif %}
+<b>Timestamp:</b> {{ timestamp }}
+{% if interval_seconds %}
+<b>Interval:</b> <code>{{ interval_seconds }}s</code>
+{% endif %}
+<i>Checks are running again. Any service alert is reported separately.</i>
