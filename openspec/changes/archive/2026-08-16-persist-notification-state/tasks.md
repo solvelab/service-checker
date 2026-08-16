@@ -28,6 +28,17 @@
 - [x] 4.9 `openspec validate persist-notification-state --strict`. ✓
 
 ## 5. Rollout
-- [ ] 5.1 Montar volume persistente no `deployment.yaml` do cluster e definir `NOTIFICATION_STATE_PATH`.
-  — trabalho no `didevlab/housek8s`; `emptyDir` não serve.
-- [ ] 5.2 Confirmar em produção: alertar, reiniciar o pod, provedor recuperar, all-clear chegar.
+- [x] 5.1 Montar volume persistente no `deployment.yaml` do cluster e definir `NOTIFICATION_STATE_PATH`. ✓
+  Entregue em didevlab/housek8s#39: `pvc-service-checker-state`, 1Gi em `longhorn-1r`, montado em
+  `/var/lib/service-checker`. Junto foi preciso trocar a estratégia do Deployment para `Recreate` —
+  com PVC `ReadWriteOnce`, o `RollingUpdate` trava porque o pod novo não monta o volume enquanto o
+  antigo o segura.
+- [x] 5.2 Confirmar em produção: alertar, reiniciar o pod, provedor recuperar, all-clear chegar. ✓
+  Verificado em 2026-08-16, ponta a ponta:
+  1. filtro apontado para um PoP degradado → `cloudflare status degraded`,
+     `telegram notification sent`, `alertmanager notification sent`
+  2. estado lido de dentro do pod: `{"alerts": {"cloudflare:2htqrtyxmmtr": {...}}}`
+  3. pod reiniciado
+  4. `recovery notification emitted`, `from_status: partial_outage -> to_status: operational`,
+     `telegram notification sent` — confirmado no chat pelo operador
+  O ciclo era impossível antes: o estado morria no restart.

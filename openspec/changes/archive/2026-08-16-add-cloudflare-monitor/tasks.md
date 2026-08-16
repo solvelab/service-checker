@@ -34,5 +34,10 @@
 
 ## 5. Rollout
 - [x] 5.1 `cloudflare` presente em `SERVICE_MONITOR_MODULES` no `deployment.yaml`.
-- [ ] 5.2 Confirmar nos logs `module_id=cloudflare` com `status=OK` e `duration_ms` numérico após o deploy.
-  — pendente de verificação pelo operador (requer acesso ao cluster).
+- [x] 5.2 Confirmar nos logs `module_id=cloudflare` com `status=OK` e `duration_ms` numérico após o deploy. ✓
+  Verificado em 2026-08-16 no cluster k0s (`kubectl --context Default -n monitoring`):
+  ```
+  {"message": "cloudflare status healthy", "event": "monitor_check",
+   "module_id": "cloudflare", "status": "OK", "duration_ms": 482.96, "interval_seconds": 60}
+  ```
+  Dez `module loaded` no boot, nenhum `failed to load module`.
