@@ -55,11 +55,24 @@ class WebhookConfig:
 
 
 @dataclass
+class GoogleChatConfig:
+    enabled: bool
+    # The whole URL is a credential: it carries `key` and `token` in the query
+    # string. Never log it.
+    webhook_url: Optional[str]
+    # A Chat space accepts one request per second, shared by every webhook in it.
+    min_interval_seconds: float
+    # Group an alert and its recovery into one conversation, keyed on check_id.
+    thread_by_check: bool
+
+
+@dataclass
 class NotificationConfig:
     telegram: TelegramConfig
     webhook: WebhookConfig
     repeat_minutes: int
     error_threshold: int = 3
+    google_chat: Optional["GoogleChatConfig"] = None
 
 
 def load_app_config() -> AppConfig:
@@ -205,9 +218,18 @@ def _load_notification_config() -> NotificationConfig:
     error_threshold = _get_int("NOTIFICATION_ERROR_THRESHOLD", 3)
     if error_threshold < 1:
         error_threshold = 1
+    google_chat = GoogleChatConfig(
+        enabled=_get_bool("GOOGLE_CHAT_ENABLED", False),
+        webhook_url=os.getenv("GOOGLE_CHAT_WEBHOOK_URL"),
+        min_interval_seconds=max(
+            _get_float("GOOGLE_CHAT_MIN_INTERVAL_SECONDS", 1.1), 0.0
+        ),
+        thread_by_check=_get_bool("GOOGLE_CHAT_THREAD_BY_CHECK", True),
+    )
     return NotificationConfig(
         telegram=telegram,
         webhook=webhook,
         repeat_minutes=repeat_minutes,
         error_threshold=error_threshold,
+        google_chat=google_chat,
     )

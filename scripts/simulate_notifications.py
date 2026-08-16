@@ -31,6 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from app.core.config import (  # noqa: E402
+    GoogleChatConfig,
     ModuleConfig,
     NotificationConfig,
     RuleConfig,
@@ -130,6 +131,14 @@ def _notification_config() -> NotificationConfig:
             token="simulated-secret",
             header_name="Authorization",
         ),
+        google_chat=GoogleChatConfig(
+            enabled=True,
+            webhook_url="https://chat.googleapis.com/v1/spaces/AAQAsimulated/messages"
+                        "?key=simulated-key&token=simulated-token",
+            # Pacing is exercised by the unit suite; here it would only add wall time.
+            min_interval_seconds=0.0,
+            thread_by_check=True,
+        ),
         repeat_minutes=10,
         error_threshold=_THRESHOLD,
     )
@@ -170,11 +179,17 @@ def _channel_of(url: str) -> str:
         return "telegram"
     if "hook.example.com" in url:
         return "webhook"
+    if "chat.googleapis.com" in url:
+        return "google_chat"
     return url
 
 
 def _describe(kwargs: dict) -> str:
     body: Any = kwargs.get("json") or {}
+    if "cardsV2" in body:  # google chat
+        header = body["cardsV2"][0]["card"]["header"]
+        thread = body.get("thread", {}).get("threadKey", "-")
+        return f"{header['title']}  (thread {thread})"
     if "text" in body:  # telegram
         first = body["text"].splitlines()[0]
         return first.replace("<b>", "").replace("</b>", "")
@@ -208,7 +223,8 @@ async def main() -> int:
         )
         return client.posts[before:]
 
-    print("channels registered: telegram, webhook, witness, broken (always raises)\n")
+    print("channels registered: telegram, webhook, google_chat, witness, "
+          "broken (always raises)\n")
     print("driving one full lifecycle through the real state machine:\n")
 
     timeline = [
@@ -238,7 +254,7 @@ async def main() -> int:
     print("delivery matrix")
     print("-" * 72)
     print(f"  {'channel':<12} {'events':>7}  verdict")
-    for channel in ("telegram", "webhook"):
+    for channel in ("telegram", "webhook", "google_chat"):
         count = posted_by_channel.get(channel, 0)
         ok = count == 4
         print(f"  {channel:<12} {count:>7}  {'ok' if ok else 'MISSING EVENTS'}")
