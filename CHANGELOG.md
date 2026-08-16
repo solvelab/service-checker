@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/solvelab/service-checker/compare/v2.3.0...v2.3.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **oci:** emitir id estavel por incidente e endurecer a chave de estado ([5bc50c9](https://github.com/solvelab/service-checker/commit/5bc50c947640b09c2e9c586be25aad6b6d5000f3))
+
 # [2.3.0](https://github.com/solvelab/service-checker/compare/v2.2.3...v2.3.0) (2026-08-16)
 
 
