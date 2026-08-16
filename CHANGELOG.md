@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/solvelab/service-checker/compare/v2.5.0...v2.5.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **scripts:** distinguir soluco de provedor de cegueira real na simulacao ([528060e](https://github.com/solvelab/service-checker/commit/528060e8fd06bbafbf550287c69ff152e9508570)), closes [#29](https://github.com/solvelab/service-checker/issues/29)
+
 # [2.5.0](https://github.com/solvelab/service-checker/compare/v2.4.0...v2.5.0) (2026-08-16)
 
 
