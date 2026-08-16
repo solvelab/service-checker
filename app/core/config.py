@@ -1,3 +1,4 @@
+import csv
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -194,10 +195,28 @@ def _get_float(env_name: str, default: float) -> float:
 
 
 def _get_service_filter(env_name: str) -> List[str]:
+    """Parse a comma-separated component filter, honouring quotes.
+
+    A plain `split(",")` cannot express a component whose *name* contains a comma — and
+    every Cloudflare point of presence does: `Arica, Chile - (ARI)`. Asking for one used
+    to produce two entries, `arica` and `chile - (ari)`, neither of which exists, and the
+    monitor went to ERROR with "no target components matched filter".
+
+    `csv.reader` is the whole fix. It is stdlib, it is the convention every operator
+    already recognises, and it is backward compatible: no existing filter uses quotes, so
+    every one of them parses exactly as before.
+    """
     raw = os.getenv(env_name, "")
     if not raw.strip():
         return []
-    return [item.strip().lower() for item in raw.split(",") if item.strip()]
+    try:
+        # One "row", so the parsed line is the list of entries. `skipinitialspace` lets
+        # `a, "b, c"` work as well as `a,"b, c"`.
+        rows = list(csv.reader([raw], skipinitialspace=True))
+    except csv.Error:
+        rows = []
+    items = rows[0] if rows else raw.split(",")
+    return [item.strip().lower() for item in items if item.strip()]
 
 
 def _get_bool(env_name: str, default: bool) -> bool:

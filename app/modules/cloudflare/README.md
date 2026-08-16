@@ -33,6 +33,20 @@ everything"**. It falls back to a curated allowlist:
 
 To watch all 475 anyway, set `CLOUDFLARE_SERVICE_FILTER=*`. Expect dozens of alerts a day.
 
+### Naming a point of presence
+
+Every PoP name contains a comma, and the filter is comma-separated — so quote it:
+
+```bash
+CLOUDFLARE_SERVICE_FILTER='Tunnel,"Arica, Chile - (ARI)"'
+```
+
+Unquoted, `Arica, Chile - (ARI)` becomes two entries, neither of which exists, and the module goes
+to `ERROR` with `no target components matched filter`. The log line
+`watched component not found in status payload` names what it could not find.
+
+Quoting works in every module's `SERVICE_FILTER`, not only this one.
+
 ## 🧭 Overview
 - GETs the summary JSON and evaluates components by status.
 - Supported strategies: `status` (default), `keyword`, `regex`.
