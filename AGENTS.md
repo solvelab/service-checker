@@ -84,3 +84,31 @@ existem e são visíveis desde a #16 — o que falta é torná-los obrigatórios
 gh api /repos/solvelab/service-checker/rulesets            # listar
 gh api -X DELETE /repos/solvelab/service-checker/rulesets/<id>   # remover
 ```
+
+## Aviso de arquivamento pendente
+
+O job `Lint` roda também:
+
+```bash
+python scripts/check_openspec_archive.py
+```
+
+Ele lista as changes em `openspec/changes/` e destaca as que têm **todas** as tarefas concluídas e
+ainda não foram arquivadas. **Avisa, não reprova** — uma change pode estar terminada e ainda não
+deployada, e reprovar nesse caso puniria o caso honesto.
+
+Quando o aviso aparecer e a change já estiver em produção, arquive num PR próprio, como manda o
+Stage 3:
+
+```bash
+openspec validate --all --strict          # antes, para o archive não abortar num delta inválido
+openspec archive <change-id> -y
+```
+
+Existe porque a dívida virou recorrente: as issues #1, #17 e #29 arquivaram cinco changes entre si,
+sempre descobertas por alguém olhando. Verificado contra o histórico — o aviso teria aparecido nos
+commits `27fa5eb`, `8825763` e `bc1c910`, que são exatamente os momentos em que cada dívida nasceu.
+
+**Limite conhecido:** o aviso exige *todas* as caixas marcadas. As duas changes que a #1 arquivou
+tinham tarefas de rollout desmarcadas — dependiam de acesso ao cluster — e não teriam sido
+apontadas. Uma change entregue com tarefa de rollout em aberto continua dependendo de alguém olhar.
