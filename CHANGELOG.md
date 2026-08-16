@@ -1,3 +1,10 @@
+## [2.8.2](https://github.com/solvelab/service-checker/compare/v2.8.1...v2.8.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* **statuspage:** payload malformado vira ERROR, e a copia some ([#61](https://github.com/solvelab/service-checker/issues/61)) ([f06f6d2](https://github.com/solvelab/service-checker/commit/f06f6d267f0bbba96251faee503a2fd13c6726aa)), closes [#54](https://github.com/solvelab/service-checker/issues/54)
+
 ## [2.8.1](https://github.com/solvelab/service-checker/compare/v2.8.0...v2.8.1) (2026-08-16)
 
 
