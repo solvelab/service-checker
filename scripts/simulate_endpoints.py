@@ -51,6 +51,7 @@ CONTRACTS: dict[str, dict] = {
     "bitbucket": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
     "openai": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
     "claude": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
+    "cloudflare": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
     # steam and rockstar parse HTML behind TLS impersonation; the module's own parse
     # count is the only meaningful signal, so they carry no field contract.
 }

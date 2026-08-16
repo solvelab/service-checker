@@ -61,6 +61,20 @@ def _statuspage_degrade(payload):
     return broken, f"component '{broken['components'][0]['name']}' -> major_outage"
 
 
+def _cloudflare_degrade(payload):
+    """Cloudflare: flip a *watched* product, not the first component.
+
+    `_statuspage_degrade` breaks `components[0]`, which here is a continent group or a
+    data center — outside the module's curated allowlist, so it would produce a
+    perfectly green run that proves nothing. Tunnel is the component our own apps
+    depend on, so it is the honest thing to break.
+    """
+    broken = copy.deepcopy(payload)
+    target = next(c for c in broken["components"] if c["name"] == "Tunnel")
+    target["status"] = "major_outage"
+    return broken, "product 'Tunnel' -> major_outage"
+
+
 def _steam_degrade(html):
     """steamstat.us: raise one service's severity class from good to major."""
     match = re.search(r'<span class="status good" id="(?!pageviews)([^"]+)">([^<]*)</span>', html)
@@ -162,6 +176,8 @@ PROVIDERS = [
     Provider("github", None, "json", _statuspage_degrade,
              "degraded_performance,partial_outage,major_outage"),
     Provider("bitbucket", None, "json", _statuspage_degrade,
+             "degraded_performance,partial_outage,major_outage"),
+    Provider("cloudflare", "cloudflare/summary.json", "json", _cloudflare_degrade,
              "degraded_performance,partial_outage,major_outage"),
     Provider("rockstar", "rockstar/all_operational.html", "text", _rockstar_degrade, "*"),
     Provider("oci", "oci/incident_summary.rss", "text", _oci_degrade,
