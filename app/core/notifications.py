@@ -111,9 +111,13 @@ class NotificationManager:
         back out here rather than passed separately, so the two cannot disagree.
         """
         logger: logging.Logger = kwargs["logger"]
+        # Sem canal registrado nao ha o que entregar, e o estado deve avancar como
+        # sempre avancou. So "havia canal e todos falharam" conta como nao entregue.
+        delivered = not self._notifiers
         for name, notifier in list(self._notifiers.items()):
             try:
                 await getattr(notifier, method)(**kwargs)
+                delivered = True
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "notification channel failed",
@@ -124,6 +128,7 @@ class NotificationManager:
                         "reason": f"{method}: {type(exc).__name__}: {exc}",
                     },
                 )
+        return delivered
 
     async def handle_result(self, **kwargs) -> None:
         """Handle one monitor result, then persist whatever the state became.
@@ -228,7 +233,7 @@ class NotificationManager:
         if not should_send:
             return
 
-        await self._notify_alert(
+        delivered = await self._notify_alert(
             module_id,
             result,
             module_config,
@@ -238,6 +243,11 @@ class NotificationManager:
             http_client,
             logger,
         )
+        # Estado so avanca se alguem recebeu. Antes ele avancava sempre, e uma queda
+        # de **um** ciclo no canal engolia o alerta pelos dez minutos do throttle — a
+        # degradacao podia terminar antes, e ninguem jamais soube dela.
+        if not delivered:
+            return
         self._alert_state[module_id] = AlertState(
             last_status=MonitorStatus.ALERT,
             last_alert_at=event_time,
@@ -290,7 +300,7 @@ class NotificationManager:
             ),
             duration_ms=result.duration_ms,
         )
-        await self._dispatch(
+        delivered = await self._dispatch(
             "send_monitor_error",
             module_id=module_id,
             result=failure_result,
@@ -301,6 +311,10 @@ class NotificationManager:
             http_client=http_client,
             logger=logger,
         )
+        if not delivered:
+            # Nao anunciada e nao registrada: o ciclo seguinte tenta de novo, e a
+            # recuperacao nao sera anunciada para um problema que ninguem soube.
+            return
         state.last_notified_at = event_time
 
     async def _clear_monitor_error(
@@ -314,6 +328,25 @@ class NotificationManager:
     ) -> None:
         """End a monitoring outage; only announce the recovery if the failure was announced."""
         state = self._error_state.pop(module_id, None)
+        if state is not None and state.consecutive_errors and state.last_notified_at is None:
+            # Houve uma sequencia de falhas que nunca conseguiu ser anunciada — tipico
+            # de perda de conectividade, em que o monitor e o canal caem juntos. Nao ha
+            # o que notificar: o problema ja acabou, e anunciar a resolucao de algo que
+            # ninguem soube foi justamente o defeito corrigido aqui. Mas ficar calado
+            # sobre uma cegueira de varios ciclos e o padrao que este repositorio passou
+            # o dia caçando, entao pelo menos o log registra.
+            logger.warning(
+                "monitor recovered from a failure streak that was never delivered",
+                extra={
+                    "event": "monitor_blind_window",
+                    "module_id": module_id,
+                    "reason": (
+                        f"{state.consecutive_errors} consecutive failed check(s), "
+                        f"no channel accepted the notification; last error: "
+                        f"{state.last_reason or 'unknown'}"
+                    ),
+                },
+            )
         if state is None or state.last_notified_at is None:
             return
 
@@ -492,7 +525,7 @@ class NotificationManager:
             alert_result = _build_service_result(
                 result, item, MonitorStatus.ALERT, "service degraded"
             )
-            await self._notify_alert(
+            delivered = await self._notify_alert(
                 module_id,
                 alert_result,
                 module_config,
@@ -502,6 +535,10 @@ class NotificationManager:
                 http_client,
                 logger,
             )
+            # Mesmo motivo do ramo por modulo: sem entrega, o proximo ciclo tenta de
+            # novo em vez de o throttle suprimir um alerta que ninguem viu.
+            if not delivered:
+                continue
             self._alert_state[key] = AlertState(
                 last_status=MonitorStatus.ALERT,
                 last_alert_at=event_time,
@@ -519,8 +556,8 @@ class NotificationManager:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
-        await self._dispatch(
+    ) -> bool:
+        return await self._dispatch(
             "send_alert",
             module_id=module_id,
             result=result,
@@ -542,8 +579,8 @@ class NotificationManager:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
-        await self._dispatch(
+    ) -> bool:
+        return await self._dispatch(
             "send_recovery",
             module_id=module_id,
             result=result,
