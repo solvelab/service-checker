@@ -35,7 +35,16 @@ from app.core.notifications import AlertState, MonitorErrorState, NotificationMa
 from app.core.state_store import SCHEMA_VERSION, StateStore
 from app.core.types import MonitorResult, MonitorStatus
 
-_T0 = datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc)
+#: Ancora de tempo da suite, presa ao **instante atual** e nao a uma data fixa.
+#:
+#: `StateStore.load()` descarta o que passou de `NOTIFICATION_STATE_MAX_AGE_MINUTES`
+#: comparando com o relogio real, porque o `NotificationManager` nao injeta `now`. Com
+#: uma data fixa, o estado que estes testes gravam envelhecia sozinho: a suite passava
+#: no dia em que foi escrita e quebrava 24 horas depois, sem ninguem ter tocado em nada.
+#: Cinco testes cairam assim, e o CI verde do merge nao tinha como pegar.
+#:
+#: `test_the_anchor_cannot_age_out` guarda esta escolha.
+_T0 = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 class Spy:
@@ -103,6 +112,28 @@ async def _feed(manager, status, payload, minute, module_id="aws"):
 
 def _c(cid, name, status="open"):
     return {"id": cid, "name": name, "status": status}
+
+
+# ---------------------------------------------------------------------------
+# A ancora de tempo
+# ---------------------------------------------------------------------------
+
+def test_the_anchor_cannot_age_out():
+    """Uma data fixa aqui faz a suite quebrar sozinha 24 horas depois de escrita.
+
+    Foi o que aconteceu: cinco testes passaram a falhar sem que nenhuma linha de codigo
+    mudasse, porque o estado que eles gravavam excedia o limite de idade quando lido com
+    o relogio real. O CI verde do merge nao tem como pegar isso — so a terceira execucao,
+    no dia seguinte.
+    """
+    from app.core.config import NotificationConfig
+
+    default_max_age = NotificationConfig.__dataclass_fields__["state_max_age_minutes"].default
+    idade = (datetime.now(timezone.utc) - _T0).total_seconds() / 60
+    assert idade < default_max_age / 2, (
+        f"a ancora tem {idade:.0f} min e o limite default e {default_max_age}; "
+        "prenda-a ao instante atual em vez de a uma data fixa"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -233,11 +264,13 @@ async def test_a_recovered_component_is_not_resurrected(tmp_path):
 async def test_stale_state_is_discarded_without_an_all_clear(tmp_path):
     """An alert from days ago must not produce a surprise resolution today."""
     path = tmp_path / "state.json"
+    # O alerta e gravado com data de tres dias atras, em vez de depender de o relogio
+    # avancar durante o teste: e o passado que precisa ser velho, nao o presente.
     before, _ = _manager(path, max_age=60)
-    await _feed(before, MonitorStatus.ALERT, [_c("a", "X")], 0)
+    await _feed(before, MonitorStatus.ALERT, [_c("a", "X")], -60 * 24 * 3)
 
     after, spy = _manager(path, max_age=60)
-    await _feed(after, MonitorStatus.OK, [], 60 * 24 * 3)         # three days later
+    await _feed(after, MonitorStatus.OK, [], 0)
 
     assert spy.recoveries == []
 
@@ -349,7 +382,9 @@ def test_a_naive_timestamp_is_read_as_utc(tmp_path):
     path = tmp_path / "state.json"
     path.write_text(json.dumps({
         "version": SCHEMA_VERSION,
-        "alerts": {"aws:a": {"last_alert_at": "2026-08-16T12:00:00"}},
+        # Sem sufixo de fuso, derivado da ancora: uma data literal aqui envelheceria
+        # junto com a suite, que e o defeito que este arquivo acabou de corrigir.
+        "alerts": {"aws:a": {"last_alert_at": _T0.replace(tzinfo=None).isoformat()}},
     }), encoding="utf-8")
     alerts, _ = StateStore(str(path)).load(now=_T0 + timedelta(minutes=1))
     assert alerts["aws:a"].last_alert_at == _T0
