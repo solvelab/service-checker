@@ -1,3 +1,10 @@
+## [2.8.7](https://github.com/solvelab/service-checker/compare/v2.8.6...v2.8.7) (2026-08-17)
+
+
+### Bug Fixes
+
+* **notifications:** so avancar o estado quando alguem recebeu ([#72](https://github.com/solvelab/service-checker/issues/72)) ([f958c2c](https://github.com/solvelab/service-checker/commit/f958c2c7e9d985fe525235c17dc291d181eae589)), closes [#65](https://github.com/solvelab/service-checker/issues/65) [#71](https://github.com/solvelab/service-checker/issues/71)
+
 ## [2.8.6](https://github.com/solvelab/service-checker/compare/v2.8.5...v2.8.6) (2026-08-16)
 
 
