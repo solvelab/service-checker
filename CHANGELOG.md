@@ -1,3 +1,10 @@
+## [2.8.8](https://github.com/solvelab/service-checker/compare/v2.8.7...v2.8.8) (2026-08-17)
+
+
+### Bug Fixes
+
+* **tests:** prender a ancora de tempo ao agora, nao a uma data fixa ([#74](https://github.com/solvelab/service-checker/issues/74)) ([fe4ed66](https://github.com/solvelab/service-checker/commit/fe4ed66bcb2676d9518f9fc821aacf21982fdf57)), closes [#57](https://github.com/solvelab/service-checker/issues/57) [#73](https://github.com/solvelab/service-checker/issues/73)
+
 ## [2.8.7](https://github.com/solvelab/service-checker/compare/v2.8.6...v2.8.7) (2026-08-17)
 
 
