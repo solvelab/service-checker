@@ -24,36 +24,43 @@ Monitor https://status.openai.com using the JSON endpoint `api/v2/summary.json`.
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target states (e.g., `degraded_performance,partial_outage,major_outage`); for `keyword`/`regex`, a term or pattern
-- `SERVICE_FILTER`: component ids or slugs to monitor (e.g., `chat-completions`, `image-generation`, `login`); empty = all
+- `SERVICE_FILTER`: component ids or slugs to monitor (e.g., `responses`, `image-generation`, `login`); empty = all
 
 ## 🚦 `status` rule
 - Uses the Statuspage states (`operational`, `degraded_performance`, `partial_outage`, `major_outage`, `under_maintenance`).
 - Raises ALERT if any filtered component has a status listed in `RULE_VALUE`.
 
 ### 📇 Known components (slug → name)
-- `video-viewing` → Video viewing
-- `embeddings` → Embeddings
-- `video-generation` → Video generation
-- `image-generation` → Image Generation
-- `login` → Login
-- `realtime` → Realtime
-- `audio` → Audio
-- `images` → Images
-- `feed` → Feed
-- `chat-completions` → Chat Completions
 - `responses` → Responses
-- `sora` → Sora
+- `images` → Images
+- `sites` → Sites
+- `codex-in-chatgpt-desktop` → Codex in ChatGPT Desktop
+- `login` → Login
+- `audio` → Audio
+- `compliance-api` → Compliance API
 - `files` → Files
-- `batch` → Batch
-- `fine-tuning` → Fine-tuning
-- `moderations` → Moderations
-- `codex` → Codex
-- `gpts` → GPTs
-- `agent` → Agent
+- `fedramp` → FedRAMP
 - `search` → Search
-- `deep-research` → Deep Research
-- `voice-mode` → Voice mode
+- `sora` → Sora
+- `ads-api` → Ads API
+- `fine-tuning` → Fine-tuning
 - `chatgpt-atlas` → ChatGPT Atlas
+- `deep-research` → Deep Research
+- `image-generation` → Image Generation
+- `agent` → Agent
+- `realtime` → Realtime
+- `voice-mode` → Voice mode
+- `batch` → Batch
+- `embeddings` → Embeddings
+- `moderations` → Moderations
+- `codex-web` → Codex Web
+- `connectors-apps` → Connectors/Apps
+
+Lista extraída de `tests/fixtures/openai/summary.json`, o payload real capturado. A OpenAI
+renomeia e remove componente sem aviso — `chat-completions`, `codex`, `feed`, `gpts`,
+`video-viewing` e `video-generation` já estiveram aqui e não estão mais no feed. Um filtro que não
+casa nenhum componente leva o módulo a `ERROR`, então confira com o comando abaixo antes de fixar
+um.
 
 💡 If a new component appears, use the `id` or generate the slug from the name (lowercase and hyphens). Quick listing:
 ```bash
@@ -62,10 +69,10 @@ curl -s https://status.openai.com/api/v2/summary.json | jq -r '.components[] | [
 Use the output in `OPENAI_SERVICE_FILTER` without changing code.
 
 ## ⚡ Quick examples
-- Monitor only Chat Completions and Responses for major outages:
+- Monitor only Responses and Realtime for major outages:
   - `OPENAI_RULE_KIND=status`
   - `OPENAI_RULE_VALUE=major_outage,partial_outage`
-  - `OPENAI_SERVICE_FILTER=chat-completions,responses`
+  - `OPENAI_SERVICE_FILTER=responses,realtime`
 - Search for a JSON pattern:
   - `OPENAI_RULE_KIND=regex`
   - `OPENAI_RULE_VALUE=error`

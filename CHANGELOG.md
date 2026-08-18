@@ -184,7 +184,7 @@
 ### BREAKING CHANGES
 
 * **rockstar:** the cfx module slug is removed. Operators must replace
-CFX_* environment variables with ROCKSTAR_* (see docs/DOCKER.md and
+CFX_* environment variables with ROCKSTAR_* (see DOCKER.md and
 app/modules/rockstar/README.md for migration details).
 
 ## [1.1.1](https://github.com/solvelab/service-checker/compare/v1.1.0...v1.1.1) (2026-02-09)

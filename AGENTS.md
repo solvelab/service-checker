@@ -116,9 +116,10 @@ uma degradação fiel à forma daquele provedor, roda o módulo real e conduz o 
 ficam no script, não nos módulos: é conhecimento de diagnóstico, e código de produção não carrega
 andaime para isso. A lógica de veredito é testável sem rede em `tests/test_simulate_alerts.py`.
 
-Hoje ele sai não-zero: `aws` e `gcp` alertam e nunca recuperam
-([#49](https://github.com/solvelab/service-checker/issues/49)). É defeito real que o script achou,
-não execução instável — o vermelho fica até a correção.
+Foi assim que a #49 apareceu: `aws` e `gcp` alertavam e nunca recuperavam, porque o payload
+saudável vazio trocava de ramo na máquina de estado. Defeito real que o script achou, não execução
+instável. Corrigido — componente que some do payload é reconciliado antes da escolha do ramo
+(`app/core/notifications.py`, `_recover_vanished_services`).
 
 ## Aviso de arquivamento pendente
 

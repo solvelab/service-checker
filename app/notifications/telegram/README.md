@@ -60,10 +60,16 @@ Para provedores com multiplos componentes (OpenAI, Steam, etc.), a notificacao d
 
 `parse_mode=HTML` ensures the card displays with emphasis and clean separators.
 
-Os templates HTML ficam em `app/notifications/telegram/templates/`:
+Os templates HTML ficam em `app/notifications/telegram/templates/` — cinco, carregados no import
+do notifier:
 - `telegram_alert.j2` — alerta padrao
 - `telegram_steam.j2` — alerta especifico do Steam com servicos impactados
 - `telegram_resolved.j2` — mensagem de recuperacao com identificacao do componente
+- `telegram_monitor_error.j2` — o checker nao consegue avaliar o provedor
+- `telegram_monitor_recovered.j2` — o checker voltou a conseguir
+
+Os dois ultimos existem para manter "o servico caiu" e "nao consegui checar" visualmente distintos:
+sao paginas diferentes para quem esta de plantao.
 
 ## 🚀 How to use
 1. Create the bot with [BotFather](https://t.me/BotFather) and grab the token.

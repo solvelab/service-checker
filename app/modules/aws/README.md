@@ -59,8 +59,10 @@ module was silently blind for a long time because nothing verified this.
 
 ## 🚦 `status` rule
 - Every event in the feed is active; there is nothing to filter by end time.
-- The region filter matches, case-insensitively, against the region code (`eu-central-1`), the human
-  region name (`Frankfurt`) or the service code (`directconnect-eu-central-1`).
+- The filter matches, case-insensitively, against four things: the region code (`eu-central-1`), the
+  human region name (`Frankfurt`), the service code (`directconnect-eu-central-1`) and the service
+  display name (`AWS Direct Connect`). The last one means `AWS_SERVICE_FILTER=AWS Direct Connect`
+  works — it is a filter on the event, not only on the region.
 - The ARN type code is matched against the tokens in `RULE_VALUE`.
 - ALERT if any surviving event remains; the reason lists region, service and summary.
 - No event matching your regions is `OK` with an empty payload — good news, not a misconfiguration.

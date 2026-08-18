@@ -60,6 +60,10 @@ spec:
               value: ""
             - name: STEAM_IMPERSONATE_PROFILE
               value: "chrome124"
+            - name: STEAM_FETCH_ATTEMPTS
+              value: "3"
+            - name: STEAM_FETCH_BACKOFF_SECONDS
+              value: "1.5"
             - name: STEAM_ENABLED
               value: "true"
             - name: OPENAI_URL
@@ -102,6 +106,10 @@ spec:
               value: "15"
             - name: ROCKSTAR_SERVICE_FILTER
               value: "FiveM,RedM"
+            - name: ROCKSTAR_FETCH_ATTEMPTS
+              value: "3"
+            - name: ROCKSTAR_FETCH_BACKOFF_SECONDS
+              value: "1.5"
             - name: ROCKSTAR_IMPERSONATE_PROFILE
               value: "chrome124"
             - name: ROCKSTAR_ENABLED
@@ -210,6 +218,10 @@ spec:
               value: ""
             - name: TELEGRAM_CHAT_IDS
               value: ""
+            - name: TELEGRAM_TIMESTAMP_FORMAT
+              value: "%Y-%m-%d %H:%M:%S %Z"
+            - name: TELEGRAM_TIMESTAMP_ZONE
+              value: "UTC"
             - name: TELEGRAM_API_URL
               value: "https://api.telegram.org"
             - name: WEBHOOK_ENABLED
