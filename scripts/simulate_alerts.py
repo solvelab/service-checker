@@ -3,7 +3,7 @@
 Two simulations already exist and there is a gap between them.
 
 `simulate_endpoints.py` proves each module *reaches* its provider and that the fields
-it reads still exist there. That is the healthy path: nine modules, `status=OK`.
+it reads still exist there. That is the healthy path: every module, `status=OK`.
 
 `simulate_notifications.py` proves the four channels receive the four events and that
 a broken channel cannot silence the others — but from a single synthetic result.
@@ -220,7 +220,12 @@ class Outcome(NamedTuple):
         the per-service branch, anything else to the per-module one. A module whose
         degraded payload is a list of incidents but whose healthy payload is an empty
         list therefore records state under `<slug>:<component>` and later reads
-        `<slug>` — a key that was never written. No recovery can ever fire.
+        `<slug>` — a key that was never written.
+
+        That is how `aws` and `gcp` alerted and never recovered (#49). The core now
+        reconciles components that vanish from the payload before choosing the branch,
+        so the asymmetry no longer swallows the all-clear. This property stays as the
+        detector: it is what named the defect, and it is what would name the next one.
         """
         return self.alert_route == PER_SERVICE and self.recovery_route == PER_MODULE
 

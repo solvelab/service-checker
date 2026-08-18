@@ -42,7 +42,9 @@ de o throttle suprimir um alerta que ninguém viu.
 **Módulos são plugins por convenção, não por registro.** `app/core/loader.py` importa
 `app.modules.<slug>.monitor` e chama `get_monitor(slug)`. Não existe classe base nem `Protocol`:
 o contrato é o que o loader e o scheduler chamam. Para adicionar um provedor, crie
-`app/modules/<slug>/monitor.py` expondo:
+`app/modules/<slug>/monitor.py` expondo os três símbolos abaixo — mais um `README.md` no diretório
+do módulo e uma entrada em `PROVIDERS` de `scripts/simulate_alerts.py`, ambos exigidos por teste
+(`tests/test_documentation.py`, `tests/test_simulate_alerts.py`):
 
 | Símbolo | Assinatura | Papel |
 |---|---|---|
@@ -85,13 +87,17 @@ Três invariantes que já custaram defeito e têm teste travando:
    componentes**. Instável reenvia alerta a cada ciclo; repetida engole o alerta do vizinho.
 3. `ALERT` é "o serviço caiu"; `ERROR` é "não consegui checar". São eventos diferentes, com cards
    e valores de `status` de webhook diferentes.
+4. Um componente que estava em `ALERT` e **some do payload** é recuperação. A reconciliação roda
+   antes e independentemente do desvio por formato de payload (`_recover_vanished_services`, em
+   `app/core/notifications.py`) — quando ela dependia do desvio, um payload saudável vazio nunca a
+   alcançava e o all-clear não saía.
 
 **O monitor entrega os itens do alerta já separados**, em `MonitorResult.reason_items`. O notifier
 não re-parseia a string `reason` — não existe separador seguro, porque `,`, `;` e `|` aparecem
 dentro do conteúdo de algum provedor.
 
 ### Testing Strategy
-- `pytest tests/` — 203 testes hoje, nenhum toca a rede.
+- `pytest tests/` — nenhum teste toca a rede.
 - Fixtures são **payloads reais capturados**, em `tests/fixtures/<slug>/`, não JSON inventado. Um
   parser validado contra dado imaginário passa pelo motivo errado.
 - Nome de teste descreve o comportamento, não o método:
@@ -119,7 +125,8 @@ dentro do conteúdo de algum provedor.
 - Assunto e corpo em português; nomes de código em inglês.
 - Todo pull request para `main` roda `Lint` e `Run Tests`. Corte de versão e publicação da imagem
   só acontecem no push pós-merge — um PR nunca cria tag nem publica no GHCR.
-- Merge por rebase; o histórico de `main` é linear.
+- Merge por rebase. O histórico é quase todo linear: há dois merges de sincronização em `main`,
+  de fevereiro de 2026.
 
 ## Domain Context
 - **Módulo / slug** — um provedor monitorado. O slug é a chave de tudo: nome do diretório, prefixo
@@ -169,6 +176,8 @@ dentro do conteúdo de algum provedor.
 | GCP | `incidents.json` | JSON |
 | AWS | `health.aws.amazon.com/public/currentevents` | JSON |
 
-Saídas: API do Telegram (`sendMessage`, `parse_mode=HTML`) e um webhook genérico por POST JSON.
+Saídas, quatro transportes: API do Telegram (`sendMessage`, `parse_mode=HTML`), um webhook genérico
+por POST JSON, o webhook de um espaço do Google Chat (`cardsV2`) e o `POST /api/v2/alerts` do
+Alertmanager.
 O campo `status` do webhook é um conjunto **aberto** — hoje `ALERT`, `RESOLVED`, `MONITOR_ERROR` e
 `MONITOR_RECOVERED`. Consumidor que levante exceção em valor desconhecido quebra num upgrade.

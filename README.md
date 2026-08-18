@@ -6,8 +6,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
 ![Notifications](https://img.shields.io/badge/Notifications-Telegram%20%7C%20Webhook%20%7C%20Google%20Chat%20%7C%20Alertmanager-26A5E4)
-![Semantic Release](https://github.com/solvelab/service-checker/actions/workflows/release.yml/badge.svg)
-![Publish Image](https://github.com/solvelab/service-checker/actions/workflows/publish.yml/badge.svg)
+![CI](https://github.com/solvelab/service-checker/actions/workflows/ci.yml/badge.svg)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ZUADM4SZT5DC8&no_recurring=0&item_name=Projetos+desenvolvidos+com+cuidado+e+dedica%C3%A7%C3%A3o.+O+apoio+incentiva+a+continuidade+e+a+evolu%C3%A7%C3%A3o+constante.&currency_code=BRL)
 
 🔗 Nav: [🎮 Steam](app/modules/steam/README.md) · [🤖 OpenAI](app/modules/openai/README.md) · [🟣 Claude](app/modules/claude/README.md) · [🎮 Rockstar](app/modules/rockstar/README.md) · [☁️ OCI](app/modules/oci/README.md) · [🌐 GCP](app/modules/gcp/README.md) · [☁️ AWS](app/modules/aws/README.md) · [🐙 GitHub](app/modules/github/README.md) · [🪣 Bitbucket](app/modules/bitbucket/README.md) · [🟠 Cloudflare](app/modules/cloudflare/README.md) · [🔔 Notifications](app/notifications/README.md) · [🐳 Docker](DOCKER.md)
@@ -103,7 +102,7 @@ others from receiving the same event.
 ## 🗺️ Flow overview
 ```
 Providers -> Modules -> Monitor Core -> NotificationManager -> Channels
-              (9)                        state + throttle       (4)
+             (10)                        state + throttle       (4)
 ```
 
 One `asyncio` task per module, each on its own interval. A module that fails to load is logged and
@@ -120,8 +119,10 @@ Everything is an environment variable; there is no config file.
 
 Each module also supports its own `*_URL`, `*_INTERVAL_SECONDS`, `*_TIMEOUT_SECONDS`,
 `*_SERVICE_FILTER` and `*_ENABLED` keys, prefixed with the uppercased slug. Not every module reads
-every key — `steam` and `rockstar` ignore `*_RULE_KIND`, `*_RULE_VALUE` and `*_USER_AGENT`, because
-they classify from the page text and fetch through TLS impersonation, which sets its own headers.
+every key — `rockstar` ignores `*_RULE_KIND` and `*_RULE_VALUE`, because it classifies from the page
+text, and neither `rockstar` nor `steam` reads `*_USER_AGENT`, because both fetch through TLS
+impersonation, which sets its own headers. `steam` does read the rule keys: they pick between the
+`status`, `keyword` and `regex` strategies.
 Each module README says what it actually reads.
 
 Full reference in [DOCKER.md](DOCKER.md).
@@ -132,7 +133,7 @@ they were captured. Three scripts cover what it cannot:
 
 ```bash
 python scripts/simulate_notifications.py          # offline, deterministic
-python scripts/simulate_endpoints.py .env.example # queries the nine real providers
+python scripts/simulate_endpoints.py .env.example # queries every configured provider
 python scripts/simulate_alerts.py                 # degrades each provider and checks it fires
 ```
 
@@ -156,9 +157,10 @@ The last two talk to the internet, so they are **diagnostics, not deterministic 
 reported as transient rather than failing the run. Do not wire either into CI expecting a stable
 signal.
 
-`simulate_alerts.py` currently exits non-zero: `aws` and `gcp` alert and never recover
-([#49](https://github.com/solvelab/service-checker/issues/49)). That is a real defect the script
-found, not a flaky run — the exit code stays red until it is fixed.
+`simulate_alerts.py` found a real defect this way: `aws` and `gcp` alerted and never recovered,
+because an empty healthy payload took the other branch of the state machine
+([#49](https://github.com/solvelab/service-checker/issues/49), fixed). Components that vanish from
+a payload are now reconciled before the branch is chosen.
 
 ## 💾 Alert state across restarts
 Notification state lives in memory, so a restart used to swallow the all-clear: the
@@ -172,8 +174,8 @@ pending alerts survive the restart. Leave it empty for the old in-memory behavio
 resolution would confuse more than it helps. Details in [DOCKER.md](DOCKER.md).
 
 ## 📐 What the project guarantees
-[`openspec/specs/`](openspec/specs) holds one spec per capability — ten of them, one for each
-monitor plus the notification lifecycle. They describe the guarantees in verifiable scenarios, which
+[`openspec/specs/`](openspec/specs) holds one spec per capability — one for each monitor plus
+the notification lifecycle. They describe the guarantees in verifiable scenarios, which
 is what the module READMEs do not: those describe *configuration*, the specs describe *behaviour*.
 
 ## 🐳 Docker usage
@@ -202,8 +204,9 @@ See [DOCKER.md](DOCKER.md) for GHCR image usage, dev builds (`docker-compose-dev
   two sends, which is `NOTIFICATION_REPEAT_MINUTES` plus one check interval. Leave it at `0` to have
   it derived.
 - **Too many alerts**: increase `NOTIFICATION_REPEAT_MINUTES` or narrow `*_SERVICE_FILTER`.
-- **Alerts stop after a restart**: notification state lives in memory only. A restart re-alerts what
-  is still degraded and loses pending recoveries.
+- **Alerts stop after a restart**: with `NOTIFICATION_STATE_PATH` unset, notification state lives in
+  memory only, so a restart re-alerts what is still degraded and loses pending recoveries. Point it
+  at a file that outlives the container — an `emptyDir` will not do — and pending alerts survive.
 
 ## 🔗 Documentation
 - Modules: [Steam](app/modules/steam/README.md), [OpenAI](app/modules/openai/README.md), [Claude](app/modules/claude/README.md), [Rockstar](app/modules/rockstar/README.md), [OCI](app/modules/oci/README.md), [GCP](app/modules/gcp/README.md), [AWS](app/modules/aws/README.md), [GitHub](app/modules/github/README.md), [Bitbucket](app/modules/bitbucket/README.md), [Cloudflare](app/modules/cloudflare/README.md)

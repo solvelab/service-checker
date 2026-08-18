@@ -44,11 +44,12 @@ docker compose -f docker-compose-dev.yml up --build
 ## 🧭 How it works
 - Each module runs on a schedule (default 60s) and pulls a provider status source.
 - Rules decide when a module emits `ALERT` or `RESOLVED`.
-- Notifications are dispatched via Telegram or Webhook when enabled.
+- Notifications are dispatched to every enabled channel: Telegram, Webhook, Google Chat and
+  Alertmanager.
 
 ## 🧰 Global configuration
 These apply across modules:
-- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket`).
+- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare`).
 - `SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS`: default polling interval in seconds.
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
@@ -187,7 +188,7 @@ aparecem. Passar uma chave que não está lá a descarta sem dizer nada — foi 
 
 ## 🔔 Notifications
 **Telegram**
-- `TELEGRAM_TIMESTAMP_FORMAT` (default `%Y-%m-%d %H:%M:%S`): `strftime` do carimbo nas mensagens.
+- `TELEGRAM_TIMESTAMP_FORMAT` (default `%Y-%m-%d %H:%M:%S %Z`): `strftime` do carimbo nas mensagens.
   Uma diretiva que a plataforma não conhece **não** faz o envio falhar — no Linux `strftime` devolve
   o texto literal —, então o módulo detecta que nada foi interpretado, avisa e cai para ISO-8601.
 - `TELEGRAM_TIMESTAMP_ZONE` (default `UTC`): `UTC` ou `LOCAL`, esta última usando o fuso do container.

@@ -61,12 +61,20 @@ alert every cycle instead of deduplicating, and would break grouping and silenci
 | `alertname` | `ServiceCheckerIncident` or `ServiceCheckerMonitoringFailure` |
 | `source` | `service-checker` |
 | `module` | the provider slug, e.g. `github` |
-| `check_id` | `module` or `module:component` — the same key the alert state uses |
+| `check_id` | `module` or `module:component`, built from the raw payload id |
 | `component` | present only when the payload names one |
 | `severity` | `warning` for a service incident, `critical` for a monitoring failure |
 
-Anything from `EXTRA_LABELS` is merged in, except the names above: static configuration must
-not be able to redefine what identifies an alert.
+Anything from `EXTRA_LABELS` is merged in, except the reserved names: static configuration must
+not be able to redefine what identifies an alert. The reserved set is `RESERVED_LABELS` in
+`notifier.py`, and it holds **seven** names — the six in the table above plus `event`, which is an
+annotation here but is reserved as a label too. `ALERTMANAGER_EXTRA_LABELS=event=deploy` is dropped.
+
+`check_id` here is **not** byte-identical to the alert-state key. `_service_key`
+(`app/core/notifications.py`) lowercases; this channel concatenates the identifier as the payload
+published it. For a component whose id carries an uppercase letter — a GCP incident id, an AWS
+service name — the label and the state key differ in case, and so does the webhook's `check_id`,
+which lowercases. Correlate case-insensitively.
 
 | Annotation | Value |
 |---|---|

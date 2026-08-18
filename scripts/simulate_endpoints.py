@@ -12,7 +12,8 @@ actually present in the payload.
 
     python scripts/simulate_endpoints.py [path/to/.env]
 
-This queries nine real providers, so it is a diagnostic, **not a deterministic gate**.
+This queries every configured provider for real, so it is a diagnostic, **not a deterministic
+gate**.
 A momentary hiccup on any of them is indistinguishable, in a single run, from a module
 that is genuinely broken — and the difference is the whole point: the AWS blindness was
 permanent and reproducible, a network timeout is not.
@@ -128,7 +129,7 @@ class RecordingClient:
     """The shared client, remembering the last response per URL.
 
     The module's own check already fetched the upstream; asking for it a second time
-    doubles the load on nine third-party services and, worse, reads a different
+    doubles the load on every third-party service and, worse, reads a different
     snapshot. When an incident opens or closes between the two reads, the `raw` and
     `parsed` columns describe different moments — and comparing those two columns is
     the one thing an operator reads them for.

@@ -24,7 +24,7 @@ Monitor https://status.claude.com using the JSON endpoint `api/v2/summary.json`.
 - `ENABLED`: `true/false` to enable/disable the module (default `true`)
 - `RULE_KIND`: `status` (default), `keyword`, `regex`
 - `RULE_VALUE`: for `status`, target states (e.g., `degraded_performance,partial_outage,major_outage`); for `keyword`/`regex`, a term or pattern
-- `SERVICE_FILTER`: component ids or slugs to monitor (e.g., `claude-ai`, `platform-claude-com-formerly-console-anthropic-com`, `claude-api-api-anthropic-com`, `claude-code`); empty = all
+- `SERVICE_FILTER`: component ids or slugs to monitor (e.g., `claude-ai`, `claude-console-platform-claude-com`, `claude-api-api-anthropic-com`, `claude-code`); empty = all
 
 ## 🚦 `status` rule
 - Uses the Statuspage states (`operational`, `degraded_performance`, `partial_outage`, `major_outage`, `under_maintenance`).
@@ -32,9 +32,16 @@ Monitor https://status.claude.com using the JSON endpoint `api/v2/summary.json`.
 
 ### 📇 Known components (slug → name)
 - `claude-ai` → claude.ai
-- `platform-claude-com-formerly-console-anthropic-com` → platform.claude.com (formerly console.anthropic.com)
+- `claude-console-platform-claude-com` → Claude Console (platform.claude.com)
 - `claude-api-api-anthropic-com` → Claude API (api.anthropic.com)
 - `claude-code` → Claude Code
+- `claude-cowork` → Claude Cowork
+- `claude-for-government` → Claude for Government
+
+Os slugs acima saem do payload capturado em `tests/fixtures/claude/summary.json`, passados pelo
+`slugify` de `app/core/statuspage.py`. O provedor renomeia componente sem aviso: um filtro que não
+casa nada leva o módulo a `ERROR` com `no target components matched filter`, então confira a lista
+com o comando abaixo antes de fixar um filtro.
 
 💡 If a new component appears, use the `id` or generate the slug from the name (lowercase and hyphens). Quick listing:
 ```bash
