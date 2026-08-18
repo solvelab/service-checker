@@ -5,8 +5,9 @@ read its provider. This covers the right half: once a module reports something, 
 every configured channel actually receive it, and does the rendered message reach the
 wire.
 
-It builds a real NotificationManager with the real Telegram and webhook notifiers,
-real templates and the real state machine, and intercepts only the final HTTP POST.
+It builds a real NotificationManager with all four real notifiers — Telegram, webhook,
+Google Chat and Alertmanager — real templates and the real state machine, and intercepts
+only the final HTTP POST.
 Nothing is mocked above the transport, so a regression anywhere between
 `handle_result` and the request body shows up here.
 
