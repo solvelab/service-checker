@@ -1,0 +1,39 @@
+# Configuração do fluxo /backlog e /execute-backlog (Claude Code).
+# Aponta este repositório para o GitHub Project v2 da org.
+# IDs nunca são persistidos aqui — só nomes; a skill resolve IDs em runtime,
+# porque eles variam por board e mudam quando um board é recriado.
+#
+# Reconferir com:
+#   gh project field-list 5 --owner solvelab
+#   gh label list -R solvelab/service-checker
+version: 1
+project:
+  owner: solvelab
+  number: 5 # "Tools" — https://github.com/orgs/solvelab/projects/5
+repo: solvelab/service-checker
+fields: # nomes exatos retornados por `gh project field-list 5 --owner solvelab`
+  status: Status
+  # ATENÇÃO: aqui `Priority` NÃO é campo do board — é um issue field da
+  # organização (Urgent / High / Medium / Low), apenas espelhado na visão do
+  # Project. `gh project field-list` mostra o campo com a lista de opções
+  # **vazia**, e `gh project item-edit --single-select-option-id` falha nele.
+  # Setar por:
+  #   echo '[{"field_id": 38505178, "value": "High"}]' \
+  #     | gh api -X POST /repos/solvelab/service-checker/issues/<n>/issue-field-values --input -
+  # As opções e o field_id saem de `gh api /orgs/solvelab/issue-fields`.
+  priority: Priority
+  size: Size # XS / S / M / L / XL
+  estimate: Estimate
+defaults:
+  status: Backlog # coluna em que item novo nasce
+# Lido pelo `execute-backlog` ao avançar o card. Nomes reais das colunas, para
+# não depender de heurística de nome.
+columns:
+  ready: Ready
+  in_progress: In progress
+  review: In review
+labels: # intenção → label que já existe no repositório
+  feature: enhancement
+  bug: bug
+  docs: documentation
+assignees: []
