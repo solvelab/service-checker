@@ -61,18 +61,19 @@ class Channel:
         if not self.up:
             raise ConnectionError("channel unreachable")
         self.delivered.append((kind, kwargs["event_time"].strftime("%H:%M")))
+        return True
 
     async def send_alert(self, **kwargs):
-        await self._send("alert", kwargs)
+        return await self._send("alert", kwargs)
 
     async def send_recovery(self, **kwargs):
-        await self._send("recovery", kwargs)
+        return await self._send("recovery", kwargs)
 
     async def send_monitor_error(self, **kwargs):
-        await self._send("monitor_error", kwargs)
+        return await self._send("monitor_error", kwargs)
 
     async def send_monitor_recovered(self, **kwargs):
-        await self._send("monitor_recovered", kwargs)
+        return await self._send("monitor_recovered", kwargs)
 
 
 def _manager(*channels, threshold=3, repeat=10):

@@ -231,7 +231,7 @@ def _spy_manager():
     manager = NotificationManager(config)
     stub = MagicMock()
     for method in ("send_alert", "send_recovery", "send_monitor_error", "send_monitor_recovered"):
-        setattr(stub, method, AsyncMock())
+        setattr(stub, method, AsyncMock(return_value=True))
     manager.telegram_notifier = stub
     return manager
 

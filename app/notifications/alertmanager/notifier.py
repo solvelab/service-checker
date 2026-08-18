@@ -48,17 +48,17 @@ class AlertmanagerNotifier:
     def __init__(self, config) -> None:
         self.config = config
 
-    async def send_alert(self, **kwargs) -> None:
-        await self._send(ALERTNAME_SERVICE, firing=True, **kwargs)
+    async def send_alert(self, **kwargs) -> bool:
+        return await self._send(ALERTNAME_SERVICE, firing=True, **kwargs)
 
-    async def send_recovery(self, **kwargs) -> None:
-        await self._send(ALERTNAME_SERVICE, firing=False, **kwargs)
+    async def send_recovery(self, **kwargs) -> bool:
+        return await self._send(ALERTNAME_SERVICE, firing=False, **kwargs)
 
-    async def send_monitor_error(self, **kwargs) -> None:
-        await self._send(ALERTNAME_MONITORING, firing=True, **kwargs)
+    async def send_monitor_error(self, **kwargs) -> bool:
+        return await self._send(ALERTNAME_MONITORING, firing=True, **kwargs)
 
-    async def send_monitor_recovered(self, **kwargs) -> None:
-        await self._send(ALERTNAME_MONITORING, firing=False, **kwargs)
+    async def send_monitor_recovered(self, **kwargs) -> bool:
+        return await self._send(ALERTNAME_MONITORING, firing=False, **kwargs)
 
     # ------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ class AlertmanagerNotifier:
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
         **_ignored,
-    ) -> None:
+    ) -> bool:
         if not self.config.url:
             logger.warning(
                 "alertmanager notifier missing url; skipping",
@@ -86,7 +86,7 @@ class AlertmanagerNotifier:
                     "target": "alertmanager",
                 },
             )
-            return
+            return False
 
         alert = self._build_alert(
             alertname, firing, module_id, result, interval_seconds, event_name, event_time
@@ -110,7 +110,7 @@ class AlertmanagerNotifier:
                     "reason": f"{type(exc).__name__}: {exc}",
                 },
             )
-            return
+            return False
 
         status = getattr(response, "status_code", 0)
         if status >= 400:
@@ -123,7 +123,7 @@ class AlertmanagerNotifier:
                     "reason": f"status {status}: {_body_text(response)}",
                 },
             )
-            return
+            return False
 
         logger.info(
             "alertmanager notification sent",
@@ -134,6 +134,7 @@ class AlertmanagerNotifier:
                 "check_id": alert["labels"]["check_id"],
             },
         )
+        return True
 
     def _build_alert(
         self,

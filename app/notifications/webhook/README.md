@@ -101,3 +101,9 @@ Emitted when the module evaluates successfully again — but only if the corresp
    - `WEBHOOK_TOKEN=Bearer abc123`
    - `WEBHOOK_HEADER_NAME=Authorization` (or another header expected by the receiver).
 3. The monitor sends the JSON above on every ALERT and logs failures without stopping the process.
+## ✅ Delivery contract
+Os quatro `send_*` devolvem `bool`. `False` para excecao de transporte **e** para resposta
+com status >= 400 — este canal nao olhava o status, entao um endpoint respondendo `500` a
+cada requisicao era indistinguivel de um que funcionava. `NotificationManager` so avanca o
+estado do alerta com `True`; com `False`, o ciclo seguinte reenvia em vez de o throttle
+suprimir um alerta que ninguem recebeu.

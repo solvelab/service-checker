@@ -56,6 +56,17 @@ class Notifier(Protocol):
     Implementations own their transport failures: an HTTP error is logged and
     swallowed, never raised. NotificationManager isolates channels from each other
     anyway, so a channel that does raise cannot silence the others.
+
+    Swallowing is not the same as hiding. Every method returns whether at least one
+    target accepted the message: `True` when someone received it, `False` when nobody
+    did. NotificationManager only advances the alert state on `True`, so a channel
+    that reports `False` gets the event retried on the next cycle instead of having it
+    suppressed by the repeat throttle. A channel that swallowed the failure *and*
+    returned `True` would put the state past an alert no one ever saw — the defect
+    this contract exists to prevent.
+
+    A channel that sends to several targets returns `True` when any of them accepted:
+    someone read it, and resending would duplicate the message for them.
     """
 
     async def send_alert(
@@ -69,7 +80,7 @@ class Notifier(Protocol):
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None: ...
+    ) -> bool: ...
 
     async def send_recovery(
         self,
@@ -82,7 +93,7 @@ class Notifier(Protocol):
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None: ...
+    ) -> bool: ...
 
     async def send_monitor_error(
         self,
@@ -95,7 +106,7 @@ class Notifier(Protocol):
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None: ...
+    ) -> bool: ...
 
     async def send_monitor_recovered(
         self,
@@ -108,4 +119,4 @@ class Notifier(Protocol):
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None: ...
+    ) -> bool: ...

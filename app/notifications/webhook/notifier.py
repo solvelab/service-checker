@@ -20,7 +20,7 @@ class WebhookNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
+    ) -> bool:
         if not self.config.url:
             logger.warning(
                 "webhook notifier missing URL; skipping",
@@ -30,7 +30,7 @@ class WebhookNotifier:
                     "target": "webhook",
                 },
             )
-            return
+            return False
 
         headers = {}
         if self.config.token:
@@ -48,31 +48,7 @@ class WebhookNotifier:
             "interval_seconds": interval_seconds,
         }
 
-        try:
-            await http_client.post(
-                self.config.url,
-                json=payload,
-                headers=headers,
-                timeout=10.0,
-            )
-            logger.info(
-                "webhook notification sent",
-                extra={
-                    "event": "notify",
-                    "module_id": module_id,
-                    "target": "webhook",
-                },
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.error(
-                "webhook notification failed",
-                extra={
-                    "event": "notify_error",
-                    "module_id": module_id,
-                    "target": "webhook",
-                    "reason": str(exc),
-                },
-            )
+        return await self._deliver(payload, headers, module_id, http_client, logger)
 
     async def send_recovery(
         self,
@@ -84,7 +60,7 @@ class WebhookNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
+    ) -> bool:
         if not self.config.url:
             logger.warning(
                 "webhook notifier missing URL; skipping",
@@ -94,7 +70,7 @@ class WebhookNotifier:
                     "target": "webhook",
                 },
             )
-            return
+            return False
 
         headers = {}
         if self.config.token:
@@ -120,31 +96,7 @@ class WebhookNotifier:
             "interval_seconds": interval_seconds,
         }
 
-        try:
-            await http_client.post(
-                self.config.url,
-                json=payload,
-                headers=headers,
-                timeout=10.0,
-            )
-            logger.info(
-                "webhook notification sent",
-                extra={
-                    "event": "notify",
-                    "module_id": module_id,
-                    "target": "webhook",
-                },
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.error(
-                "webhook notification failed",
-                extra={
-                    "event": "notify_error",
-                    "module_id": module_id,
-                    "target": "webhook",
-                    "reason": str(exc),
-                },
-            )
+        return await self._deliver(payload, headers, module_id, http_client, logger)
 
     async def send_monitor_error(
         self,
@@ -156,8 +108,8 @@ class WebhookNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
-        await self._post(
+    ) -> bool:
+        return await self._post(
             module_id,
             result,
             interval_seconds,
@@ -179,8 +131,8 @@ class WebhookNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
-        await self._post(
+    ) -> bool:
+        return await self._post(
             module_id,
             result,
             interval_seconds,
@@ -203,7 +155,7 @@ class WebhookNotifier:
         status: str,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
+    ) -> bool:
         if not self.config.url:
             logger.warning(
                 "webhook notifier missing URL; skipping",
@@ -213,7 +165,7 @@ class WebhookNotifier:
                     "target": "webhook",
                 },
             )
-            return
+            return False
 
         headers = {}
         if self.config.token:
@@ -232,20 +184,33 @@ class WebhookNotifier:
             "interval_seconds": interval_seconds,
         }
 
+        return await self._deliver(payload, headers, module_id, http_client, logger)
+
+    async def _deliver(
+        self,
+        payload: dict,
+        headers: dict,
+        module_id: str,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> bool:
+        """POST the payload and say whether the endpoint took it.
+
+        The return value is the contract with NotificationManager: `False` keeps the
+        alert state where it is, so the next cycle sends again instead of the throttle
+        suppressing an alert nobody received. Before this existed the failure was
+        logged and the state advanced anyway.
+
+        A 4xx/5xx counts as not delivered. The old code never looked at the status at
+        all: an endpoint answering 500 to every request was indistinguishable from one
+        that worked.
+        """
         try:
-            await http_client.post(
+            response = await http_client.post(
                 self.config.url,
                 json=payload,
                 headers=headers,
                 timeout=10.0,
-            )
-            logger.info(
-                "webhook notification sent",
-                extra={
-                    "event": "notify",
-                    "module_id": module_id,
-                    "target": "webhook",
-                },
             )
         except Exception as exc:  # noqa: BLE001
             logger.error(
@@ -257,3 +222,27 @@ class WebhookNotifier:
                     "reason": str(exc),
                 },
             )
+            return False
+
+        status = getattr(response, "status_code", 0)
+        if status >= 400:
+            logger.error(
+                "webhook notification rejected",
+                extra={
+                    "event": "notify_error",
+                    "module_id": module_id,
+                    "target": "webhook",
+                    "reason": f"status {status}",
+                },
+            )
+            return False
+
+        logger.info(
+            "webhook notification sent",
+            extra={
+                "event": "notify",
+                "module_id": module_id,
+                "target": "webhook",
+            },
+        )
+        return True

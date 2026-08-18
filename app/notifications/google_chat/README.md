@@ -77,3 +77,8 @@ it is slugified before use — the same treatment `cardId` gets.
    ```bash
    python scripts/simulate_notifications.py
    ```
+## ✅ Delivery contract
+Os quatro `send_*` devolvem `bool`. `False` para excecao de transporte e para resposta com
+status >= 400, incluindo o `429` de quota — que continua sem retentativa dentro do ciclo,
+porque o espacamento e a prevencao; o reenvio fica por conta do ciclo seguinte, agora que
+o estado nao avanca sem aceite.

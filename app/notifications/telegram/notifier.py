@@ -35,7 +35,7 @@ class TelegramNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
+    ) -> bool:
         if not self.config.bot_token or not self.config.chat_ids:
             logger.warning(
                 "telegram notifier missing token or chat_ids; skipping",
@@ -45,7 +45,7 @@ class TelegramNotifier:
                     "target": "telegram",
                 },
             )
-            return
+            return False
 
         payload = _build_payload(
             module_id,
@@ -60,6 +60,9 @@ class TelegramNotifier:
         text = _render_payload(module_id, payload, logger)
         url = f"{self.config.api_url.rstrip('/')}/bot{self.config.bot_token}/sendMessage"
 
+        # Sucesso parcial conta: se um chat recebeu, alguem viu, e reenviar no
+        # ciclo seguinte duplicaria a mensagem para quem ja leu.
+        delivered = False
         for chat_id in self.config.chat_ids:
             try:
                 response = await http_client.post(
@@ -93,6 +96,7 @@ class TelegramNotifier:
                         "chat_id": chat_id,
                     },
                 )
+                delivered = True
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "telegram notification failed",
@@ -104,6 +108,7 @@ class TelegramNotifier:
                         "reason": str(exc),
                     },
                 )
+        return delivered
 
     async def send_recovery(
         self,
@@ -115,7 +120,7 @@ class TelegramNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
+    ) -> bool:
         if not self.config.bot_token or not self.config.chat_ids:
             logger.warning(
                 "telegram notifier missing token or chat_ids; skipping",
@@ -125,7 +130,7 @@ class TelegramNotifier:
                     "target": "telegram",
                 },
             )
-            return
+            return False
 
         payload = _build_payload(
             module_id,
@@ -140,6 +145,9 @@ class TelegramNotifier:
         text = _render_with_template(_RESOLVED_TEMPLATE, payload, logger, module_id)
         url = f"{self.config.api_url.rstrip('/')}/bot{self.config.bot_token}/sendMessage"
 
+        # Sucesso parcial conta: se um chat recebeu, alguem viu, e reenviar no
+        # ciclo seguinte duplicaria a mensagem para quem ja leu.
+        delivered = False
         for chat_id in self.config.chat_ids:
             try:
                 response = await http_client.post(
@@ -173,6 +181,7 @@ class TelegramNotifier:
                         "chat_id": chat_id,
                     },
                 )
+                delivered = True
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "telegram notification failed",
@@ -184,7 +193,7 @@ class TelegramNotifier:
                         "reason": str(exc),
                     },
                 )
-
+        return delivered
 
     async def send_monitor_error(
         self,
@@ -196,8 +205,8 @@ class TelegramNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
-        await self._send_with_template(
+    ) -> bool:
+        return await self._send_with_template(
             _MONITOR_ERROR_TEMPLATE,
             module_id,
             result,
@@ -219,8 +228,8 @@ class TelegramNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
-        await self._send_with_template(
+    ) -> bool:
+        return await self._send_with_template(
             _MONITOR_RECOVERED_TEMPLATE,
             module_id,
             result,
@@ -243,7 +252,7 @@ class TelegramNotifier:
         event_time: datetime,
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
-    ) -> None:
+    ) -> bool:
         if not self.config.bot_token or not self.config.chat_ids:
             logger.warning(
                 "telegram notifier missing token or chat_ids; skipping",
@@ -253,7 +262,7 @@ class TelegramNotifier:
                     "target": "telegram",
                 },
             )
-            return
+            return False
 
         payload = _build_payload(
             module_id,
@@ -268,6 +277,9 @@ class TelegramNotifier:
         text = _render_with_template(template, payload, logger, module_id)
         url = f"{self.config.api_url.rstrip('/')}/bot{self.config.bot_token}/sendMessage"
 
+        # Sucesso parcial conta: se um chat recebeu, alguem viu, e reenviar no
+        # ciclo seguinte duplicaria a mensagem para quem ja leu.
+        delivered = False
         for chat_id in self.config.chat_ids:
             try:
                 response = await http_client.post(
@@ -301,6 +313,7 @@ class TelegramNotifier:
                         "chat_id": chat_id,
                     },
                 )
+                delivered = True
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "telegram notification failed",
@@ -312,7 +325,7 @@ class TelegramNotifier:
                         "reason": str(exc),
                     },
                 )
-
+        return delivered
 
 def _build_payload(
     module_id: str,

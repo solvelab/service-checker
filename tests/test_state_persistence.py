@@ -54,13 +54,17 @@ class Spy:
 
     async def send_alert(self, **kwargs):
         self.alerts.append(kwargs["result"].reason or "")
+        return True
 
     async def send_recovery(self, **kwargs):
         self.recoveries.append(kwargs["result"].reason or "")
+        return True
 
-    async def send_monitor_error(self, **kwargs): ...
+    async def send_monitor_error(self, **kwargs):
+        return True
 
-    async def send_monitor_recovered(self, **kwargs): ...
+    async def send_monitor_recovered(self, **kwargs):
+        return True
 
 
 def _config(state_path=None, max_age=1440, threshold=3):

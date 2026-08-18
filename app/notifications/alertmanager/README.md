@@ -99,3 +99,8 @@ Expect the alert to appear firing, then disappear once the recovery lands.
   passes `interval_seconds` rather than the module config. Adding it would change the
   signature of all four methods across every channel.
 - mTLS and OAuth — only a static header today.
+## ✅ Delivery contract
+Os quatro `send_*` devolvem `bool`. `False` para excecao de transporte e para resposta com
+status >= 400 do `POST /api/v2/alerts`. `NotificationManager` so avanca o estado do alerta
+com `True`, entao um Alertmanager fora do ar faz o alerta ser reenviado no ciclo seguinte
+em vez de ser suprimido pelo throttle.

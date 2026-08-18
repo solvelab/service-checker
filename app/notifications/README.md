@@ -13,7 +13,9 @@ The `NotificationManager` (in `app/core/notifications.py`) receives module resul
 - Each recovery notification is logged with `check_id` (e.g., `openai:api`) and the `from_status` → `to_status` transition for auditability.
 - Available channels: Telegram (`app/notifications/telegram`), Webhook (`app/notifications/webhook`), Google Chat (`app/notifications/google_chat`) and Alertmanager (`app/notifications/alertmanager`).
 - Channels are registered, not hardcoded — see *Adding a channel* below.
-- Notification failures are logged at `ERROR` level but do not stop the main monitor.
+- Notification failures are logged at `ERROR` level but do not stop the main monitor —
+  and the channel reports the failure back, so the event is retried instead of being
+  buried by the repeat throttle.
 
 ## 🛑 Monitoring failure vs. service degradation
 Two different things can go wrong, and they are reported separately:
@@ -56,6 +58,19 @@ any channel by name. A channel is any object implementing the four methods of th
 All four take the same keyword arguments: `module_id`, `result`, `interval_seconds`,
 `level_name`, `event_name`, `event_time`, `http_client`, `logger`.
 
+**All four return `bool`: whether at least one target accepted the message.** This is not
+bookkeeping — `NotificationManager` only advances the alert state when some channel
+returns `True`. A channel that returns `False` gets the event retried on the next cycle;
+one that wrongly returns `True` puts the state past an alert nobody received, and
+`NOTIFICATION_REPEAT_MINUTES` then suppresses the repeat.
+
+That is not hypothetical: every channel used to return `None`, so the gate never closed
+and a webhook answering `500` counted as delivered. Return `False` for a transport
+exception **and** for a response with status ≥ 400. A channel writing to several targets
+returns `True` when any of them accepted — someone read it, and resending would duplicate
+the message for them. `tests/test_notifier_contract.py` fails any channel that does not
+declare and honour this.
+
 To wire one up, build it from config in `NotificationManager.__init__` and register it:
 
 ```python
@@ -70,7 +85,12 @@ monitoring outage recovers in production.
 **Channels are isolated.** An exception escaping one is logged as `notify_error` with
 that channel's name, and the remaining channels still receive the event. Implementations
 should still swallow their own transport failures; the isolation is a backstop, not a
-license.
+license. Swallowing is not hiding: swallow the exception, log the reason, and return
+`False`.
+
+A return value that is not a `bool` is treated as **not delivered** and logged as a
+contract violation. Counting it as delivered is precisely the defect this contract
+replaced.
 
 Two things to get right, both learned the hard way:
 - Render from `MonitorResult.reason_items`, never by re-splitting the `reason` string —

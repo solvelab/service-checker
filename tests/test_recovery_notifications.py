@@ -73,8 +73,8 @@ async def test_service_recovery_includes_component_details():
     config = _make_notification_config(telegram_enabled=True)
     manager = NotificationManager(config)
     manager.telegram_notifier = MagicMock()
-    manager.telegram_notifier.send_alert = AsyncMock()
-    manager.telegram_notifier.send_recovery = AsyncMock()
+    manager.telegram_notifier.send_alert = AsyncMock(return_value=True)
+    manager.telegram_notifier.send_recovery = AsyncMock(return_value=True)
 
     module_config = _make_module_config()
     http_client = AsyncMock()
@@ -146,8 +146,8 @@ async def test_module_level_recovery_has_no_component_section():
     config = _make_notification_config(telegram_enabled=True)
     manager = NotificationManager(config)
     manager.telegram_notifier = MagicMock()
-    manager.telegram_notifier.send_alert = AsyncMock()
-    manager.telegram_notifier.send_recovery = AsyncMock()
+    manager.telegram_notifier.send_alert = AsyncMock(return_value=True)
+    manager.telegram_notifier.send_recovery = AsyncMock(return_value=True)
 
     module_config = _make_module_config("mymodule")
     http_client = AsyncMock()
@@ -209,8 +209,8 @@ async def test_multi_component_partial_recovery():
     config = _make_notification_config(telegram_enabled=True)
     manager = NotificationManager(config)
     manager.telegram_notifier = MagicMock()
-    manager.telegram_notifier.send_alert = AsyncMock()
-    manager.telegram_notifier.send_recovery = AsyncMock()
+    manager.telegram_notifier.send_alert = AsyncMock(return_value=True)
+    manager.telegram_notifier.send_recovery = AsyncMock(return_value=True)
 
     module_config = _make_module_config()
     http_client = AsyncMock()
@@ -497,10 +497,10 @@ def _spy_manager(repeat_minutes=10):
     manager = NotificationManager(config)
     manager._repeat_seconds = max(repeat_minutes, 1) * 60
     manager.telegram_notifier = MagicMock()
-    manager.telegram_notifier.send_alert = AsyncMock()
-    manager.telegram_notifier.send_recovery = AsyncMock()
-    manager.telegram_notifier.send_monitor_error = AsyncMock()
-    manager.telegram_notifier.send_monitor_recovered = AsyncMock()
+    manager.telegram_notifier.send_alert = AsyncMock(return_value=True)
+    manager.telegram_notifier.send_recovery = AsyncMock(return_value=True)
+    manager.telegram_notifier.send_monitor_error = AsyncMock(return_value=True)
+    manager.telegram_notifier.send_monitor_recovered = AsyncMock(return_value=True)
     return manager
 
 

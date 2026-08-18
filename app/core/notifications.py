@@ -100,8 +100,8 @@ class NotificationManager:
 
     # -----------------------------------------------------------------------
 
-    async def _dispatch(self, method: str, **kwargs) -> None:
-        """Deliver one event to every registered channel.
+    async def _dispatch(self, method: str, **kwargs) -> bool:
+        """Deliver one event to every registered channel, and say if anyone got it.
 
         Each channel is isolated: an exception escaping one used to abort
         `handle_result` entirely, so a Telegram bot with a bad token could stop the
@@ -109,6 +109,12 @@ class NotificationManager:
 
         `logger` travels inside kwargs because every channel takes it; it is read
         back out here rather than passed separately, so the two cannot disagree.
+
+        The return value used to be "no channel raised", which was always true: the
+        `Notifier` contract tells channels to swallow transport failures, and all four
+        obey. So a webhook answering 500 to every request counted as delivered, the
+        alert state advanced, and the repeat throttle suppressed an alert nobody had
+        received. Channels now report delivery, and this reads what they report.
         """
         logger: logging.Logger = kwargs["logger"]
         # Sem canal registrado nao ha o que entregar, e o estado deve avancar como
@@ -116,8 +122,7 @@ class NotificationManager:
         delivered = not self._notifiers
         for name, notifier in list(self._notifiers.items()):
             try:
-                await getattr(notifier, method)(**kwargs)
-                delivered = True
+                accepted = await getattr(notifier, method)(**kwargs)
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "notification channel failed",
@@ -128,6 +133,27 @@ class NotificationManager:
                         "reason": f"{method}: {type(exc).__name__}: {exc}",
                     },
                 )
+                continue
+            if accepted is True:
+                delivered = True
+                continue
+            if accepted is not False:
+                # Contrato quebrado. Tratar como entrega — que e o que o codigo antigo
+                # fazia com todo mundo — reabriria o vao em silencio para o proximo
+                # canal escrito fora do contrato.
+                logger.error(
+                    "notification channel broke the delivery contract",
+                    extra={
+                        "event": "notify_error",
+                        "module_id": kwargs.get("module_id"),
+                        "target": name,
+                        "reason": (
+                            f"{method}: expected bool, got "
+                            f"{type(accepted).__name__}"
+                        ),
+                    },
+                )
+            # `False` ja foi registrado pelo proprio canal, com o motivo concreto.
         return delivered
 
     async def handle_result(self, **kwargs) -> None:

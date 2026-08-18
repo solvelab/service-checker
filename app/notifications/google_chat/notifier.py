@@ -51,17 +51,17 @@ class GoogleChatNotifier:
         self.config = config
         self._last_sent_at: float = 0.0
 
-    async def send_alert(self, **kwargs) -> None:
-        await self._send("alert", **kwargs)
+    async def send_alert(self, **kwargs) -> bool:
+        return await self._send("alert", **kwargs)
 
-    async def send_recovery(self, **kwargs) -> None:
-        await self._send("recovery", **kwargs)
+    async def send_recovery(self, **kwargs) -> bool:
+        return await self._send("recovery", **kwargs)
 
-    async def send_monitor_error(self, **kwargs) -> None:
-        await self._send("monitor_error", **kwargs)
+    async def send_monitor_error(self, **kwargs) -> bool:
+        return await self._send("monitor_error", **kwargs)
 
-    async def send_monitor_recovered(self, **kwargs) -> None:
-        await self._send("monitor_recovered", **kwargs)
+    async def send_monitor_recovered(self, **kwargs) -> bool:
+        return await self._send("monitor_recovered", **kwargs)
 
     # ------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ class GoogleChatNotifier:
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
         **_ignored,
-    ) -> None:
+    ) -> bool:
         if not self.config.webhook_url:
             logger.warning(
                 "google chat notifier missing webhook url; skipping",
@@ -88,7 +88,7 @@ class GoogleChatNotifier:
                     "target": "google_chat",
                 },
             )
-            return
+            return False
 
         body = self._build_message(kind, module_id, result, event_time, interval_seconds)
         url = self.config.webhook_url
@@ -110,7 +110,7 @@ class GoogleChatNotifier:
                     "reason": f"{type(exc).__name__}: {exc}",
                 },
             )
-            return
+            return False
 
         self._last_sent_at = time.monotonic()
 
@@ -128,7 +128,7 @@ class GoogleChatNotifier:
                     "reason": f"status {status}: {_body_text(response)}",
                 },
             )
-            return
+            return False
 
         logger.info(
             "google chat notification sent",
@@ -139,6 +139,7 @@ class GoogleChatNotifier:
                 "space": _space_id(self.config.webhook_url),
             },
         )
+        return True
 
     async def _respect_quota(self) -> None:
         """Keep at least `min_interval_seconds` between two sends to this space."""
