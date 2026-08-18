@@ -17,7 +17,7 @@ This guide covers two Docker Compose setups:
 The release image is published in GitHub Packages (GHCR).
 
 ```bash
-docker pull ghcr.io/solvelab/service-checker:v2.8.8
+docker pull ghcr.io/solvelab/service-checker:v2.8.9
 ```
 
 Start the service using the image:
@@ -25,9 +25,9 @@ Start the service using the image:
 docker compose up -d
 ```
 
-To pin a release, set `SERVICE_MONITOR_IMAGE_TAG` in `.env` to the current release tag (for example, `v2.8.8`):
+To pin a release, set `SERVICE_MONITOR_IMAGE_TAG` in `.env` to the current release tag (for example, `v2.8.9`):
 ```bash
-SERVICE_MONITOR_IMAGE_TAG=v2.8.8
+SERVICE_MONITOR_IMAGE_TAG=v2.8.9
 ```
 
 If you forked the repository under a different GitHub owner, set `GHCR_OWNER` in `.env`:

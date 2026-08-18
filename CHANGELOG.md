@@ -1,3 +1,10 @@
+## [2.8.9](https://github.com/solvelab/service-checker/compare/v2.8.8...v2.8.9) (2026-08-18)
+
+
+### Bug Fixes
+
+* **notifications:** canal que falha volta a impedir o avanco do estado ([39a140f](https://github.com/solvelab/service-checker/commit/39a140f559e870b80fcd01f002d4e8d698eae700)), closes [#71](https://github.com/solvelab/service-checker/issues/71)
+
 ## [2.8.8](https://github.com/solvelab/service-checker/compare/v2.8.7...v2.8.8) (2026-08-17)
 
 
