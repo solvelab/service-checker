@@ -70,15 +70,19 @@ class RecordingNotifier:
 
     async def send_alert(self, **kwargs):
         self.events.append("send_alert")
+        return True
 
     async def send_recovery(self, **kwargs):
         self.events.append("send_recovery")
+        return True
 
     async def send_monitor_error(self, **kwargs):
         self.events.append("send_monitor_error")
+        return True
 
     async def send_monitor_recovered(self, **kwargs):
         self.events.append("send_monitor_recovered")
+        return True
 
 
 class ExplodingNotifier(RecordingNotifier):
@@ -100,9 +104,14 @@ class ExplodingNotifier(RecordingNotifier):
 class IncompleteNotifier:
     """Missing `send_monitor_recovered` — the method that fires most rarely."""
 
-    async def send_alert(self, **kwargs): ...
-    async def send_recovery(self, **kwargs): ...
-    async def send_monitor_error(self, **kwargs): ...
+    async def send_alert(self, **kwargs):
+        return True
+
+    async def send_recovery(self, **kwargs):
+        return True
+
+    async def send_monitor_error(self, **kwargs):
+        return True
 
 
 async def _feed(manager, result, when, module_id="rockstar", logger=None):

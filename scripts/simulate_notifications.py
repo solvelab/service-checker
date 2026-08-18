@@ -13,6 +13,13 @@ Nothing is mocked above the transport, so a regression anywhere between
 A deliberately broken channel is registered alongside the real ones. Channels are
 supposed to be isolated: one failing must not stop the others. That used to be false.
 
+The broken channel *raises*, and for a long time that was the only failure this script
+knew how to make. Real channels do not raise: the contract tells them to swallow the
+transport error. So the state machine's "only advance when someone received it" gate was
+exercised solely by the one channel that behaves unlike every real one, and passed while
+a webhook answering 500 counted as delivered. The last phase closes that: each real
+channel is pointed at an endpoint that rejects, and must report that it did not deliver.
+
     python scripts/simulate_notifications.py
 
 Exit code is non-zero when any channel misses any event, or when the broken channel
@@ -41,6 +48,10 @@ from app.core.config import (  # noqa: E402
 )
 from app.core.notifications import NotificationManager  # noqa: E402
 from app.core.types import NOTIFIER_METHODS, MonitorResult, MonitorStatus  # noqa: E402
+from app.notifications.alertmanager.notifier import AlertmanagerNotifier  # noqa: E402
+from app.notifications.google_chat.notifier import GoogleChatNotifier  # noqa: E402
+from app.notifications.telegram.notifier import TelegramNotifier  # noqa: E402
+from app.notifications.webhook.notifier import WebhookNotifier  # noqa: E402
 
 _T0 = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
 _THRESHOLD = 3
@@ -94,6 +105,7 @@ class WitnessChannel:
     def _record(self, name):
         async def handler(**kwargs):
             self.events.append(name)
+            return True
 
         return handler
 
@@ -213,6 +225,49 @@ def _describe(kwargs: dict) -> str:
     return f"status={body.get('status')} event={body.get('event')}"
 
 
+class RejectingClient:
+    """An endpoint that takes the request and refuses it, over and over."""
+
+    async def post(self, url, **kwargs):
+        class _Response:
+            status_code = 500
+            text = "upstream is having a bad day"
+
+        return _Response()
+
+
+async def _rejection_report() -> list[tuple[str, object]]:
+    """Ask each real channel to send somewhere that says no, and see what it returns.
+
+    `False` is the only right answer. Anything else — including `None`, which is what
+    every channel used to return — makes NotificationManager record the alert as sent
+    and lets the repeat throttle bury it.
+    """
+    config = _notification_config()
+    channels = [
+        ("telegram", TelegramNotifier(config.telegram)),
+        ("webhook", WebhookNotifier(config.webhook)),
+        ("google_chat", GoogleChatNotifier(config.google_chat)),
+        ("alertmanager", AlertmanagerNotifier(config.alertmanager)),
+    ]
+    client = RejectingClient()
+    logger = logging.getLogger("simulate")
+    report = []
+    for name, channel in channels:
+        delivered = await channel.send_alert(
+            module_id="rockstar",
+            result=_alert(),
+            interval_seconds=60,
+            level_name="WARNING",
+            event_name="service_alert",
+            event_time=_T0,
+            http_client=client,
+            logger=logger,
+        )
+        report.append((name, delivered))
+    return report
+
+
 async def main() -> int:
     logging.disable(logging.CRITICAL)
 
@@ -301,6 +356,17 @@ async def main() -> int:
           f"suppress the healthy ones")
     if not isolated:
         failures.append("a failing channel suppressed a healthy one")
+
+    print("\nrejection reporting")
+    print("  each real channel against an endpoint that answers 500:")
+    for name, delivered in await _rejection_report():
+        verdict = "reported not delivered" if delivered is False else f"SAID {delivered!r}"
+        print(f"    {name:<14} {verdict}")
+        if delivered is not False:
+            failures.append(
+                f"{name} did not report the rejection; the alert state would advance "
+                f"past an alert nobody received"
+            )
 
     if failures:
         print(f"\n{len(failures)} FAILURE(S):")

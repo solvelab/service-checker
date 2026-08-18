@@ -62,7 +62,7 @@ def _manager(**kwargs):
             "send_monitor_error",
             "send_monitor_recovered",
         ):
-            setattr(stub, method, AsyncMock())
+            setattr(stub, method, AsyncMock(return_value=True))
         setattr(manager, attr, stub)
     return manager
 
@@ -338,6 +338,9 @@ async def test_webhook_uses_dedicated_status_values():
 
     async def capture(**kwargs):
         posted.append(kwargs)
+        # side_effect manda no retorno do AsyncMock: sem isto o canal diria que
+        # nao entregou, e o estado nao avancaria para o evento seguinte.
+        return True
 
     manager.webhook_notifier.send_monitor_error = AsyncMock(side_effect=capture)
     manager.webhook_notifier.send_monitor_recovered = AsyncMock(side_effect=capture)
@@ -358,7 +361,9 @@ async def test_webhook_payload_status_strings():
         WebhookConfig(True, "https://hook.example.com", "secret", "Authorization")
     )
     client = MagicMock()
-    client.post = AsyncMock()
+    # O webhook agora le o status da resposta para dizer se entregou; um mock sem
+    # status_code nao modela mais um endpoint que aceitou.
+    client.post = AsyncMock(return_value=MagicMock(status_code=200))
     logger = MagicMock(spec=logging.Logger)
     result = MonitorResult(MonitorStatus.ERROR, "monitoring failure", "3 failed", 10.0)
 
@@ -394,7 +399,9 @@ async def test_webhook_without_url_skips_without_raising():
 
     notifier = WebhookNotifier(WebhookConfig(True, None, None, "Authorization"))
     client = MagicMock()
-    client.post = AsyncMock()
+    # O webhook agora le o status da resposta para dizer se entregou; um mock sem
+    # status_code nao modela mais um endpoint que aceitou.
+    client.post = AsyncMock(return_value=MagicMock(status_code=200))
     logger = MagicMock(spec=logging.Logger)
 
     await notifier.send_monitor_error(

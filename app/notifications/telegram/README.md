@@ -73,3 +73,12 @@ Os templates HTML ficam em `app/notifications/telegram/templates/`:
 ## ℹ️ Notes
 - Send failures (timeouts, blocked chat) are logged as `notify_error` and do not abort the process.
 - For new channels, create subdirectories under `app/notifications/<channel>` and register them in `NotificationManager`.
+## ✅ Delivery contract
+Os quatro `send_*` devolvem `bool`: `True` quando **algum** `chat_id` aceitou, `False`
+quando nenhum aceitou. Sucesso parcial conta como entrega — alguem leu, e reenviar no
+ciclo seguinte duplicaria a mensagem para quem ja viu. Uma resposta com status >= 400 e
+uma excecao de transporte contam igual: nao houve entrega naquele chat.
+
+`NotificationManager` so avanca o estado do alerta com `True`. Enquanto este canal
+devolvia `None`, um bot com token revogado contava como entrega e o alerta era engolido
+pelo throttle de `NOTIFICATION_REPEAT_MINUTES`.

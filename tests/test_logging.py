@@ -128,7 +128,8 @@ async def test_a_failing_channel_is_named_in_the_emitted_log():
         async def send_alert(self, **kwargs):
             raise RuntimeError("channel is broken")
 
-        async def send_recovery(self, **kwargs): ...
+        async def send_recovery(self, **kwargs):
+            return True
         async def send_monitor_error(self, **kwargs): ...
         async def send_monitor_recovered(self, **kwargs): ...
 
