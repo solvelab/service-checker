@@ -2,12 +2,17 @@
 
 ## Purpose
 Daemon que vigia as páginas de status de provedores terceiros e avisa quando um deles degrada —
-e quando volta. Existe para trocar a checagem manual de nove páginas por um único fluxo de alertas,
+e quando volta. Existe para trocar a checagem manual de dez páginas por um único fluxo de alertas,
 com filtro por serviço e por região, para que a equipe descubra um incidente upstream antes que o
 usuário reclame.
 
-Nove provedores hoje: Steam, OpenAI, Claude, Rockstar (que absorveu Cfx.re / FiveM / RedM), OCI,
-GCP, AWS, GitHub e Bitbucket. Dois canais de saída: Telegram e webhook genérico.
+Dez provedores hoje: Steam, OpenAI, Claude, Rockstar (que absorveu Cfx.re / FiveM / RedM), OCI,
+GCP, AWS, GitHub, Bitbucket e Cloudflare.
+
+Quatro canais de saída: Telegram, webhook genérico, Google Chat e Alertmanager. Cada um é isolado —
+um canal que levanta não impede os outros de receberem o mesmo evento —, e o estado de notificação
+só avança quando **algum** deles aceitou: entrega que falhou é retentada no ciclo seguinte, em vez
+de o throttle suprimir um alerta que ninguém viu.
 
 ## Tech Stack
 - **Python 3.11**, `asyncio`, sem framework web — o processo não expõe porta nenhuma.
@@ -129,18 +134,30 @@ dentro do conteúdo de algum provedor.
   próprio, disparado por `NOTIFICATION_ERROR_THRESHOLD` falhas consecutivas.
 
 ## Important Constraints
-- **Estado só em memória.** Reiniciar o processo zera alertas pendentes e contadores de erro: o
-  serviço re-alerta o que ainda estiver degradado e perde recuperações que aconteceriam durante a
-  janela. Aceito hoje; qualquer persistência é mudança de arquitetura e pede proposta OpenSpec.
+- **Estado persistido, quando há onde.** `NOTIFICATION_STATE_PATH` aponta para um arquivo JSON com
+  os alertas pendentes, relido na subida; vazio significa só em memória, que é o comportamento
+  antigo. Sem persistência, um incidente que atravessa um restart nunca recebe o all-clear — nenhum
+  provedor anuncia a mesma degradação duas vezes. O arquivo precisa sobreviver ao pod: `emptyDir`
+  não serve. Estado mais velho que `NOTIFICATION_STATE_MAX_AGE_MINUTES` é descartado na leitura, em
+  vez de virar uma resolução tardia e confusa.
 - **Sem servidor HTTP.** Não há endpoint de health nem `/metrics`. A observabilidade é o stdout em
   JSON, e é por isso que falha de monitoramento precisa virar notificação.
 - **Três dependências de runtime.** Adicionar uma quarta é decisão consciente, não conveniência.
-- **Endpoints públicos, sem contrato.** Nenhum dos nove provedores garante o formato que
+- **Endpoints públicos, sem contrato.** Nenhum dos dez provedores garante o formato que
   publicamos consumir; alguns nem documentam a semântica dos campos. Quando a semântica não é
   documentada, o campo entra no payload como metadado e **não** decide alerta.
 - **Cloudflare bloqueia por TLS fingerprint** em `steamstat.us` e na Rockstar. Trocar `User-Agent`
   não resolve; é `curl_cffi` com profile concreto e fixado. Profiles envelhecem — os módulos
   registram no README o profile validado e a data.
+- **A borda recusa mesmo com o fingerprint certo.** Medido em ~30% no `steam`, e 83% dessas recusas
+  passam na tentativa seguinte. Por isso a busca com impersonação repete o que é transitório (403,
+  408, 429, 5xx e erro de rede) e **não** repete o que é permanente (404, corpo vazio). Cada
+  tentativa extra é registrada: retry calado esconderia a degradação que ele atravessa.
+- **Fallback sem sinal é o modo de falha desta base.** Canais desligados por meses, all-clear que
+  nunca saía, payload malformado capturado sem virar `MonitorStatus.ERROR` — todos encontrados por
+  acaso. Todo caminho de degradação precisa devolver `ERROR`, registrar em log pela árvore
+  `service_monitor`, ou re-levantar. `tests/test_silent_fallbacks.py` falha quando aparece um que
+  não faz nenhuma das três.
 
 ## External Dependencies
 | Provedor | Fonte | Formato |

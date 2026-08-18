@@ -174,8 +174,23 @@ fleet costs no disk traffic. Every failure — unreadable file, bad JSON, full d
 logged and swallowed: a monitor that will not start because it could not persist
 bookkeeping is worse than one that forgets.
 
+## 🪵 Logging
+
+- `SERVICE_MONITOR_LOG_LEVEL` (default `INFO`): nível do logger `service_monitor`, que é o único
+  configurado — um `logging.getLogger(__name__)` fora dessa árvore não tem handler e some. Um nome
+  de nível inválido não é aceito em silêncio: vira `INFO` **com um aviso**.
+
+A saída é JSON em stdout, uma linha por evento, e só as chaves de `extra` da allowlist do formatter
+aparecem. Passar uma chave que não está lá a descarta sem dizer nada — foi assim que
+`notification channel failed` deixou de dizer qual canal falhou —, e
+`tests/test_logging.py::test_every_extra_key_used_in_the_app_is_allowed` quebra quando isso acontece.
+
 ## 🔔 Notifications
 **Telegram**
+- `TELEGRAM_TIMESTAMP_FORMAT` (default `%Y-%m-%d %H:%M:%S`): `strftime` do carimbo nas mensagens.
+  Uma diretiva que a plataforma não conhece **não** faz o envio falhar — no Linux `strftime` devolve
+  o texto literal —, então o módulo detecta que nada foi interpretado, avisa e cai para ISO-8601.
+- `TELEGRAM_TIMESTAMP_ZONE` (default `UTC`): `UTC` ou `LOCAL`, esta última usando o fuso do container.
 - `TELEGRAM_ENABLED` (default `false`)
 - `TELEGRAM_BOT_TOKEN` (required when enabled)
 - `TELEGRAM_CHAT_ID` (single chat/group)
