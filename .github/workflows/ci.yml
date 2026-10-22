@@ -146,3 +146,16 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/service-checker:${{ env.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Ciclo de vida das imagens: mantém as 5 versões com tag mais recentes (e os manifestos que elas
+  # usam) e apaga o resto, logo depois do push (solvelab/.github#1). Falha aqui vira aviso.
+  retention:
+    name: "Retention: keep the latest 5 images"
+    needs: publish
+    if: needs.publish.result == 'success'
+    permissions:
+      packages: write
+    uses: solvelab/.github/.github/workflows/ghcr-retention.yml@main
+    with:
+      package: service-checker
+      runner: ubuntu-latest
