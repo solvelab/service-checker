@@ -252,3 +252,39 @@ def test_every_declared_fixture_exists():
 
 def test_every_provider_declares_a_degradation():
     assert all(callable(p.degrade) for p in PROVIDERS)
+
+
+def test_aws_degrade_drops_ended_events_from_the_live_feed():
+    """Issue #86: the feed keeps ended events; they are not a degradation."""
+    import json
+    from pathlib import Path
+
+    from scripts.simulate_alerts import _aws_degrade
+
+    feed = json.loads(
+        (Path(__file__).parent / "fixtures" / "aws" / "current_events_with_ended.json")
+        .read_text(encoding="utf-8")
+    )
+    events, note = _aws_degrade(feed)
+    assert len(events) == 2
+    assert not any(e.get("end_time") for e in events)
+    assert note.startswith("2 live open event(s)")
+
+
+def test_aws_degrade_falls_back_when_the_live_feed_holds_only_ended_events():
+    import json
+    from pathlib import Path
+
+    from scripts.simulate_alerts import _aws_degrade
+
+    feed = [
+        e
+        for e in json.loads(
+            (Path(__file__).parent / "fixtures" / "aws" / "current_events_with_ended.json")
+            .read_text(encoding="utf-8")
+        )
+        if e.get("end_time")
+    ]
+    events, note = _aws_degrade(feed)
+    assert events and not any(e.get("end_time") for e in events)
+    assert "captured" in note

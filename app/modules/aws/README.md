@@ -11,14 +11,13 @@ Monitors public AWS Health Dashboard events at `https://health.aws.amazon.com/pu
 - Docker: [../../../DOCKER.md](../../../DOCKER.md)
 
 ## 🧭 Overview
-- Queries `currentevents` (JSON). Everything the endpoint returns is a currently active
-  event — it exposes no end timestamp and carries no resolved entries.
+- Queries `currentevents` (JSON). An event in the feed is active unless it carries an `end_time`:
+  the feed keeps ended events listed for a while, and only those have the key.
 - Alert/resolution lifecycle is per event, keyed on the unique id inside the event ARN.
 - Region filter via `AWS_SERVICE_FILTER`, matching region code, human region name or service code.
 
 ## 🗺️ Where the fields actually live
-The public feed does **not** expose `region`, `typeCode`, `startTime` or `endTime` as top-level
-fields. Everything the rule engine needs is encoded in the event ARN:
+The public feed does **not** expose `region`, `typeCode` or `startTime` as top-level fields. Everything the rule engine needs is encoded in the event ARN:
 
 ```
 arn:aws:health:eu-central-1::event/DIRECTCONNECT/AWS_DIRECTCONNECT_OPERATIONAL_ISSUE/AWS_DIRECTCONNECT_OPERATIONAL_ISSUE_E23AA_ADAB9D3D11F
@@ -36,11 +35,17 @@ Payload verified against the live endpoint on **2026-08-15**. Fields present per
 | `summary` | `Increased Packet loss` | notification text |
 | `status` | `"1"` | **metadata only** — see below |
 | `date` | `1786765379` | event start (epoch) |
+| `end_time` | `1794754409` | event end (epoch) — **present only on ended events**, see below |
 
 > ⚠️ **`status` is not used to decide whether to alert.** It arrives as a numeric string; `1`, `2`
 > and `3` were observed, and higher values appear to mean worse, but AWS documents none of it. The
 > module carries it through as metadata and decides purely on presence in the feed plus the type
 > code. If AWS ever documents the scale, that is the moment to use it.
+
+> ⚠️ **An ended event can stay in the feed.** Observed on **2026-11-15**: `[RESOLVED] Increased
+> Connectivity issues in US-EAST-1` remained listed with `end_time` set, while the two active events
+> beside it had no such key. Before the module read `end_time`, that event kept the alert open for
+> more than nine hours and the all-clear never went out.
 
 Run `python scripts/simulate_endpoints.py` to check that these fields still exist upstream. The
 module was silently blind for a long time because nothing verified this.
@@ -58,7 +63,11 @@ module was silently blind for a long time because nothing verified this.
 - `SERVICE_FILTER`: regions to monitor (default `sa-east-1,us-east-1,us-east-2`); empty = all
 
 ## 🚦 `status` rule
-- Every event in the feed is active; there is nothing to filter by end time.
+- An event ends only through its `end_time`: a readable epoch that is not in the future drops the
+  event. No `end_time` (or an empty one) means active. An `end_time` that is not a valid epoch in seconds —
+  not numeric, not finite, not positive, or millisecond-sized (`>= 1e11`) — keeps the event active
+  and logs `end_time_unreadable` — a field the module cannot parse never erases an
+  incident. The `[RESOLVED]` summary prefix and `status` never decide.
 - The filter matches, case-insensitively, against four things: the region code (`eu-central-1`), the
   human region name (`Frankfurt`), the service code (`directconnect-eu-central-1`) and the service
   display name (`AWS Direct Connect`). The last one means `AWS_SERVICE_FILTER=AWS Direct Connect`
