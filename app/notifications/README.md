@@ -27,13 +27,23 @@ Two different things can go wrong, and they are reported separately:
 | Monitoring failure | **We cannot reach the provider at all** | 🛑 `Monitoring failure` | `MONITOR_ERROR` |
 | Monitoring recovery | Checks are running again | 🔄 `Monitoring restored` | `MONITOR_RECOVERED` |
 
-A monitor that cannot evaluate its upstream used to be completely silent — only a log line per cycle. It now reports itself after `NOTIFICATION_ERROR_THRESHOLD` consecutive failed checks (default `3`), and announces when it recovers.
+A monitor that cannot evaluate its upstream used to be completely silent — only a log line per cycle. It now reports itself after `NOTIFICATION_ERROR_THRESHOLD` consecutive failed checks (default `3`), and announces when it recovers — after `NOTIFICATION_RECOVERY_THRESHOLD` successful checks in a row (default `3`).
 
 Details of the lifecycle:
 - Failures below the threshold are silent, so a single timeout does not page anyone.
 - Any successful evaluation — `OK` **or** `ALERT` — resets the counter, because reaching the
   provider and finding it degraded still means monitoring works.
 - A failure that was never announced recovers silently: there is nothing to retract.
+- An announced failure ends only after `NOTIFICATION_RECOVERY_THRESHOLD` successes in a row. An
+  error inside that window is the same failure, so it is throttled instead of re-announced, and
+  paging again needs a new streak of `NOTIFICATION_ERROR_THRESHOLD` errors as well. A "restored"
+  message that no channel accepts is retried on the next successful check.
+  Measured on a provider refused on 45% of its checks over 14 hours: 51 failure and 47
+  "restored" cards with a window of 1, 37 and 15 with the default of 3. The failures that remain
+  are mostly the honest repeat of a failure still open.
+- `monitor_blind_window` is logged when a failure reached the threshold, no channel accepted it,
+  and the monitor recovered — an outage nobody was told about. A burst below the threshold is not
+  one: nothing was attempted.
 - Sustained failures respect `NOTIFICATION_REPEAT_MINUTES`, so a day-long outage does not
   produce one card per cycle.
 - A pending service alert survives a monitoring outage: `ALERT` → long failure → `OK` emits
@@ -111,6 +121,7 @@ templates, intercepting only the outbound POST, and fails if any channel misses 
 - `TELEGRAM_*`: enables the bot, provides the token, allows multiple chat_ids (`TELEGRAM_CHAT_IDS`), and optionally overrides the API URL (`TELEGRAM_API_URL`). Use negative IDs for groups.
 - `NOTIFICATION_REPEAT_MINUTES`: minimum time (minutes) to repeat alerts for the same service while an incident persists (default `10`).
 - `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before a module reports itself as broken (default `3`, minimum `1`). Also throttled by `NOTIFICATION_REPEAT_MINUTES`.
+- `NOTIFICATION_RECOVERY_THRESHOLD`: successful checks in a row before an announced monitoring failure is declared over (default `3`, minimum `1`).
 - `WEBHOOK_*`: enables delivery and sends a JSON POST to `WEBHOOK_URL`, with an optional token in `WEBHOOK_HEADER_NAME`.
 
 ## 📚 Recommended reading

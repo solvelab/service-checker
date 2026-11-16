@@ -110,6 +110,10 @@ class NotificationConfig:
     webhook: WebhookConfig
     repeat_minutes: int
     error_threshold: int = 3
+    # Successful checks in a row that end a *notified* monitoring failure. One success
+    # in the middle of a burst of errors is not a recovery: announcing it turns a
+    # flapping upstream into a failure/restored pair per flap (issue #87).
+    recovery_threshold: int = 3
     google_chat: Optional["GoogleChatConfig"] = None
     alertmanager: Optional["AlertmanagerConfig"] = None
     # Where pending alerts are kept so a restart does not swallow the all-clear.
@@ -292,6 +296,9 @@ def _load_notification_config() -> NotificationConfig:
     error_threshold = _get_int("NOTIFICATION_ERROR_THRESHOLD", 3)
     if error_threshold < 1:
         error_threshold = 1
+    recovery_threshold = _get_int("NOTIFICATION_RECOVERY_THRESHOLD", 3)
+    if recovery_threshold < 1:
+        recovery_threshold = 1
     google_chat = GoogleChatConfig(
         enabled=_get_bool("GOOGLE_CHAT_ENABLED", False),
         webhook_url=os.getenv("GOOGLE_CHAT_WEBHOOK_URL"),
@@ -318,6 +325,7 @@ def _load_notification_config() -> NotificationConfig:
         webhook=webhook,
         repeat_minutes=repeat_minutes,
         error_threshold=error_threshold,
+        recovery_threshold=recovery_threshold,
         state_path=state_path,
         state_max_age_minutes=state_max_age_minutes,
         google_chat=google_chat,

@@ -82,7 +82,9 @@ four events, and the distinction between the first two and the last two matters:
 | Monitoring recovery | checks are running again |
 
 A monitor that cannot evaluate its upstream is not a healthy provider, and never reports as one. It
-speaks up after `NOTIFICATION_ERROR_THRESHOLD` consecutive failed checks (default `3`).
+speaks up after `NOTIFICATION_ERROR_THRESHOLD` consecutive failed checks (default `3`), and says it
+is restored only after `NOTIFICATION_RECOVERY_THRESHOLD` successful checks in a row (default `3`), so
+a provider that flaps does not page on every flap.
 
 | Channel | Notes |
 |---|---|
@@ -114,6 +116,8 @@ Everything is an environment variable; there is no config file.
 - `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load.
 - `NOTIFICATION_REPEAT_MINUTES`: minimum interval before repeating an alert for the same component.
 - `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before a module reports itself as broken.
+- `NOTIFICATION_RECOVERY_THRESHOLD`: successful checks in a row before an announced failure is
+  declared over.
 - `TELEGRAM_ENABLED` / `WEBHOOK_ENABLED` / `GOOGLE_CHAT_ENABLED` / `ALERTMANAGER_ENABLED`: enable
   channels. All default to `false`.
 

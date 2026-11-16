@@ -27,7 +27,7 @@ from app.core.types import NOTIFIER_METHODS, MonitorResult, MonitorStatus, Notif
 _T0 = datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc)
 
 
-def _config(*, telegram=False, webhook=False, threshold=3, repeat_minutes=10):
+def _config(*, telegram=False, webhook=False, threshold=3, repeat_minutes=10, recovery=1):
     return NotificationConfig(
         telegram=TelegramConfig(
             enabled=telegram,
@@ -45,6 +45,9 @@ def _config(*, telegram=False, webhook=False, threshold=3, repeat_minutes=10):
         ),
         repeat_minutes=repeat_minutes,
         error_threshold=threshold,
+        # One success ends a notified failure here; the recovery hysteresis of
+        # issue #87 has its own tests in test_recovery_hysteresis.py.
+        recovery_threshold=recovery,
     )
 
 

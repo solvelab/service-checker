@@ -28,7 +28,7 @@ from app.core.types import MonitorResult, MonitorStatus
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _config(*, threshold=3, repeat_minutes=10, telegram=True, webhook=False):
+def _config(*, threshold=3, repeat_minutes=10, telegram=True, webhook=False, recovery=1):
     return NotificationConfig(
         telegram=TelegramConfig(
             enabled=telegram,
@@ -46,6 +46,9 @@ def _config(*, threshold=3, repeat_minutes=10, telegram=True, webhook=False):
         ),
         repeat_minutes=repeat_minutes,
         error_threshold=threshold,
+        # One success ends a notified failure here; the recovery hysteresis of
+        # issue #87 has its own tests in test_recovery_hysteresis.py.
+        recovery_threshold=recovery,
     )
 
 

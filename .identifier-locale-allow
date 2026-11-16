@@ -1,0 +1,4 @@
+# Paths whose comments and docstrings are prose in the repository's working language
+# (Portuguese). The detector cannot tell a docstring sentence from an identifier; the
+# identifiers in these files are English.
+app/core/impersonated_fetch.py
