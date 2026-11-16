@@ -1,3 +1,10 @@
+## [2.8.12](https://github.com/solvelab/service-checker/compare/v2.8.11...v2.8.12) (2026-11-16)
+
+
+### Bug Fixes
+
+* **fetch:** nomear o desafio do Cloudflare no motivo da falha ([#95](https://github.com/solvelab/service-checker/issues/95)) ([ddd67e8](https://github.com/solvelab/service-checker/commit/ddd67e83928435f8d11aec6ad6df1a49889161c2)), closes [#87](https://github.com/solvelab/service-checker/issues/87) [#94](https://github.com/solvelab/service-checker/issues/94)
+
 ## [2.8.11](https://github.com/solvelab/service-checker/compare/v2.8.10...v2.8.11) (2026-11-16)
 
 
