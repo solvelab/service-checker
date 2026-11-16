@@ -284,7 +284,7 @@ async def main() -> int:
             f"{slug:<11} {result.status.value:<7} {elapsed:>7.0f} {raw:>5} {parsed:>7}  {verdict}"
         )
         if result.reason:
-            print(f"{'':<11} {'':<7} {'':>7} {'':>5} {'':>7}  reason: {result.reason[:80]}")
+            print(f"{'':<11} {'':<7} {'':>7} {'':>5} {'':>7}  reason: {result.reason[:160]}")
         if result.status.value == "ERROR":
             failures[slug] = result.reason or result.message
 

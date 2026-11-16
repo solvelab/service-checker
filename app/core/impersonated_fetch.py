@@ -69,6 +69,23 @@ class UpstreamRejected(RuntimeError):
         self.status = status
 
 
+class UpstreamChallenged(UpstreamRejected):
+    """A borda desafiou o cliente automatizado (issue #94).
+
+    Diagnosticado na #87: o 403 do `steamstat.us` é o Cloudflare Bot Management,
+    `cf-mitigated: challenge` com a página "Just a moment...". É política do operador
+    da fonte, não falha do checker, da rede ou do provedor — e o motivo precisa dizer
+    isso, ou o operador investiga no lugar errado. A repetição segue o status, como em
+    qualquer recusa: um desafio com 403, 429 ou 5xx de `RETRYABLE_STATUS` é repetido
+    (parte passa na tentativa seguinte); com 401, 404 ou 52x, não.
+    """
+
+
+#: Cabeçalho com que o Cloudflare marca uma resposta de desafio (observado 2026-11-16).
+_CHALLENGE_HEADER = "cf-mitigated"
+_CHALLENGE_VALUE = "challenge"
+
+
 def worst_case_seconds(timeout_seconds: float, attempts: int, backoff: float) -> float:
     """Teto de tempo de uma busca completa.
 
@@ -127,6 +144,13 @@ def _fetch_once(url: str, impersonate: str, timeout_seconds: float) -> str:
     from curl_cffi import requests as cffi_requests
 
     response = cffi_requests.get(url, impersonate=impersonate, timeout=timeout_seconds)
+    if response.status_code >= 400 and _is_challenge(response):
+        raise UpstreamChallenged(
+            "upstream challenged the automated client "
+            f"(Cloudflare {_CHALLENGE_HEADER}: {_CHALLENGE_VALUE}, "
+            f"HTTP {response.status_code})",
+            response.status_code,
+        )
     if response.status_code >= 400:
         raise UpstreamRejected(
             f"upstream returned HTTP {response.status_code}", response.status_code
@@ -137,3 +161,21 @@ def _fetch_once(url: str, impersonate: str, timeout_seconds: float) -> str:
         # insistir so atrasa o diagnostico.
         raise UpstreamRejected("upstream returned empty body", 200)
     return text
+
+
+def _is_challenge(response) -> bool:
+    """True quando algum `cf-mitigated` traz o valor `challenge`, sem diferenciar maiúsculas.
+
+    Igualdade por item, não substring: o Cloudflare documenta só o valor `challenge`, e o
+    motivo afirma esse valor — `non-challenge` não pode virar desafio. O `curl_cffi` junta
+    cabeçalhos repetidos com ", ", por isso a lista é separada antes de comparar.
+    """
+    items = getattr(getattr(response, "headers", None), "items", None)
+    if not callable(items):
+        return False
+    for name, value in items():
+        if str(name).lower() != _CHALLENGE_HEADER:
+            continue
+        if any(token.strip().lower() == _CHALLENGE_VALUE for token in str(value).split(",")):
+            return True
+    return False
