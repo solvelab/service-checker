@@ -38,8 +38,9 @@ from .types import MonitorStatus
 
 SCHEMA_VERSION = 1
 
-#: Chaves de canal guardadas ao lado de `alerts` e `errors`, sem versão própria.
-CHANNEL_SECTIONS = ("telegram_summary",)
+#: Seções opacas guardadas ao lado de `alerts` e `errors`, sem versão própria: o
+#: resumo do Telegram (#100) e a queda de conectividade do checker (#106).
+CHANNEL_SECTIONS = ("telegram_summary", "connectivity")
 
 #: A timestamp this far ahead of now is not a clock skew, it is a corrupt or
 #: hand-edited file. Keeping it would freeze the repeat throttle forever, because the
@@ -192,6 +193,9 @@ class StateStore:
                 consecutive_successes=(
                     successes if type(successes) is int and successes >= 0 else 0
                 ),
+                # Absent in files written before the connectivity loss detection (#106).
+                first_error_at=_parse_dt(raw.get("first_error_at")),
+                connectivity_loss=raw.get("connectivity_loss") is True,
             )
 
         self._logger.info(
@@ -237,6 +241,10 @@ class StateStore:
                     ),
                     "last_reason": state.last_reason,
                     "consecutive_successes": state.consecutive_successes,
+                    "first_error_at": (
+                        state.first_error_at.isoformat() if state.first_error_at else None
+                    ),
+                    "connectivity_loss": state.connectivity_loss,
                 }
                 for key, state in error_state.items()
             },

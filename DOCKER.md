@@ -65,6 +65,10 @@ These apply across modules:
 - `NOTIFICATION_REPEAT_MINUTES`: minimum minutes between repeated alerts for the same service.
 - `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before the monitor reports itself as broken (default `3`, minimum `1`). Raise it to stay quiet about monitoring failures.
 - `NOTIFICATION_RECOVERY_THRESHOLD`: successful checks in a row that end an announced monitoring failure (default `3`, minimum `1`). An error inside that window continues the same failure and is throttled by `NOTIFICATION_REPEAT_MINUTES`, so a flapping provider does not page "failure / restored" on every flap. The "restored" message arrives `N - 1` cycles later than the first success; `1` restores the old behaviour.
+- `NOTIFICATION_CONNECTIVITY_QUORUM` (default `0.7`): when this fraction of the loaded modules (minimum 3) is failing as one of them reaches the threshold, the failure is the checker's own network. It is announced once, as the monitoring failure of the module `checker`, and no module pages its own failure while it lasts. `1` requires every module. Out of `(0, 1]` warns and uses the default.
+- `NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES` (default `10`): a connectivity loss shorter than this reaches no channel, only the log (`connectivity_lost` / `connectivity_restored`). `0` announces every loss.
+- `NOTIFICATION_CONNECTIVITY_WINDOWS` (optional, e.g. `04:00-04:15,05:00-05:10`): windows where a loss is expected, such as a scheduled router reboot. A loss that starts inside one and ends before its end never notifies; one that outlasts it falls back to the tolerance. A single provider failing inside a window still pages. A malformed item is ignored with a `config_fallback` warning; the windows read are listed in the `startup` log.
+- `NOTIFICATION_CONNECTIVITY_TIMEZONE` (default `America/Sao_Paulo`): IANA zone the windows are read in.
 
 ## 🔧 Module configuration
 Each module supports the same environment shape:

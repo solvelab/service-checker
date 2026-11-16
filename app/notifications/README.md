@@ -44,6 +44,15 @@ Details of the lifecycle:
 - `monitor_blind_window` is logged when a failure reached the threshold, no channel accepted it,
   and the monitor recovered — an outage nobody was told about. A burst below the threshold is not
   one: nothing was attempted.
+- A **connectivity loss of the checker** (#106) — as a module reaches the threshold,
+  `NOTIFICATION_CONNECTIVITY_QUORUM` of the loaded modules are failing — is not N monitoring
+  failures. No module pages while it lasts, the log carries `connectivity_lost` /
+  `connectivity_restored`, and the loss reaches the channels once, as the failure and recovery
+  of the module `checker`, only when it lasts `NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES` and is
+  not inside a `NOTIFICATION_CONNECTIVITY_WINDOWS` window. Replayed on the router reboot of
+  2026-11-16 (10 modules, 6 minutes): 20 cards before, none with the default tolerance. A module
+  absorbed by the loss logs no `monitor_blind_window`; one still failing after it counts its
+  threshold from the end of the loss.
 - Sustained failures respect `NOTIFICATION_REPEAT_MINUTES`, so a day-long outage does not
   produce one card per cycle.
 - A pending service alert survives a monitoring outage: `ALERT` → long failure → `OK` emits

@@ -349,6 +349,89 @@ async def _daily_summary_report(timeline) -> list[str]:
     return failures
 
 
+#: The router reboot of 2026-11-16 (#106): (module, first error UTC, errors, first OK UTC).
+_OUTAGE_2026_11_16 = (
+    ("aws", "07:00:31", 5, "07:05:36"),
+    ("bitbucket", "07:00:15", 6, "07:06:19"),
+    ("claude", "07:01:07", 5, "07:06:18"),
+    ("cloudflare", "07:00:17", 6, "07:06:22"),
+    ("gcp", "07:00:19", 6, "07:06:25"),
+    ("github", "07:01:06", 5, "07:06:18"),
+    ("oci", "07:01:06", 5, "07:06:18"),
+    ("openai", "07:00:19", 6, "07:06:25"),
+    ("rockstar", "07:00:28", 5, "07:05:54"),
+    ("steam", "07:01:16", 5, "07:06:36"),
+)
+
+
+async def _connectivity_loss_report() -> list[str]:
+    """Replay the router reboot of 2026-11-16 through the manager and the summary (#106).
+
+    Before #106 it paged ten monitoring failures and ten recoveries. With the default
+    tolerance (10 min) the 6-minute loss must reach no channel at all; with tolerance 0
+    it must ring once and leave a single `checker` line in the summary.
+    """
+    day = datetime(2026, 11, 16, tzinfo=timezone.utc)
+    events = []
+    for module_id, first, errors, recovered in _OUTAGE_2026_11_16:
+        h, m, s = (int(x) for x in first.split(":"))
+        start = day + timedelta(hours=h, minutes=m, seconds=s)
+        events += [(start + timedelta(minutes=i), module_id, _error()) for i in range(errors)]
+        h, m, s = (int(x) for x in recovered.split(":"))
+        ok = day + timedelta(hours=h, minutes=m, seconds=s)
+        events += [(ok + timedelta(minutes=i), module_id, _ok()) for i in range(4)]
+    events.sort(key=lambda event: event[0])
+    modules = [module_id for module_id, *_ in _OUTAGE_2026_11_16]
+
+    failures = []
+    print("\nconnectivity loss (router reboot of 2026-11-16, 07:00:15Z-07:06:18Z)")
+    for tolerance in (10, 0):
+        config = _notification_config()
+        config.telegram.mode = "daily_summary"
+        config.telegram.summary_timezone = "America/Sao_Paulo"
+        config.webhook.enabled = False
+        config.google_chat.enabled = False
+        config.alertmanager.enabled = False
+        config.connectivity_tolerance_minutes = tolerance
+        manager = NotificationManager(config, module_ids=modules)
+        client = BotApiClient()
+        logger = logging.getLogger("simulate")
+        for when, module_id, result in events:
+            module_config = _module_config()
+            module_config.slug = module_id
+            await manager.handle_result(
+                module_id=module_id,
+                result=result,
+                module_config=module_config,
+                level_name="INFO",
+                event_name="monitor_check",
+                event_time=when,
+                http_client=client,
+                logger=logger,
+            )
+        methods = [method for method, _ in client.calls]
+        rings = [b for m, b in client.calls
+                 if m == "sendMessage" and not b["disable_notification"]]
+        print(f"  tolerance {tolerance} min: bot api calls: {', '.join(methods) or 'none'}")
+        if tolerance:
+            if client.calls:
+                failures.append(f"a 6-minute loss under a {tolerance}-minute tolerance "
+                                f"reached Telegram ({len(client.calls)} calls)")
+            continue
+        final = [b for m, b in client.calls if m in ("sendMessage", "editMessageText")][-1]
+        for line in final["text"].splitlines():
+            print(f"    | {line}")
+        # Entry lines open with their state marker; the header also says "Checker".
+        lines = [line for line in final["text"].splitlines() if line.startswith(("✅", "🔴"))]
+        if len(rings) != 1 or len(client.live) != 1:
+            failures.append(f"the loss rang {len(rings)} times and left {len(client.live)} "
+                            "messages, expected 1 and 1")
+        if len(lines) != 1 or "checker" not in lines[0]:
+            failures.append(f"the summary shows {len(lines)} module lines for the loss, "
+                            "expected one checker line")
+    return failures
+
+
 async def main() -> int:
     logging.disable(logging.CRITICAL)
 
@@ -452,6 +535,7 @@ async def main() -> int:
             )
 
     failures.extend(await _daily_summary_report(timeline))
+    failures.extend(await _connectivity_loss_report())
 
     if failures:
         print(f"\n{len(failures)} FAILURE(S):")

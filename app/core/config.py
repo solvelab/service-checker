@@ -1,7 +1,7 @@
 import csv
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 #: Avisos acumulados durante a leitura da configuracao.
@@ -127,6 +127,15 @@ class NotificationConfig:
     # Empty means in-memory only, which is the previous behaviour.
     state_path: Optional[str] = None
     state_max_age_minutes: int = 1440
+    # Connectivity loss of the checker itself (#106): when this fraction of the loaded
+    # modules is failing at once, the failure is the checker's network, not N providers.
+    connectivity_quorum: float = 0.7
+    # A loss shorter than this is only logged; 0 notifies every loss.
+    connectivity_tolerance_minutes: int = 10
+    # Expected-loss windows as (start, end) minutes of the day, in `connectivity_timezone`.
+    # A loss that starts inside one and ends before its end never notifies.
+    connectivity_windows: Tuple[Tuple[int, int], ...] = ()
+    connectivity_timezone: str = "America/Sao_Paulo"
 
 
 def load_app_config() -> AppConfig:
@@ -329,6 +338,20 @@ def _load_notification_config() -> NotificationConfig:
     )
     state_path = (os.getenv("NOTIFICATION_STATE_PATH") or "").strip() or None
     state_max_age_minutes = max(_get_int("NOTIFICATION_STATE_MAX_AGE_MINUTES", 1440), 0)
+    connectivity_quorum = _get_float("NOTIFICATION_CONNECTIVITY_QUORUM", 0.7)
+    if not 0 < connectivity_quorum <= 1:
+        _warn_config(
+            f"NOTIFICATION_CONNECTIVITY_QUORUM={connectivity_quorum!r} is outside (0, 1]; "
+            "using the default 0.7"
+        )
+        connectivity_quorum = 0.7
+    connectivity_tolerance_minutes = _get_int("NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES", 10)
+    if connectivity_tolerance_minutes < 0:
+        _warn_config(
+            "NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES="
+            f"{connectivity_tolerance_minutes!r} is negative; using the default 10"
+        )
+        connectivity_tolerance_minutes = 10
     return NotificationConfig(
         telegram=telegram,
         webhook=webhook,
@@ -337,6 +360,10 @@ def _load_notification_config() -> NotificationConfig:
         recovery_threshold=recovery_threshold,
         state_path=state_path,
         state_max_age_minutes=state_max_age_minutes,
+        connectivity_quorum=connectivity_quorum,
+        connectivity_tolerance_minutes=connectivity_tolerance_minutes,
+        connectivity_windows=_get_time_windows("NOTIFICATION_CONNECTIVITY_WINDOWS"),
+        connectivity_timezone=_get_timezone("NOTIFICATION_CONNECTIVITY_TIMEZONE"),
         google_chat=google_chat,
         alertmanager=alertmanager,
     )
@@ -355,19 +382,59 @@ def _get_telegram_mode() -> str:
 
 def _get_summary_timezone() -> str:
     """IANA zone that decides where a summary day starts. Invalid falls back loudly."""
+    return _get_timezone("TELEGRAM_SUMMARY_TIMEZONE")
+
+
+def _get_timezone(env_name: str, default: str = "America/Sao_Paulo") -> str:
+    """An IANA zone from the environment. Invalid falls back loudly."""
     from zoneinfo import ZoneInfo
 
-    default = "America/Sao_Paulo"
-    raw = (os.getenv("TELEGRAM_SUMMARY_TIMEZONE") or default).strip()
+    raw = (os.getenv(env_name) or default).strip()
     try:
         ZoneInfo(raw)
     except Exception as exc:  # noqa: BLE001
         _warn_config(
-            f"TELEGRAM_SUMMARY_TIMEZONE={raw!r} is not a known IANA zone "
+            f"{env_name}={raw!r} is not a known IANA zone "
             f"({type(exc).__name__}); using {default}"
         )
         return default
     return raw
+
+
+def _parse_clock(text: str) -> int:
+    """`HH:MM` into minutes of the day; ValueError when it is not a valid time."""
+    hours, sep, minutes = text.strip().partition(":")
+    if not sep or len(minutes) != 2 or not hours.isdigit() or not minutes.isdigit():
+        raise ValueError(text)
+    value = int(hours) * 60 + int(minutes)
+    if int(hours) > 23 or int(minutes) > 59:
+        raise ValueError(text)
+    return value
+
+
+def _get_time_windows(env_name: str) -> Tuple[Tuple[int, int], ...]:
+    """`HH:MM-HH:MM,...` into (start, end) minutes. A bad item is skipped with a warning.
+
+    One typo must not discard the windows typed correctly next to it, and must not stop
+    the pod: the operator sees the warning at startup and the rest keeps working.
+    """
+    windows = []
+    for item in (os.getenv(env_name) or "").split(","):
+        if not item.strip():
+            continue
+        start, sep, end = item.partition("-")
+        try:
+            if not sep:
+                raise ValueError(item)
+            window = (_parse_clock(start), _parse_clock(end))
+        except ValueError:
+            _warn_config(f"{env_name} item {item.strip()!r} is not HH:MM-HH:MM; ignoring it")
+            continue
+        if window[0] == window[1]:
+            _warn_config(f"{env_name} item {item.strip()!r} is empty; ignoring it")
+            continue
+        windows.append(window)
+    return tuple(windows)
 
 
 def _get_label_map(env_name: str) -> Dict[str, str]:
