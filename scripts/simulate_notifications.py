@@ -271,6 +271,84 @@ async def _rejection_report() -> list[tuple[str, object]]:
     return report
 
 
+class BotApiClient:
+    """The Bot API as the daily summary sees it: JSON answers with a message_id."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict]] = []
+        self.live: set[int] = set()
+        self._next = 0
+
+    async def post(self, url, **kwargs):
+        method = url.rsplit("/", 1)[1]
+        body = kwargs.get("json") or {}
+        self.calls.append((method, body))
+        result: object = True
+        if method == "sendMessage":
+            self._next += 1
+            self.live.add(self._next)
+            result = {"message_id": self._next}
+        elif method == "deleteMessage":
+            self.live.discard(body.get("message_id"))
+        answer = {"ok": True, "result": result}
+
+        class _Response:
+            status_code = 200
+            text = str(answer)
+
+            def json(self):
+                return answer
+
+        return _Response()
+
+
+async def _daily_summary_report(timeline) -> list[str]:
+    """Drive the same lifecycle with Telegram in `daily_summary` mode (issue #100).
+
+    Per event, this lifecycle posts four Telegram cards. As a summary it must leave one
+    message in the chat, ring only for the two problems that opened, and edit in silence
+    for the two that closed.
+    """
+    config = _notification_config()
+    config.telegram.mode = "daily_summary"
+    config.telegram.summary_timezone = "America/Sao_Paulo"
+    config.webhook.enabled = False
+    config.google_chat.enabled = False
+    config.alertmanager.enabled = False
+    manager = NotificationManager(config)
+    client = BotApiClient()
+    logger = logging.getLogger("simulate")
+    for _label, result, minute in timeline:
+        await manager.handle_result(
+            module_id="rockstar",
+            result=result,
+            module_config=_module_config(),
+            level_name="WARNING",
+            event_name="monitor_check",
+            event_time=_T0 + timedelta(minutes=minute),
+            http_client=client,
+            logger=logger,
+        )
+
+    methods = [method for method, _ in client.calls]
+    rings = [b for m, b in client.calls if m == "sendMessage" and not b["disable_notification"]]
+    print("\ndaily summary (TELEGRAM_MODE=daily_summary)")
+    print(f"  bot api calls: {', '.join(methods)}")
+    print(f"  messages left in the chat: {len(client.live)}; notifications: {len(rings)}")
+    final = [b for m, b in client.calls if m in ("sendMessage", "editMessageText")][-1]
+    for line in final["text"].splitlines():
+        print(f"    | {line}")
+
+    failures = []
+    if len(client.live) != 1:
+        failures.append(f"daily summary left {len(client.live)} messages, expected 1")
+    if len(rings) != 2:
+        failures.append(f"daily summary rang {len(rings)} times, expected 2 (two new problems)")
+    if methods.count("editMessageText") != 2:
+        failures.append("daily summary did not edit in silence for the two recoveries")
+    return failures
+
+
 async def main() -> int:
     logging.disable(logging.CRITICAL)
 
@@ -372,6 +450,8 @@ async def main() -> int:
                 f"{name} did not report the rejection; the alert state would advance "
                 f"past an alert nobody received"
             )
+
+    failures.extend(await _daily_summary_report(timeline))
 
     if failures:
         print(f"\n{len(failures)} FAILURE(S):")

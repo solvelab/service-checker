@@ -1,0 +1,37 @@
+{% if open_total %}🔴{% else %}🟢{% endif %} <b>Service-Checker — {{ day }}</b>
+{% if open_total %}
+{{ open_total }} problema(s) em aberto · {{ problem_total }} no dia
+{% else %}
+Tudo operacional · {{ problem_total }} problema(s) no dia
+{% endif %}
+{% for s in services %}
+
+<b>{{ s.module }}</b> · {{ s.count }} problema(s) hoje
+{% for line in s.open %}
+🔴 {{ line.name }}{% if line.status %} — {{ line.status }}{% endif %}{% if line.since %} · desde {{ line.since }}{% endif %}
+
+{% endfor %}
+{% for line in s.resolved %}
+✅ {{ line.name }} · {% if line.since %}{{ line.since }} → {% else %}resolvido às {% endif %}{{ line.until }}{% if line.duration %} ({{ line.duration }}){% endif %}
+
+{% endfor %}
+{% if s.hidden %}
+… e mais {{ s.hidden }} resolvido(s)
+{% endif %}
+{% endfor %}
+{% if monitoring %}
+
+🛑 <b>Falhas de monitoramento</b> (o checker não enxerga a fonte)
+{% for m in monitoring %}
+{% if m.open %}
+🔴 {{ m.module }} · desde {{ m.since }}{% if m.status %} — {{ m.status }}{% endif %}
+
+{% else %}
+✅ {{ m.module }} · {% if m.since %}{{ m.since }} → {% else %}restabelecido às {% endif %}{{ m.until }}{% if m.duration %} ({{ m.duration }}){% endif %}
+
+{% endif %}
+{% endfor %}
+{% if monitoring_hidden %}
+… e mais {{ monitoring_hidden }} restabelecida(s)
+{% endif %}
+{% endif %}

@@ -71,6 +71,19 @@ ACCEPTED_SILENT = {
     # O log sai logo abaixo, no mesmo ciclo, e `test_a_retry_is_logged` prova.
     ("core/impersonated_fetch.py", "except UpstreamRejected as exc:"),
     ("core/impersonated_fetch.py", "except Exception as exc:  # noqa: BLE001"),
+    # Resumo diário do Telegram (#100). `_bot_call` sinaliza pelo retorno — status None,
+    # ou o status HTTP sem JSON — e cada chamador registra com o método e o chat, que a
+    # função de transporte não conhece.
+    ("notifications/telegram/notifier.py",
+     "except Exception as exc:  # noqa: BLE001 - signalled by status None"),
+    ("notifications/telegram/notifier.py",
+     "except Exception:  # noqa: BLE001 - not JSON: judged by status alone"),
+    # A restauração conta cada parte descartada e registra o total num único log
+    # `state_load`, como o `StateStore` faz com as entradas dele.
+    ("notifications/telegram/summary.py",
+     "except (TypeError, ValueError):  # counted in `dropped`, logged below"),
+    ("notifications/telegram/summary.py",
+     "except ValueError:  # None: callers drop and count a present-but-bad value"),
 }
 
 

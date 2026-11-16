@@ -222,6 +222,10 @@ spec:
               value: "%Y-%m-%d %H:%M:%S %Z"
             - name: TELEGRAM_TIMESTAMP_ZONE
               value: "UTC"
+            - name: TELEGRAM_MODE
+              value: "daily_summary"
+            - name: TELEGRAM_SUMMARY_TIMEZONE
+              value: "America/Sao_Paulo"
             - name: TELEGRAM_API_URL
               value: "https://api.telegram.org"
             - name: WEBHOOK_ENABLED

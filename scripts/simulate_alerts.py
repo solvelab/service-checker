@@ -313,7 +313,10 @@ def _notification_config():
     )
 
     return NotificationConfig(
-        telegram=TelegramConfig(True, "simulated", ["-100"], "https://api.telegram.org", "%Y", "UTC"),
+        # per_event de propósito: esta simulação confere o cartão de cada módulo. O modo
+        # daily_summary (default do loader, #100) é exercido em simulate_notifications.py.
+        telegram=TelegramConfig(True, "simulated", ["-100"], "https://api.telegram.org", "%Y",
+                                "UTC", mode="per_event"),
         webhook=WebhookConfig(True, "https://hook.simulated/endpoint", None, "Authorization"),
         repeat_minutes=10,
         error_threshold=3,
