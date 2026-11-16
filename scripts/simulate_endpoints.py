@@ -175,6 +175,16 @@ async def inspect_upstream(slug: str, url: str, client) -> tuple[int, list[str],
     return check_contract(slug, records)
 
 
+#: Largura do motivo na tabela. O motivo de desafio (#94) tem 107 caracteres e termina no
+#: status HTTP; um corte menor esconde justamente o que distingue a recusa.
+REASON_WIDTH = 160
+
+
+def reason_row(reason: str) -> str:
+    """Linha de motivo alinhada sob as colunas da tabela."""
+    return f"{'':<11} {'':<7} {'':>7} {'':>5} {'':>7}  reason: {reason[:REASON_WIDTH]}"
+
+
 def _count_parsed(payload) -> int:
     """How many components the module actually recognised.
 
@@ -284,7 +294,7 @@ async def main() -> int:
             f"{slug:<11} {result.status.value:<7} {elapsed:>7.0f} {raw:>5} {parsed:>7}  {verdict}"
         )
         if result.reason:
-            print(f"{'':<11} {'':<7} {'':>7} {'':>5} {'':>7}  reason: {result.reason[:160]}")
+            print(reason_row(result.reason))
         if result.status.value == "ERROR":
             failures[slug] = result.reason or result.message
 

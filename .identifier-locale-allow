@@ -2,3 +2,8 @@
 # (Portuguese). The detector cannot tell a docstring sentence from an identifier; the
 # identifiers in these files are English.
 app/core/impersonated_fetch.py
+
+# Docstring prose words in the file above that the stop gate still reports (issue #98).
+detecção
+informação
+repetição

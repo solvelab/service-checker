@@ -174,6 +174,82 @@ def _fetch_counted(*responses):
     raise AssertionError("expected a rejection")
 
 
+class _BrokenHeaders:
+    def items(self):
+        raise RuntimeError("header decode failed")
+
+
+def _capture_logger():
+    logger = configure_logging("INFO")
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(JsonFormatter())
+    logger.addHandler(handler)
+    return logger, stream
+
+
+def test_a_header_read_failure_keeps_the_plain_404_and_logs_it():
+    """Issue #98: detection only adds to the reason, it never changes the rejection."""
+    logger, stream = _capture_logger()
+    get, calls = _counting(*[_Response(404, "x", _BrokenHeaders())] * 3)
+    with patch("curl_cffi.requests.get", get), pytest.raises(UpstreamRejected) as info:
+        fetch_html("https://steamstat.us/", impersonate="chrome124", timeout_seconds=10.0,
+                   logger=logger, module_id="steam", attempts=3,
+                   backoff_seconds=0.0, sleep=lambda _s: None)
+    assert type(info.value) is UpstreamRejected
+    assert str(info.value) == "upstream returned HTTP 404"
+    assert info.value.status == 404
+    assert len(calls) == 1
+    lines = [json.loads(x) for x in stream.getvalue().splitlines() if x.strip()]
+    failed = [line for line in lines if line.get("event") == "challenge_check_failed"]
+    assert len(failed) == 1
+    assert failed[0]["level"] == "WARNING"
+    assert failed[0]["module_id"] == "steam"
+    assert failed[0]["status"] == 404
+    assert "RuntimeError: header decode failed" in failed[0]["reason"]
+
+
+def test_a_header_read_failure_on_a_403_is_still_retried():
+    exc, calls = _fetch_counted(*[_Response(403, "x", _BrokenHeaders())] * 3)
+    assert type(exc) is UpstreamRejected
+    assert str(exc) == "upstream returned HTTP 403"
+    assert calls == 3
+
+
+class _HugeError:
+    def items(self):
+        raise ValueError("x" * 10_000)
+
+
+def test_the_logged_header_error_is_bounded():
+    logger, stream = _capture_logger()
+    with pytest.raises(UpstreamRejected):
+        _fetch(_Response(404, "x", _HugeError()), attempts=1, logger=logger)
+    lines = [json.loads(x) for x in stream.getvalue().splitlines() if x.strip()]
+    failed = [line for line in lines if line.get("event") == "challenge_check_failed"]
+    assert len(failed) == 1
+    assert len(failed[0]["reason"]) <= 200
+
+
+@pytest.mark.parametrize("headers", [None, {}])
+def test_absent_headers_are_not_a_header_read_failure(headers):
+    logger, stream = _capture_logger()
+    with pytest.raises(UpstreamRejected):
+        _fetch(_Response(403, "x", headers), attempts=1, logger=logger)
+    assert "challenge_check_failed" not in stream.getvalue()
+
+
+def test_the_header_guard_is_checked_on_its_own_by_the_silent_fallback_detector():
+    """The guard's clause must not share the allowlisted text of fetch_html's loop."""
+    from tests.test_silent_fallbacks import ACCEPTED_SILENT, _except_blocks
+
+    guards = [b for b in _except_blocks()
+              if b["file"] == "core/impersonated_fetch.py" and "header_error" in b["clause"]]
+    assert len(guards) == 1
+    assert guards[0]["logs"]
+    assert (guards[0]["file"], guards[0]["clause"]) not in ACCEPTED_SILENT
+
+
 def test_a_challenge_with_503_is_retried_and_named():
     exc, calls = _fetch_counted(*[_Response(503, "x", {"cf-mitigated": "challenge"})] * 3)
     assert isinstance(exc, UpstreamChallenged)
