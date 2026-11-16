@@ -34,7 +34,7 @@ O monitor `rockstar` SHALL normalizar as severidades upstream para `OK`, `ALERT`
 - **THEN** o monitor retorna `MonitorStatus.ALERT`
 
 ### Requirement: Controlled Failure Path
-O monitor `rockstar` SHALL retornar `MonitorStatus.ERROR` (sem propagar exceções para o scheduler) em casos de falha de rede, timeout, status HTTP ≥ 400 ou payload inválido/inesperado, registrando `reason` legível e `duration_ms`.
+O monitor `rockstar` SHALL retornar `MonitorStatus.ERROR` (sem propagar exceções para o scheduler) em casos de falha de rede, timeout, status HTTP ≥ 400 ou payload inválido/inesperado, registrando `reason` legível e `duration_ms`. Quando o status HTTP ≥ 400 for um desafio anti-bot da borda, o `reason` SHALL nomear o desafio.
 
 #### Scenario: Upstream timeout
 - **WHEN** a requisição ao endpoint excede `timeout_seconds`
@@ -43,6 +43,10 @@ O monitor `rockstar` SHALL retornar `MonitorStatus.ERROR` (sem propagar exceçõ
 #### Scenario: Malformed payload
 - **WHEN** a resposta retorna 200 mas o corpo não corresponde ao schema esperado (ex.: campo de serviços ausente)
 - **THEN** o monitor retorna `MonitorStatus.ERROR` com `reason` indicando parse failure
+
+#### Scenario: Edge challenges the automated client
+- **WHEN** a resposta ≥ 400 traz o cabeçalho `cf-mitigated: challenge`
+- **THEN** o monitor retorna `MonitorStatus.ERROR` com `reason` que nomeia o desafio do Cloudflare e o status HTTP
 
 ### Requirement: Configuration Defaults
 O monitor `rockstar` SHALL expor as opções de configuração `enabled`, `interval_seconds`, `timeout_seconds`, `retries` e `service_filter`, com defaults seguros que permitem habilitar o monitor apenas configurando `enabled: true`.
