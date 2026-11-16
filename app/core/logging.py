@@ -28,8 +28,9 @@ _EXTRA_KEYS = (
     "space",
     "modules",
     "defaults",
+    # Connectivity loss settings as read (#106, #108): the operator checks the windows here.
+    "connectivity",
     "timeout_seconds",
-    "user_agent",
 )
 
 

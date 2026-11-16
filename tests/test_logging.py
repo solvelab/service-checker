@@ -22,9 +22,9 @@ thing you discover in production into a red test.
 from __future__ import annotations
 
 import io
+import ast
 import json
 import logging
-import re
 from pathlib import Path
 
 import pytest
@@ -54,12 +54,23 @@ def _capture(logger_name="service_monitor", level="INFO"):
 # ---------------------------------------------------------------------------
 
 def _extra_keys_used_in_app() -> dict[str, set[str]]:
+    # Parsed, not matched: the old regex `extra=\{(.*?)\}` stopped at the first `}`, so a
+    # key after a nested dict (`connectivity` after `defaults` in main.py) was never seen
+    # and the formatter dropped it in production (#108).
     used: dict[str, set[str]] = {}
     for path in _APP.rglob("*.py"):
-        source = path.read_text(encoding="utf-8")
-        for block in re.finditer(r"extra=\{(.*?)\}", source, re.S):
-            for key in re.findall(r'"([a-z_]+)":', block.group(1)):
-                used.setdefault(key, set()).add(str(path.relative_to(_APP.parent)))
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            for keyword in node.keywords:
+                if keyword.arg != "extra" or not isinstance(keyword.value, ast.Dict):
+                    continue
+                for key in keyword.value.keys:
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                        used.setdefault(key.value, set()).add(
+                            str(path.relative_to(_APP.parent))
+                        )
     return used
 
 
@@ -248,3 +259,18 @@ def test_the_store_never_raises_when_logging_is_unconfigured(tmp_path):
     path = tmp_path / "state.json"
     path.write_text("{ not json", encoding="utf-8")
     assert StateStore(str(path)).load() == ({}, {})
+
+
+def test_the_startup_log_keeps_the_connectivity_settings():
+    # #108: the formatter copies only known fields, and the block was dropped in production.
+    import logging as std_logging
+
+    from app.core.logging import JsonFormatter
+
+    record = std_logging.LogRecord("t", std_logging.INFO, __file__, 1, "service monitor starting",
+                                   None, None)
+    record.event = "startup"
+    record.connectivity = {"quorum": 0.7, "tolerance_minutes": 10,
+                           "windows": ["04:00-04:15"], "timezone": "America/Sao_Paulo"}
+    line = json.loads(JsonFormatter().format(record))
+    assert line["connectivity"]["windows"] == ["04:00-04:15"]
