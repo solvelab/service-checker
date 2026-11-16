@@ -33,7 +33,10 @@ from app.core.notifications import NotificationManager
 from app.core.state_store import SCHEMA_VERSION, StateStore
 from app.core.types import MonitorResult, MonitorStatus
 
-_T0 = datetime(2026, 11, 15, 10, 0, tzinfo=timezone.utc)
+#: Preso ao instante atual, não a uma data fixa: `StateStore.load()` sem `now` compara com o
+#: relógio real, e um `_T0` fixo fazia `test_the_window_survives_a_restart` quebrar 24h depois
+#: (#103). Mesmo motivo de `_T0` em `test_state_persistence.py`.
+_T0 = datetime.now(timezone.utc).replace(microsecond=0)
 _SEQUENCE = Path(__file__).parent / "fixtures" / "steam" / "check_statuses_2026-11-15.txt"
 
 
