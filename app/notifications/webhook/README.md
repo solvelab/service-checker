@@ -57,7 +57,8 @@ again". The provider may have been perfectly healthy the whole time.
 
 ### MONITOR_ERROR
 Emitted after `NOTIFICATION_ERROR_THRESHOLD` consecutive failed checks (default `3`), then repeated
-at most every `NOTIFICATION_REPEAT_MINUTES`.
+at most every `NOTIFICATION_REPEAT_MINUTES`. `MONITOR_RECOVERED` follows only after
+`NOTIFICATION_RECOVERY_THRESHOLD` successful checks in a row (default `3`).
 
 ```json
 {
@@ -87,7 +88,7 @@ Emitted when the module evaluates successfully again — but only if the corresp
   "check_id": "<module_id>",
   "status": "MONITOR_RECOVERED",
   "message": "monitoring restored",
-  "reason": "upstream reachable again after <n> failed checks",
+  "reason": "upstream reachable again for <n> checks in a row; last error: <detail>",
   "payload": null,
   "interval_seconds": "<int>"
 }

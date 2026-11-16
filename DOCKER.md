@@ -64,6 +64,7 @@ These apply across modules:
 - `ALERTMANAGER_RESOLVE_AFTER_SECONDS`: `0` (auto). How far ahead `endsAt` sits on a firing alert; auto derives it from the repeat window and the check interval. Read `app/notifications/alertmanager/README.md` before changing it — too small and alerts flap.
 - `NOTIFICATION_REPEAT_MINUTES`: minimum minutes between repeated alerts for the same service.
 - `NOTIFICATION_ERROR_THRESHOLD`: consecutive failed checks before the monitor reports itself as broken (default `3`, minimum `1`). Raise it to stay quiet about monitoring failures.
+- `NOTIFICATION_RECOVERY_THRESHOLD`: successful checks in a row that end an announced monitoring failure (default `3`, minimum `1`). An error inside that window continues the same failure and is throttled by `NOTIFICATION_REPEAT_MINUTES`, so a flapping provider does not page "failure / restored" on every flap. The "restored" message arrives `N - 1` cycles later than the first success; `1` restores the old behaviour.
 
 ## 🔧 Module configuration
 Each module supports the same environment shape:

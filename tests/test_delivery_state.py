@@ -76,13 +76,16 @@ class Channel:
         return await self._send("monitor_recovered", kwargs)
 
 
-def _manager(*channels, threshold=3, repeat=10):
+def _manager(*channels, threshold=3, repeat=10, recovery=1):
     manager = NotificationManager(
         NotificationConfig(
             telegram=TelegramConfig(False, None, [], "https://api.telegram.org", "%Y", "UTC"),
             webhook=WebhookConfig(False, None, None, "Authorization"),
             repeat_minutes=repeat,
             error_threshold=threshold,
+            # These tests are about delivery, not about the recovery hysteresis
+            # (issue #87): one success ends a notified failure, as it did before.
+            recovery_threshold=recovery,
         )
     )
     for index, channel in enumerate(channels):

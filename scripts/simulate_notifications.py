@@ -56,6 +56,7 @@ from app.notifications.webhook.notifier import WebhookNotifier  # noqa: E402
 
 _T0 = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
 _THRESHOLD = 3
+_RECOVERY = 3
 
 EVENT_LABELS = {
     "send_alert": "service alert",
@@ -164,6 +165,7 @@ def _notification_config() -> NotificationConfig:
         ),
         repeat_minutes=10,
         error_threshold=_THRESHOLD,
+        recovery_threshold=_RECOVERY,
     )
 
 
@@ -305,12 +307,14 @@ async def main() -> int:
         ("ERROR", _error(), 1),
         ("ERROR", _error(), 2),
         ("ERROR", _error(), 3),  # threshold reached here
-        ("OK", _ok(), 4),
+        ("OK", _ok(), 4),  # service recovery; monitoring failure still open
+        ("OK", _ok(), 5),
+        ("OK", _ok(), 6),  # recovery threshold reached: monitoring restored
     ]
 
     for label, result, minute in timeline:
         sent = await feed(result, minute)
-        note = "" if sent else "  (no notification — expected below threshold)"
+        note = "" if sent else "  (no notification — expected below a threshold)"
         print(f"  t+{minute}min  {label:<6}{note}")
         for url, kwargs in sent:
             print(f"           -> {_channel_of(url):<9} {_describe(kwargs)}")

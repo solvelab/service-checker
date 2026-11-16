@@ -159,10 +159,25 @@ class StateStore:
                 dropped += 1
                 continue
             count = raw.get("consecutive_errors")
+            successes = raw.get("consecutive_successes")
+            notified_at = _parse_dt(raw.get("last_notified_at"))
+            # Same bounds as an alert: a notification from the future would freeze the
+            # repeat throttle (negative elapsed time), and one older than max_age belongs
+            # to a process that was down, not to a failure still being watched.
+            if notified_at is not None and (
+                notified_at > now + _FUTURE_TOLERANCE
+                or (self.max_age and now - notified_at > self.max_age)
+            ):
+                dropped += 1
+                continue
             errors[key] = MonitorErrorState(
                 consecutive_errors=count if isinstance(count, int) and count >= 0 else 0,
-                last_notified_at=_parse_dt(raw.get("last_notified_at")),
+                last_notified_at=notified_at,
                 last_reason=raw.get("last_reason") or None,
+                # Absent in files written before the recovery hysteresis existed.
+                consecutive_successes=(
+                    successes if type(successes) is int and successes >= 0 else 0
+                ),
             )
 
         self._logger.info(
@@ -205,6 +220,7 @@ class StateStore:
                         state.last_notified_at.isoformat() if state.last_notified_at else None
                     ),
                     "last_reason": state.last_reason,
+                    "consecutive_successes": state.consecutive_successes,
                 }
                 for key, state in error_state.items()
             },

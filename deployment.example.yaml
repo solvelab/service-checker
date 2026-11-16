@@ -262,3 +262,5 @@ spec:
               value: "1440"
             - name: NOTIFICATION_ERROR_THRESHOLD
               value: "3"
+            - name: NOTIFICATION_RECOVERY_THRESHOLD
+              value: "3"

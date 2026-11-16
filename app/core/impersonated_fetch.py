@@ -24,6 +24,21 @@ Duas regras moldam o que está aqui:
   esconderia exatamente a degradação que ele existe para atravessar, e o repositório já
   pagou caro por esse padrão.
 
+**Remedido em 2026-11-15, e a premissa mudou.** Nos logs de produção (`v2.8.9`, 814
+checagens do `steam` entre 10:07 e 00:10 UTC, `chrome124`):
+
+    1ª tentativa recusada          515 de 814  -> 63% (era 30%)
+    2ª tentativa recusada de novo  421 de 515  -> 82% (antes, 17%)
+    3ª tentativa recusada de novo  366 de 421  -> 87%
+    checagem terminando em ERROR   366 de 814  -> 45%
+
+A recusa deixou de ser transitória: uma vez recusado, o retry com 1,5s quase sempre é
+recusado de novo, e as sequências de ERROR duram de 1 a 20 ciclos. O retry continua
+certo para o caso transitório, mas não resolve este. O que contém o ruído no canal é a
+histerese de recuperação do `NotificationManager` (issue #87); a causa — perfil de
+imitação, IP de saída do cluster ou regra nova da borda — segue sem diagnóstico, porque
+testar outros perfis contra o site não foi autorizado na sessão que mediu.
+
 O código vive aqui, e não em cada módulo, porque `_fetch_html` era byte-idêntico nos
 dois — e duplicação é o motivo de a mesma correção precisar ser escrita duas vezes.
 """
@@ -33,8 +48,9 @@ import logging
 import time
 from typing import Optional
 
-#: Quantas tentativas no total, contando a primeira. Três dá ~0,9% de falha residual
-#: com a taxa medida (30% de rejeição, 83% resolvidos na tentativa seguinte).
+#: Quantas tentativas no total, contando a primeira. Três dava ~0,9% de falha residual
+#: com a taxa medida em 2026-08 (30% de rejeição, 83% resolvidos na tentativa seguinte);
+#: com a de 2026-11-15 a falha residual medida é 45% — ver o docstring do módulo.
 DEFAULT_ATTEMPTS = 3
 
 #: Pausa entre tentativas. 1,5s foi o valor com que a medição foi feita.

@@ -26,6 +26,7 @@ class NotificationManager:
         self._error_state: dict[str, MonitorErrorState] = {}
         self._repeat_seconds = max(config.repeat_minutes, 1) * 60
         self._error_threshold = max(getattr(config, "error_threshold", 3), 1)
+        self._recovery_threshold = max(getattr(config, "recovery_threshold", 3), 1)
         # Pending alerts survive a restart when a path is configured. Without one this
         # is a no-op and the manager behaves exactly as it always did.
         self._store = StateStore(
@@ -296,6 +297,13 @@ class NotificationManager:
         is not reset.
         """
         state = self._error_state.setdefault(module_id, MonitorErrorState())
+        if state.consecutive_successes:
+            # An error inside the recovery window continues the same failure, but not
+            # the same streak: the count restarts so "N consecutive failed checks" stays
+            # true, and paging again needs a sustained streak *and* the repeat window —
+            # `last_notified_at` is kept for that.
+            state.consecutive_errors = 0
+            state.consecutive_successes = 0
         state.consecutive_errors += 1
         state.last_reason = result.reason or result.message
 
@@ -352,9 +360,29 @@ class NotificationManager:
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
     ) -> None:
-        """End a monitoring outage; only announce the recovery if the failure was announced."""
+        """End a monitoring outage; only announce the recovery if the failure was announced.
+
+        A notified failure ends only after `recovery_threshold` successes in a row; until
+        then the state stays, so an error inside the window is the same failure and is
+        throttled as such. An unannounced streak still ends on the first success.
+        """
+        state = self._error_state.get(module_id)
+        if state is not None and state.last_notified_at is not None:
+            state.consecutive_successes += 1
+            if state.consecutive_successes < self._recovery_threshold:
+                return
+            # Announced failure: the state goes only once someone receives the
+            # "restored" message, like every other transition here (#71).
+            await self._announce_monitor_recovered(
+                module_id, state, result, module_config, event_time, http_client, logger
+            )
+            return
         state = self._error_state.pop(module_id, None)
-        if state is not None and state.consecutive_errors and state.last_notified_at is None:
+        if (
+            state is not None
+            and state.consecutive_errors >= self._error_threshold
+            and state.last_notified_at is None
+        ):
             # Houve uma sequencia de falhas que nunca conseguiu ser anunciada — tipico
             # de perda de conectividade, em que o monitor e o canal caem juntos. Nao ha
             # o que notificar: o problema ja acabou, e anunciar a resolucao de algo que
@@ -373,9 +401,17 @@ class NotificationManager:
                     ),
                 },
             )
-        if state is None or state.last_notified_at is None:
-            return
 
+    async def _announce_monitor_recovered(
+        self,
+        module_id: str,
+        state: "MonitorErrorState",
+        result: MonitorResult,
+        module_config: ModuleConfig,
+        event_time: datetime,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
         logger.info(
             "monitoring recovery notification emitted",
             extra={
@@ -390,12 +426,13 @@ class NotificationManager:
             status=result.status,
             message="monitoring restored",
             reason=(
-                f"upstream reachable again after {state.consecutive_errors} "
-                f"failed check{'s' if state.consecutive_errors != 1 else ''}"
+                f"upstream reachable again for {state.consecutive_successes} "
+                f"check{'s' if state.consecutive_successes != 1 else ''} in a row; "
+                f"last error: {state.last_reason or 'unknown'}"
             ),
             duration_ms=result.duration_ms,
         )
-        await self._dispatch(
+        delivered = await self._dispatch(
             "send_monitor_recovered",
             module_id=module_id,
             result=recovered_result,
@@ -406,6 +443,10 @@ class NotificationManager:
             http_client=http_client,
             logger=logger,
         )
+        if delivered:
+            self._error_state.pop(module_id, None)
+        # Not delivered: the state stays with its success streak complete, so the next
+        # successful check tries again instead of leaving the failure open forever.
 
     async def _recover_vanished_services(
         self,
@@ -642,6 +683,9 @@ class MonitorErrorState:
     consecutive_errors: int = 0
     last_notified_at: Optional[datetime] = None
     last_reason: Optional[str] = None
+    # Successes in a row since the last error, counted only while a notified failure
+    # is open (the recovery hysteresis).
+    consecutive_successes: int = 0
 
 
 def _ensure_aware(value: datetime) -> datetime:
