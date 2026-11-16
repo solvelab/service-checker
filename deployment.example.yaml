@@ -268,3 +268,12 @@ spec:
               value: "3"
             - name: NOTIFICATION_RECOVERY_THRESHOLD
               value: "3"
+            - name: NOTIFICATION_CONNECTIVITY_QUORUM
+              value: "0.7"
+            - name: NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES
+              value: "10"
+            # Optional, e.g. "04:00-04:15,05:00-05:10" for a scheduled router reboot.
+            - name: NOTIFICATION_CONNECTIVITY_WINDOWS
+              value: ""
+            - name: NOTIFICATION_CONNECTIVITY_TIMEZONE
+              value: "America/Sao_Paulo"

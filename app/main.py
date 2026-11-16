@@ -31,6 +31,15 @@ async def run_monitor_service() -> None:
                 "timeout_seconds": config.defaults.timeout_seconds,
                 "user_agent": config.defaults.user_agent,
             },
+            "connectivity": {
+                "quorum": config.notifications.connectivity_quorum,
+                "tolerance_minutes": config.notifications.connectivity_tolerance_minutes,
+                "windows": [
+                    f"{start // 60:02d}:{start % 60:02d}-{end // 60:02d}:{end % 60:02d}"
+                    for start, end in config.notifications.connectivity_windows
+                ],
+                "timezone": config.notifications.connectivity_timezone,
+            },
         },
     )
 
@@ -43,7 +52,9 @@ async def run_monitor_service() -> None:
         logger.error("failed to load any modules; exiting", extra={"event": "startup"})
         return
 
-    notifier = NotificationManager(config.notifications)
+    notifier = NotificationManager(
+        config.notifications, module_ids=[module_config.slug for _, module_config in monitors]
+    )
 
     async with create_http_client(
         timeout_seconds=config.defaults.timeout_seconds,
