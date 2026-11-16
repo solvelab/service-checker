@@ -21,6 +21,8 @@ The page is fronted by a WAF that fingerprints TLS clients. Plain `httpx` / `req
 
 Profiles age out. The previous default `chrome110` still returns 200 here (measured 2026-08-15), but is already refused by `steamstat.us`, another Cloudflare-fronted endpoint. The default was raised to `chrome124` so both impersonating modules sit on a profile that is still current. Use a pinned concrete profile, never the floating `chrome` alias: the alias changes meaning when `curl_cffi` is upgraded.
 
+An error response carrying `cf-mitigated: challenge` is a Cloudflare Bot Management challenge, and the failure reason names it — `UpstreamChallenged: upstream challenged the automated client (Cloudflare cf-mitigated: challenge, HTTP 403)` — instead of a bare `HTTP 403`. It is the source's policy, not a checker fault; see the [Steam README](../steam/README.md#when-cloudflare-challenges-the-checker) for the measurements.
+
 ## Configuration
 
 - `ROCKSTAR_ENABLED` (default `true`)

@@ -31,9 +31,23 @@ Impersonation profiles age out. Measured against the live endpoint on **2026-08-
 | `safari17_0` | ✅ HTTP 200 |
 
 Default is `chrome124` — a pinned concrete profile rather than the floating `chrome` alias, so a
-`curl_cffi` upgrade cannot silently change which fingerprint is sent. When Cloudflare eventually
-refuses it too, the symptom is `status=ERROR` with `upstream returned HTTP 403`: raise
-`STEAM_IMPERSONATE_PROFILE` to a newer profile and update the table above.
+`curl_cffi` upgrade cannot silently change which fingerprint is sent.
+
+### When Cloudflare challenges the checker
+The 403 is a **Cloudflare Bot Management challenge**: the response carries `cf-mitigated: challenge`
+and a "Just a moment..." page (diagnosed in issue #87). The failure reason says so:
+
+```
+UpstreamChallenged: upstream challenged the automated client (Cloudflare cf-mitigated: challenge, HTTP 403)
+```
+
+That is the source operator's policy, not a fault in the checker, the network or Steam. The rate moves
+on its own: 63% of checks refused on 2026-11-15, none on 2026-11-16, same profile and same IP. A newer
+profile is not a fix either — on 2026-11-16 `chrome146` (curl_cffi 0.17) was challenged on 9 of 10
+requests while `chrome124` passed all 10. The challenge is retried like any rejection with the same status (403, 429 and the 5xx in
+`RETRYABLE_STATUS`; a 401, 404 or 52x challenge is not), and the monitoring
+recovery hysteresis (`NOTIFICATION_RECOVERY_THRESHOLD`) keeps a flapping challenge from paging on
+every flap. A 403 **without** that header still reads `upstream returned HTTP 403`.
 
 ## 🔧 Environment variables (`STEAM_`)
 - `URL` (default `https://steamstat.us/`)
