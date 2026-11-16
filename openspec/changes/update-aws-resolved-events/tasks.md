@@ -16,6 +16,11 @@
 - [x] 3.3 `end_time` ilegível e `end_time` futuro mantêm o alerta.
 - [x] 3.4 Ciclo ALERT → evento ganha `end_time` → recuperação emitida pelo `NotificationManager`.
 
+## 3b. Achados do bug-hunter
+- [x] 3b.1 `end_time` não positivo, não finito ou em milissegundos é ilegível: mantém ativo e loga.
+- [x] 3b.2 `simulate_alerts.py` descarta eventos encerrados do feed ao vivo na degradação do `aws`.
+- [x] 3b.3 Teste de encerramento parcial: só o evento encerrado recupera.
+
 ## 4. Documentação
 - [x] 4.1 `app/modules/aws/README.md`: critério de encerramento.
 

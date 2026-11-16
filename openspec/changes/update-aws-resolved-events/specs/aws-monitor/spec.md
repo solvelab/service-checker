@@ -22,8 +22,10 @@ resumo nem do indicador numérico de severidade.
   caminho normal
 
 #### Scenario: Encerramento ilegível
-- **WHEN** um evento traz `end_time` que não é um epoch válido
-- **THEN** ele continua considerado ativo, e o fato é registrado em log
+- **WHEN** um evento traz `end_time` que não é um epoch válido em segundos — não numérico, não
+  finito, não positivo, ou grande demais para segundos (um epoch em milissegundos)
+- **THEN** ele continua considerado ativo, e o fato é registrado em log, porque um `"0"` encerraria
+  um incidente vivo e um valor em milissegundos o manteria aberto para sempre em silêncio
 
 #### Scenario: Encerramento no futuro
 - **WHEN** um evento traz `end_time` posterior ao instante da checagem

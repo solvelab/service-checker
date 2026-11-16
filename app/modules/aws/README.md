@@ -64,8 +64,9 @@ module was silently blind for a long time because nothing verified this.
 
 ## 🚦 `status` rule
 - An event ends only through its `end_time`: a readable epoch that is not in the future drops the
-  event. No `end_time` (or an empty one) means active. An `end_time` that cannot be read keeps the
-  event active and logs `end_time_unreadable` — a field the module cannot parse never erases an
+  event. No `end_time` (or an empty one) means active. An `end_time` that is not a valid epoch in seconds —
+  not numeric, not finite, not positive, or millisecond-sized (`>= 1e11`) — keeps the event active
+  and logs `end_time_unreadable` — a field the module cannot parse never erases an
   incident. The `[RESOLVED]` summary prefix and `status` never decide.
 - The filter matches, case-insensitively, against four things: the region code (`eu-central-1`), the
   human region name (`Frankfurt`), the service code (`directconnect-eu-central-1`) and the service

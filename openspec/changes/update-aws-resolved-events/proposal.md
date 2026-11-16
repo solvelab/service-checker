@@ -28,8 +28,12 @@ feed não publicava; agora o feed publica um campo que o módulo não lê.
 - Um evento com `end_time` preenchido, numérico e não posterior ao instante da checagem é tratado
   como encerrado e não entra em `active_events`.
 - Um evento sem `end_time` continua ativo enquanto estiver no feed, como hoje.
-- Um `end_time` que não é um epoch válido mantém o evento ativo e é logado: um campo que não se sabe
-  ler não pode apagar um incidente.
+- Um `end_time` que não é um epoch válido em segundos mantém o evento ativo e é logado: um campo que
+  não se sabe ler não pode apagar um incidente. Válido é finito, positivo e abaixo de `1e11`: `"0"`
+  ou `"-1"` encerrariam um evento vivo, e um epoch em milissegundos o manteria ativo para sempre sem
+  rastro (achados do bug-hunter).
+- `scripts/simulate_alerts.py` descarta eventos encerrados do feed ao vivo ao montar a degradação,
+  senão um feed só com eventos encerrados não injetaria degradação nenhuma.
 - Um `end_time` no futuro mantém o evento ativo. O feed nunca mostrou isso, e a leitura conservadora
   é a que não silencia incidente.
 - `_parse_event` passa a carregar `ended_at` (o epoch como string, par de `started_at`).
@@ -39,5 +43,6 @@ feed não publicava; agora o feed publica um campo que o módulo não lê.
 ## Impact
 - Specs afetadas: `aws-monitor` (MODIFIED: *Presence in the feed means the event is active*).
 - Código afetado: `app/modules/aws/monitor.py`, `app/modules/aws/README.md`,
-  `tests/test_aws_monitor.py`, fixture novo em `tests/fixtures/aws/`.
+  `scripts/simulate_alerts.py`, `tests/test_aws_monitor.py`, `tests/test_simulate_alerts.py`,
+  fixture novo em `tests/fixtures/aws/`.
 - Sem variável de configuração nova; sem mudança no `NotificationManager`.

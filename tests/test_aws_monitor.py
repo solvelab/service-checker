@@ -340,17 +340,86 @@ def test_end_time_equal_to_now_ends_the_event():
     assert status == MonitorStatus.OK
 
 
-@pytest.mark.parametrize("raw", ["soon", "1794754409Z", "nan", {"t": 1}])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "soon", "1794754409Z", {"t": 1}, "2026-11-15T14:53:29Z",
+        # parse as floats, but are not a valid epoch in seconds
+        "nan", "inf", "-inf", "1e400",
+        # non-positive: would otherwise end a live event (bug-hunter finding)
+        "0", "-1",
+        # milliseconds: would otherwise read as a far-future end, forever active
+        "1794754409000",
+    ],
+)
 def test_unreadable_end_time_keeps_the_event_active_and_logs(raw):
     event = dict(_ended_event(), end_time=raw)
     logger = MagicMock(spec=logging.Logger)
-    status, *_ = _evaluate([event], logger=logger)
+    status, *_ = _evaluate([event], logger=logger, now=1794754409 + 3600)
     assert status == MonitorStatus.ALERT
-    if raw != "nan":  # float("nan") parses; it just never compares <= now
-        logger.warning.assert_called_once()
-        extra = logger.warning.call_args.kwargs["extra"]
-        assert extra["event"] == "end_time_unreadable"
-        assert extra["module_id"] == "aws"
+    logger.warning.assert_called_once()
+    extra = logger.warning.call_args.kwargs["extra"]
+    assert extra["event"] == "end_time_unreadable"
+    assert extra["module_id"] == "aws"
+
+
+def test_end_time_zero_as_string_and_as_int_agree():
+    a = dict(_ended_event(), end_time="0")
+    b = dict(_ended_event(), end_time=0)
+    assert _evaluate([a])[0] == _evaluate([b])[0] == MonitorStatus.ALERT
+
+
+def test_partial_end_recovers_only_the_ended_event():
+    """Three events alert; one gains end_time; only that one recovers."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.core.config import NotificationConfig, TelegramConfig, WebhookConfig
+    from app.core.notifications import NotificationManager
+
+    manager = NotificationManager(
+        NotificationConfig(
+            telegram=TelegramConfig(False, None, [], "https://api.telegram.org", "%Y", "UTC"),
+            webhook=WebhookConfig(False, None, None, "Authorization"),
+            repeat_minutes=10,
+            error_threshold=3,
+        )
+    )
+    spy = _Spy()
+    manager.register("spy", spy)
+    monitor = AwsStatusMonitor()
+    monitor.configure(_config())
+
+    events = _events(ENDED_FIXTURE)
+    still_open = [e for e in events if not e.get("end_time")]
+    reopened = {k: v for k, v in _ended_event().items() if k != "end_time"}
+    t0 = datetime(2026, 11, 15, 12, 40, tzinfo=timezone.utc)
+
+    async def cycle(feed, minute):
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json = MagicMock(return_value=feed)
+        client = MagicMock()
+        client.get = AsyncMock(return_value=response)
+        result = await monitor.check(http_client=client, logger=logging.getLogger("test"))
+        await manager.handle_result(
+            module_id="aws",
+            result=result,
+            module_config=_config(),
+            level_name="WARNING",
+            event_name="monitor_check",
+            event_time=t0 + timedelta(minutes=minute),
+            http_client=AsyncMock(),
+            logger=MagicMock(spec=logging.Logger),
+        )
+
+    async def scenario():
+        await cycle([reopened, *still_open], 0)
+        await cycle(events, 1)
+        assert (len(spy.alerts), len(spy.recoveries)) == (3, 1)
+        await cycle(events, 15)
+        assert (len(spy.alerts), len(spy.recoveries)) == (5, 1)
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("raw", ["", None, 0])

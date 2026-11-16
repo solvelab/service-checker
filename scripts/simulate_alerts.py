@@ -136,17 +136,21 @@ def _gcp_degrade(payload):
 
 
 def _aws_degrade(payload):
-    """AWS: the current-events feed only lists open events — an empty feed is healthy.
+    """AWS: an event in the current-events feed is open unless it carries `end_time`.
 
-    So the degradation is the events themselves, and the *healthy* baseline has to be
-    the empty feed. Using the live payload as the baseline would start the run already
-    in alert, and the injected step would be a repeat inside the throttle window rather
-    than a transition.
+    So the degradation is the open events themselves, and the *healthy* baseline has
+    to be the empty feed. Using the live payload as the baseline would start the run
+    already in alert, and the injected step would be a repeat inside the throttle
+    window rather than a transition.
+
+    The feed keeps ended events listed for a while (issue #86); those are dropped here,
+    or a live feed holding only ended events would inject no degradation at all.
     """
-    events = payload or json.loads(
+    live_open = [e for e in (payload or []) if not e.get("end_time")]
+    events = live_open or json.loads(
         (FIXTURES / "aws" / "current_events.json").read_text(encoding="utf-8")
     )
-    source = "live" if payload else "captured"
+    source = "live" if live_open else "captured"
     return events, f"{len(events)} {source} open event(s); healthy baseline is an empty feed"
 
 

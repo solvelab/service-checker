@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 import time
 from typing import Dict, List, Optional
@@ -22,6 +23,12 @@ from ...core.types import MonitorResult, MonitorStatus
 # carry `end_time` (an epoch string); active ones have no such key. Observed
 # 2026-11-15: "[RESOLVED] Increased Connectivity issues in US-EAST-1" stayed in the
 # feed with end_time set, and treating it as active kept the alert open for hours.
+# A valid end_time is an epoch in seconds: finite, positive, and below this bound
+# (year 5138). The bound turns an epoch in milliseconds — which would otherwise read
+# as a far-future end and keep the event active forever, silently — into an
+# unreadable value that is logged.
+_MAX_EPOCH_SECONDS = 1e11
+
 _ARN_RE = re.compile(
     r"^arn:aws:health:(?P<region>[^:]*):[^:]*:event/(?P<category>[^/]+)/"
     r"(?P<type_code>[^/]+)/(?P<event_id>.+)$",
@@ -155,6 +162,8 @@ class AwsStatusMonitor:
         Neither the "[RESOLVED]" summary prefix nor the numeric status decides: the first
         is free text, the second is undocumented severity. An `end_time` that cannot be
         read keeps the event active — a field we cannot parse must not erase an incident.
+        Non-positive, non-finite and millisecond-sized values are unreadable too: "0" or
+        "-1" would otherwise end a live event, and "1794754409000" would never end one.
         """
         raw = event["ended_at"]
         if not raw:
@@ -162,17 +171,25 @@ class AwsStatusMonitor:
         try:
             ended_at = float(raw)
         except (TypeError, ValueError):
-            logger.warning(
-                "aws event end_time is unreadable; keeping the event active",
-                extra={
-                    "event": "end_time_unreadable",
-                    "module_id": self.id,
-                    "check_id": self.id,
-                    "reason": f"{event['id']}: end_time={raw!r}",
-                },
-            )
+            self._warn_unreadable_end_time(event, raw, logger)
+            return False
+        if not (math.isfinite(ended_at) and 0 < ended_at < _MAX_EPOCH_SECONDS):
+            self._warn_unreadable_end_time(event, raw, logger)
             return False
         return ended_at <= now
+
+    def _warn_unreadable_end_time(
+        self, event: Dict, raw: object, logger: logging.Logger
+    ) -> None:
+        logger.warning(
+            "aws event end_time is unreadable; keeping the event active",
+            extra={
+                "event": "end_time_unreadable",
+                "module_id": self.id,
+                "check_id": self.id,
+                "reason": f"{event['id']}: end_time={raw!r}",
+            },
+        )
 
 
 def _parse_event(event: Dict) -> Dict:
