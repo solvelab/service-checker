@@ -1,3 +1,10 @@
+## [2.8.13](https://github.com/solvelab/service-checker/compare/v2.8.12...v2.8.13) (2026-11-16)
+
+
+### Bug Fixes
+
+* **fetch:** falha ao ler cabeçalhos não muda a recusa do upstream ([#99](https://github.com/solvelab/service-checker/issues/99)) ([b370a2e](https://github.com/solvelab/service-checker/commit/b370a2e1ebc3204e975cd05f060526233aa72de1)), closes [#94](https://github.com/solvelab/service-checker/issues/94) [#98](https://github.com/solvelab/service-checker/issues/98)
+
 ## [2.8.12](https://github.com/solvelab/service-checker/compare/v2.8.11...v2.8.12) (2026-11-16)
 
 
