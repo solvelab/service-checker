@@ -24,4 +24,4 @@
 ## 5. Validação
 - [x] 5.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 5.2 `openspec validate add-telegram-daily-summary --strict`.
-- [ ] 5.3 Em produção, print do grupo com a mensagem do dia (enviado pelo usuário).
+- [x] 5.3 Em produção, print do grupo com a mensagem do dia (enviado pelo usuário em 2026-11-16, 08:59 BRT: uma mensagem, 6 abertos, 24 no dia).
