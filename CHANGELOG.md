@@ -1,3 +1,10 @@
+## [2.10.1](https://github.com/solvelab/service-checker/compare/v2.10.0...v2.10.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **logging:** manter o bloco connectivity no log de startup ([#109](https://github.com/solvelab/service-checker/issues/109)) ([962cb2f](https://github.com/solvelab/service-checker/commit/962cb2ff425929b286b52d29d05057a7ba84902d)), closes [#108](https://github.com/solvelab/service-checker/issues/108)
+
 # [2.10.0](https://github.com/solvelab/service-checker/compare/v2.9.0...v2.10.0) (2026-11-16)
 
 
