@@ -102,6 +102,7 @@ class DailySummary:
         kind: str,
         status_text: str,
         now: datetime,
+        started_at: Optional[datetime] = None,
     ) -> bool:
         """Record a problem; True when it still owes a notification."""
         entry = self._open_entry(key)
@@ -112,7 +113,7 @@ class DailySummary:
                 name=name,
                 kind=kind,
                 status_text=status_text,
-                started_at=now,
+                started_at=started_at or now,
                 last_seen_at=now,
             )
             self.entries.append(entry)

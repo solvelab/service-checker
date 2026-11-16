@@ -78,6 +78,10 @@ ACCEPTED_SILENT = {
      "except Exception as exc:  # noqa: BLE001 - signalled by status None"),
     ("notifications/telegram/notifier.py",
      "except Exception:  # noqa: BLE001 - not JSON: judged by status alone"),
+    # Uma dica de início ilegível (#106) não é falha: o problema começa no próprio evento,
+    # que é o comportamento de todo problema que não traz dica.
+    ("notifications/telegram/notifier.py",
+     "except ValueError:  # unreadable hint: the event time is the start"),
     # A restauração conta cada parte descartada e registra o total num único log
     # `state_load`, como o `StateStore` faz com as entradas dele.
     ("notifications/telegram/summary.py",

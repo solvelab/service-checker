@@ -25,9 +25,10 @@ desligada.
   a partir do fim da queda
 
 ### Requirement: Connectivity loss tolerance
-Uma queda de conectividade SHALL notificar no máximo uma vez, como a falha de monitoramento do módulo
-`checker`, e somente quando a duração atingir `NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES` (default
-`10`; `0` notifica toda queda). O fim de uma queda anunciada SHALL ser anunciado como a recuperação do
+Uma queda de conectividade SHALL ser anunciada como a falha de monitoramento do módulo `checker`, e
+somente quando a duração atingir `NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES` (default `10`; `0`
+notifica toda queda); enquanto aberta, SHALL ser repetida a cada `NOTIFICATION_REPEAT_MINUTES`, como
+qualquer falha de monitoramento, levando o início real da queda. O fim de uma queda anunciada SHALL ser anunciado como a recuperação do
 `checker`, com início, fim e duração. Uma queda mais curta que a tolerância SHALL ficar só no log
 (`connectivity_restored`, com a duração).
 
@@ -39,6 +40,11 @@ Uma queda de conectividade SHALL notificar no máximo uma vez, como a falha de m
 - **WHEN** a queda atinge a tolerância
 - **THEN** uma falha de monitoramento do `checker` é enviada, e quando a queda termina, a recuperação
   dela
+
+#### Scenario: Resultados concorrentes
+- **WHEN** vários módulos terminam o ciclo ao mesmo tempo enquanto o aviso ou a recuperação da queda
+  está sendo enviado
+- **THEN** o aviso e a recuperação saem uma vez cada
 
 #### Scenario: Canal indisponível durante a queda
 - **WHEN** nenhum canal aceita o aviso da queda
@@ -80,6 +86,10 @@ versão do esquema, e restaurado no início do processo.
 - **WHEN** o processo reinicia com uma queda aberta no estado persistido
 - **THEN** a queda continua com o mesmo início, e a tolerância conta a partir dele
 
+#### Scenario: Queda velha no estado
+- **WHEN** a queda persistida foi vista pela última vez há mais que `NOTIFICATION_STATE_MAX_AGE_MINUTES`
+- **THEN** ela é descartada na subida, sem aviso
+
 ## MODIFIED Requirements
 
 ### Requirement: Notify sustained monitoring failure
@@ -107,7 +117,7 @@ the checker*).
 O sistema SHALL registrar `monitor_blind_window` somente quando uma sequência de erros atingiu o
 limiar, ou seja, quando um envio de falha foi tentado e nenhum canal aceitou, e SHALL NOT registrá-lo
 para uma sequência que terminou abaixo do limiar, na qual nada chegou a ser tentado, nem para um
-módulo cuja falha foi absorvida por uma queda de conectividade.
+módulo que atingiu o limiar já dentro de uma queda de conectividade.
 
 #### Scenario: Sequência abaixo do limiar
 - **WHEN** com limiar 3, um módulo produz `E E O`

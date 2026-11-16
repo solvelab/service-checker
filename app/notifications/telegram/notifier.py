@@ -405,7 +405,10 @@ class TelegramNotifier:
             summary = self._summary
             summary.roll(now)
             if event in ("alert", "monitor_error"):
-                summary.open_problem(key, module_id, name, kind, status, now)
+                summary.open_problem(
+                    key, module_id, name, kind, status, now,
+                    started_at=_reported_start(result, now),
+                )
             else:
                 summary.resolve(key, module_id, name, kind, now)
             return await self._sync(now, module_id, http_client, logger)
@@ -607,6 +610,24 @@ def _summary_zone(name: str) -> ZoneInfo:
                    "reason": f"{name!r}: {type(exc).__name__}"},
         )
         return ZoneInfo("UTC")
+
+
+def _reported_start(result: MonitorResult, now: datetime) -> datetime:
+    """The start a problem reports for itself (the checker's connectivity loss, #106).
+
+    Never later than `now` and never unreadable: anything else is simply `now`.
+    """
+    payload = result.payload
+    if isinstance(payload, list) and payload and isinstance(payload[0], dict):
+        raw = payload[0].get("started_at")
+        if isinstance(raw, str):
+            try:
+                started = datetime.fromisoformat(raw)
+            except ValueError:  # unreadable hint: the event time is the start
+                return now
+            started = started if started.tzinfo else started.replace(tzinfo=timezone.utc)
+            return min(started, now)
+    return now
 
 
 def _problem_identity(event: str, module_id: str, result: MonitorResult):

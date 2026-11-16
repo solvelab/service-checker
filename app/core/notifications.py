@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from typing import Iterable, Optional
@@ -43,6 +45,9 @@ class NotificationManager:
             getattr(config, "connectivity_timezone", "America/Sao_Paulo")
         )
         self._connectivity: Optional[ConnectivityLoss] = None
+        # Modules finish their cycles concurrently; without this, every result that
+        # arrives while an announcement is in flight announces it again (bug-hunter).
+        self._connectivity_lock = asyncio.Lock()
         self._notifiers: dict[str, Notifier] = {}
         self._alert_state: dict[str, AlertState] = {}
         self._error_state: dict[str, MonitorErrorState] = {}
@@ -58,7 +63,8 @@ class NotificationManager:
         if self._store.enabled:
             self._alert_state, self._error_state = self._store.load()
             self._connectivity = ConnectivityLoss.restore(
-                self._store.sections.get("connectivity")
+                self._store.sections.get("connectivity"),
+                max_age_minutes=getattr(config, "state_max_age_minutes", 1440),
             )
         if config.telegram.enabled:
             telegram = TelegramNotifier(
@@ -389,8 +395,13 @@ class NotificationManager:
             # providers: the loss is announced once, by `_sync_connectivity`, and
             # this module's failure is not (#106).
             if not self._connectivity_open():
-                self._open_connectivity(event_time, state.last_reason, logger)
-            if state.last_notified_at is None:
+                self._open_connectivity(
+                    event_time, state.last_reason, module_config.interval_seconds, logger
+                )
+            if state.consecutive_errors == self._error_threshold:
+                # Reached the threshold inside the loss: nothing was ever attempted for
+                # it. A module that crossed it earlier had its send attempted (and maybe
+                # refused), so it keeps its blind-window log.
                 state.connectivity_loss = True
             return
 
@@ -516,15 +527,14 @@ class NotificationManager:
         return failing / len(self._module_ids) >= self._connectivity_quorum
 
     def _open_connectivity(
-        self, event_time: datetime, reason: Optional[str], logger: logging.Logger
+        self,
+        event_time: datetime,
+        reason: Optional[str],
+        interval_seconds: int,
+        logger: logging.Logger,
     ) -> None:
         failing = self._failing_modules()
-        starts = [
-            self._error_state[module_id].first_error_at
-            for module_id in failing
-            if self._error_state[module_id].first_error_at is not None
-        ]
-        started_at = min(starts, default=event_time)
+        started_at = self._connectivity_start(failing, event_time, interval_seconds)
         previous = self._connectivity
         if previous is not None:
             # A loss that ended but whose all-clear was never delivered: the network
@@ -550,6 +560,30 @@ class NotificationManager:
                 ),
             },
         )
+
+    def _connectivity_start(
+        self, failing: list[str], event_time: datetime, interval_seconds: int
+    ) -> datetime:
+        """When the network went, judged by the modules that fell with it.
+
+        The earliest error of *every* failing module is wrong: a provider down on its own
+        for hours would date a 6-minute router reboot hours back, skip its window and
+        page it (bug-hunter). The loss is anchored where the quorum-th module started
+        failing, and only errors that began within one threshold's worth of checks
+        before that count. A failure already announced on its own is a separate story.
+        """
+        starts = sorted(
+            state.first_error_at
+            for module_id in failing
+            if (state := self._error_state[module_id]).first_error_at is not None
+            and state.last_notified_at is None
+        )
+        if not starts:
+            return event_time
+        quorum_count = max(math.ceil(self._connectivity_quorum * len(self._module_ids)), 1)
+        anchor = starts[min(quorum_count, len(starts)) - 1]
+        lookback = timedelta(seconds=max(interval_seconds, 1) * self._error_threshold)
+        return min(start for start in starts if start >= anchor - lookback)
 
     def _maybe_close_connectivity(self, event_time: datetime, logger: logging.Logger) -> None:
         """End the loss once the failing modules drop below the quorum."""
@@ -618,11 +652,29 @@ class NotificationManager:
         Like every other transition here, nothing advances until a channel accepts it,
         and the end is never sent before the failure it closes.
         """
+        async with self._connectivity_lock:
+            await self._sync_connectivity_locked(event_time, module_config, http_client, logger)
+
+    async def _sync_connectivity_locked(
+        self,
+        event_time: datetime,
+        module_config: ModuleConfig,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> None:
         loss = self._connectivity
         if loss is None:
             return
         if loss.ended_at is None:
-            if loss.notified_at is None and self._connectivity_due(loss, event_time):
+            if loss.notified_at is None:
+                if self._connectivity_due(loss, event_time):
+                    await self._announce_connectivity_lost(
+                        loss, module_config, event_time, http_client, logger
+                    )
+            elif (event_time - loss.notified_at).total_seconds() >= self._repeat_seconds:
+                # Repeated like any open monitoring failure: Alertmanager expires a
+                # firing alert that is not refreshed (bug-hunter), and the summary only
+                # edits in silence.
                 await self._announce_connectivity_lost(
                     loss, module_config, event_time, http_client, logger
                 )
@@ -651,14 +703,19 @@ class NotificationManager:
             interval_seconds=module_config.interval_seconds,
             level_name="INFO",
             event_name="monitor_failure_resolved",
-            # The channels date the problem by these instants, so the summary line
-            # reads start -> end of the loss rather than when it was announced.
-            event_time=loss.ended_at,
+            event_time=event_time,
             http_client=http_client,
             logger=logger,
         )
-        if delivered:
-            self._connectivity = None
+        if not delivered or self._connectivity is not loss:
+            return
+        if loss.ended_at is None:
+            # The network dropped again while the all-clear was in flight: what is open
+            # now is a new loss, owed its own announcement.
+            loss.started_at = event_time
+            loss.notified_at = None
+            return
+        self._connectivity = None
 
     async def _announce_connectivity_lost(
         self,
@@ -676,13 +733,18 @@ class NotificationManager:
                 message="monitoring failure",
                 reason=(
                     f"checker lost connectivity: {loss.failing}/{loss.total} modules "
-                    f"failing; last error: {loss.last_reason or 'unknown'}"
+                    f"failing since {loss.started_at.isoformat()}; "
+                    f"last error: {loss.last_reason or 'unknown'}"
                 ),
+                # The real start, for a channel that dates the problem itself (the
+                # Telegram summary). `event_time` stays "now": a backdated one broke the
+                # summary's resend cooldown and Alertmanager's endsAt (bug-hunter).
+                payload=[{"started_at": loss.started_at.isoformat()}],
             ),
             interval_seconds=module_config.interval_seconds,
             level_name="ERROR",
             event_name="monitor_failure",
-            event_time=loss.started_at,
+            event_time=event_time,
             http_client=http_client,
             logger=logger,
         )
@@ -1004,12 +1066,24 @@ class ConnectivityLoss:
         }
 
     @classmethod
-    def restore(cls, data) -> Optional["ConnectivityLoss"]:
-        """Rebuild from `to_dict`; anything unreadable means no loss, never a crash."""
+    def restore(
+        cls, data, now: Optional[datetime] = None, max_age_minutes: int = 1440
+    ) -> Optional["ConnectivityLoss"]:
+        """Rebuild from `to_dict`; anything unreadable or stale means no loss, never a crash.
+
+        Stale like an alert: a loss last seen longer ago than `max_age_minutes` belongs to
+        a process that was down, and restoring it paged "lost 3 days ago" (bug-hunter).
+        """
         if not isinstance(data, dict):
             return None
         started_at = _parse_dt(data.get("started_at"))
         if started_at is None:
+            return None
+        now = now or datetime.now(timezone.utc)
+        last_seen = _parse_dt(data.get("ended_at")) or started_at
+        if last_seen > now + timedelta(minutes=5) or (
+            max_age_minutes and now - last_seen > timedelta(minutes=max_age_minutes)
+        ):
             return None
         failing, total = data.get("failing"), data.get("total")
         return cls(

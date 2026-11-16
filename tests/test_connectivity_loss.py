@@ -54,9 +54,13 @@ class Spy:
     def __init__(self, up=True):
         self.up = up
         self.calls: list[tuple[str, str, datetime]] = []
+        self.starts: list[str] = []
 
     async def _record(self, kind, kwargs):
         self.calls.append((kind, kwargs["module_id"], kwargs["event_time"]))
+        payload = kwargs["result"].payload
+        if kind == "monitor_error" and kwargs["module_id"] == CONNECTIVITY_MODULE_ID:
+            self.starts.append(payload[0]["started_at"])
         return self.up
 
     async def send_alert(self, **kwargs):
@@ -191,10 +195,13 @@ async def test_with_zero_tolerance_the_loss_is_announced_once_with_its_real_time
     logger, events = _logger()
     await _replay(manager, _outage_events(), logger)
 
+    # Announced when the loss opened (bitbucket's 3rd error, all 10 failing by then),
+    # dated by its real start for the channels that show it.
     assert spy.calls == [
-        ("monitor_error", CONNECTIVITY_MODULE_ID, _at("07:00:15")),
+        ("monitor_error", CONNECTIVITY_MODULE_ID, _at("07:02:15")),
         ("monitor_recovered", CONNECTIVITY_MODULE_ID, _at("07:06:18")),
     ]
+    assert spy.starts == ["2026-11-16T07:00:15+00:00"]
     assert events.count("monitor_failure") == 0
 
 
@@ -207,7 +214,13 @@ async def test_a_long_loss_is_announced_while_it_lasts():
     await _replay(manager, events, logger, until=_at("07:11:00"))
     assert spy.kinds() == ["monitor_error"]
     await _replay(manager, [e for e in events if e[0] >= _at("07:11:00")], logger)
-    assert spy.kinds() == ["monitor_error", "monitor_recovered"]
+    # Repeated every repeat window while open, like any monitoring failure (Alertmanager
+    # expires an alert that is not refreshed), always with the same start.
+    kinds = spy.kinds()
+    assert kinds[0] == "monitor_error" and kinds[-1] == "monitor_recovered"
+    assert kinds.count("monitor_recovered") == 1
+    assert kinds.count("monitor_error") == 2
+    assert set(spy.starts) == {"2026-11-16T07:00:15+00:00"}
 
 
 def _shift_clock(clock, minutes):
@@ -313,7 +326,8 @@ async def test_a_loss_that_outlasts_its_window_is_announced_after_the_window():
     assert spy.calls == []
     await _replay(manager, [e for e in events if e[0] >= _at("07:15:00")], logger)
     assert spy.kinds() == ["monitor_error", "monitor_recovered"]
-    assert spy.calls[0][2] == _at("07:10:15")
+    assert spy.calls[0][2] > _at("07:15:00")
+    assert spy.starts == ["2026-11-16T07:10:15+00:00"]
 
 
 async def test_an_isolated_failure_inside_the_window_still_pages():
@@ -372,8 +386,7 @@ async def test_a_restart_in_the_middle_of_the_loss_keeps_its_start(tmp_path):
     after, spy = _manager(tolerance=0, state_path=path)
     assert after._connectivity.started_at == day + timedelta(hours=7, seconds=15)
     await _replay(after, [e for e in events if e[0] >= cut], logger)
-    assert spy.calls[0] == ("monitor_error", CONNECTIVITY_MODULE_ID,
-                            day + timedelta(hours=7, seconds=15))
+    assert spy.starts == [(day + timedelta(hours=7, seconds=15)).isoformat()]
     assert spy.kinds() == ["monitor_error", "monitor_recovered"]
 
 
@@ -446,3 +459,121 @@ async def test_a_state_file_without_the_new_fields_still_loads(tmp_path):
     _, errors = StateStore(str(path)).load()
     assert errors["steam"].first_error_at is None
     assert errors["steam"].connectivity_loss is False
+
+
+# ---------------------------------------------------------------------------
+# Bug-hunter attacks on the first version (#106)
+# ---------------------------------------------------------------------------
+
+async def test_a_provider_failing_alone_does_not_backdate_the_loss():
+    manager, spy = _manager(tolerance=10, windows=((240, 255),))
+    logger, events = _logger()
+    for minute in range(300):  # aws alone from 02:00Z to 06:59Z, announced on its own
+        await _feed(manager, "aws", "E", _at("02:00:00") + timedelta(minutes=minute), logger)
+    for i in range(3):
+        for module_id in _MODULES:
+            if module_id != "aws":
+                await _feed(manager, module_id, "E",
+                            _at("07:01:00") + timedelta(minutes=i), logger)
+    for module_id in _MODULES:
+        if module_id != "aws":
+            await _feed(manager, module_id, "O", _at("07:05:00"), logger)
+    assert [c for c in spy.calls if c[1] == CONNECTIVITY_MODULE_ID] == []
+    lost = next(r for r in events.records if r.event == "connectivity_lost")
+    assert "since 2026-11-16T07:01:00" in lost.reason
+
+
+class SlowSpy(Spy):
+    async def _record(self, kind, kwargs):
+        import asyncio
+
+        await asyncio.sleep(0.01)
+        return await super()._record(kind, kwargs)
+
+
+async def _all_fail(manager, logger, start, times=3):
+    for i in range(times):
+        for module_id in _MODULES:
+            await _feed(manager, module_id, "E", start + timedelta(minutes=i), logger)
+
+
+async def test_concurrent_results_announce_the_loss_once():
+    import asyncio
+
+    manager, spy = _manager(tolerance=10, spy=SlowSpy())
+    logger, _ = _logger()
+    await _all_fail(manager, logger, _at("07:00:00"))
+    await asyncio.gather(*(
+        _feed(manager, module_id, "E", _at("07:11:00"), logger) for module_id in _MODULES
+    ))
+    assert spy.kinds(CONNECTIVITY_MODULE_ID) == ["monitor_error"]
+
+
+async def test_concurrent_recoveries_announce_the_end_once():
+    import asyncio
+
+    manager, spy = _manager(tolerance=0, spy=SlowSpy())
+    logger, _ = _logger()
+    await _all_fail(manager, logger, _at("07:00:00"))
+    await asyncio.gather(*(
+        _feed(manager, module_id, "O", _at("07:05:00"), logger) for module_id in _MODULES
+    ))
+    assert spy.kinds(CONNECTIVITY_MODULE_ID) == ["monitor_error", "monitor_recovered"]
+
+
+async def test_an_announced_loss_is_refreshed_every_repeat_window():
+    manager, spy = _manager(tolerance=10)
+    logger, _ = _logger()
+    await _all_fail(manager, logger, _at("07:00:00"), times=40)
+    announced = [when for kind, module_id, when in spy.calls
+                 if module_id == CONNECTIVITY_MODULE_ID]
+    # Due at 07:10, then every 10 minutes while open: Alertmanager keeps it firing.
+    assert announced == [_at("07:10:00"), _at("07:20:00"), _at("07:30:00")]
+
+
+async def test_a_loss_restored_after_a_long_downtime_is_not_paged(tmp_path):
+    path = str(tmp_path / "state.json")
+    start = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=3)
+    before, _ = _manager(state_path=path, spy=Spy(up=False))
+    logger, _ = _logger()
+    await _all_fail(before, logger, start)
+    assert before._connectivity is not None
+
+    after, spy = _manager(state_path=path)
+    assert after._connectivity is None
+    await _feed(after, "aws", "O", datetime.now(timezone.utc), logger)
+    assert spy.calls == []
+
+
+async def test_a_refused_attempt_before_the_quorum_still_logs_the_blind_window():
+    manager, spy = _manager(spy=Spy(up=False))
+    logger, events = _logger()
+    for i in range(3):  # aws alone reaches the threshold: attempted, refused
+        await _feed(manager, "aws", "E", _at("07:00:00") + timedelta(minutes=i), logger)
+    await _all_fail(manager, logger, _at("07:03:00"))
+    for module_id in _MODULES:
+        await _feed(manager, module_id, "O", _at("07:06:00"), logger)
+    blind = [r for r in events.records if getattr(r, "event", None) == "monitor_blind_window"]
+    assert [r.module_id for r in blind] == ["aws"]
+
+
+async def test_the_reported_start_reaches_the_summary_without_breaking_its_cooldown():
+    from app.notifications.telegram.notifier import TelegramNotifier
+
+    from tests.test_telegram_daily_summary import _Bot
+
+    notifier = TelegramNotifier(TelegramConfig(
+        True, "token", ["1"], "https://api.telegram.org", "%H:%M", "UTC",
+        mode="daily_summary", summary_timezone="America/Sao_Paulo",
+    ))
+    bot = _Bot()
+    logger, _ = _logger()
+    error = MonitorResult(MonitorStatus.ERROR, "monitoring failure", "x", 1.0,
+                          [{"started_at": _at("07:00:15").isoformat()}])
+    common = dict(module_id=CONNECTIVITY_MODULE_ID, interval_seconds=60, level_name="ERROR",
+                  event_name="monitor_failure", http_client=bot, logger=logger)
+    assert await notifier.send_monitor_error(result=error, event_time=_at("07:10:15"), **common)
+    entry = notifier._summary.entries[0]
+    assert entry.started_at == _at("07:00:15")
+    assert notifier._summary.last_resend_at == _at("07:10:15")
+    assert "04:00" in bot.last("sendMessage")["text"]

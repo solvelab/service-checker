@@ -17,13 +17,13 @@
 - [x] 3.4 Módulo que segue em erro depois da queda; restart no meio da queda; canal recusando.
 - [x] 3.5 Replay da queda de 2026-11-16 07:00Z com os horários reais.
 - [x] 3.6 Suíte atual (histerese, janela cega, persistência) sem mudança.
-- [ ] 3.7 bug-hunter no diff.
+- [x] 3.7 bug-hunter no diff: 9 ataques; corrigidos com teste o início datado por provedor caído há horas, o aviso duplicado por resultados concorrentes, a expiração no Alertmanager e o cooldown do Telegram (event_time retroativo), a queda velha restaurada, a janela cega suprimida depois de envio tentado e a recuperação que apagava queda reaberta; o fim de janela em fuso com horário de verão fica como lacuna.
 
 ## 4. Documentação e simulação
 - [x] 4.1 `.env.example`, `DOCKER.md`, `deployment.example.yaml`, `app/notifications/README.md`.
 - [x] 4.2 `scripts/simulate_notifications.py` com uma queda passando pelo manager e pelo resumo do Telegram.
 
 ## 5. Validação
-- [ ] 5.1 `ruff check app tests scripts` e `pytest tests/` verdes.
-- [ ] 5.2 `openspec validate add-connectivity-loss-detection --strict`.
+- [x] 5.1 `ruff check app tests scripts` e `pytest tests/` verdes.
+- [x] 5.2 `openspec validate add-connectivity-loss-detection --strict`.
 - [ ] 5.3 Em produção, a próxima queda do roteador aparece como `connectivity_lost`/`connectivity_restored`, sem falhas por módulo.
