@@ -1,3 +1,10 @@
+# [2.10.0](https://github.com/solvelab/service-checker/compare/v2.9.0...v2.10.0) (2026-11-16)
+
+
+### Features
+
+* **notifications:** detectar queda de conectividade do checker ([#107](https://github.com/solvelab/service-checker/issues/107)) ([c4ab615](https://github.com/solvelab/service-checker/commit/c4ab615ed0ea2a80f7b2ab2f7efcf221f75d11dd))
+
 # [2.9.0](https://github.com/solvelab/service-checker/compare/v2.8.13...v2.9.0) (2026-11-16)
 
 
