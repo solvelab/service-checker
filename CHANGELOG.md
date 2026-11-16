@@ -1,3 +1,10 @@
+## [2.8.10](https://github.com/solvelab/service-checker/compare/v2.8.9...v2.8.10) (2026-11-16)
+
+
+### Bug Fixes
+
+* **aws:** evento com end_time no feed deixa de contar como ativo ([#88](https://github.com/solvelab/service-checker/issues/88)) ([df499fd](https://github.com/solvelab/service-checker/commit/df499fd9ac665da10d97baf51f3a374a421c40ba)), closes [#86](https://github.com/solvelab/service-checker/issues/86) [#86](https://github.com/solvelab/service-checker/issues/86)
+
 ## [2.8.9](https://github.com/solvelab/service-checker/compare/v2.8.8...v2.8.9) (2026-08-18)
 
 
