@@ -1,3 +1,10 @@
+## [2.8.11](https://github.com/solvelab/service-checker/compare/v2.8.10...v2.8.11) (2026-11-16)
+
+
+### Bug Fixes
+
+* **notifications:** histerese na recuperação de falha de monitoramento ([#91](https://github.com/solvelab/service-checker/issues/91)) ([88cb8da](https://github.com/solvelab/service-checker/commit/88cb8dac9084b5370c1d8524244be8348ea81ce6)), closes [#87](https://github.com/solvelab/service-checker/issues/87)
+
 ## [2.8.10](https://github.com/solvelab/service-checker/compare/v2.8.9...v2.8.10) (2026-11-16)
 
 
