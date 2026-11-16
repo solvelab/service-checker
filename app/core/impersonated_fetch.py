@@ -85,6 +85,10 @@ class UpstreamChallenged(UpstreamRejected):
 _CHALLENGE_HEADER = "cf-mitigated"
 _CHALLENGE_VALUE = "challenge"
 
+#: Teto do texto de exceção no log de `challenge_check_failed`: a mensagem pode trazer
+#: bytes do cabeçalho, que vêm do upstream.
+_REASON_LIMIT = 200
+
 
 def worst_case_seconds(timeout_seconds: float, attempts: int, backoff: float) -> float:
     """Teto de tempo de uma busca completa.
@@ -113,7 +117,7 @@ def fetch_html(
 
     for attempt in range(1, attempts + 1):
         try:
-            return _fetch_once(url, impersonate, timeout_seconds)
+            return _fetch_once(url, impersonate, timeout_seconds, logger, module_id)
         except UpstreamRejected as exc:
             last = exc
             retryable = exc.status is None or exc.status in RETRYABLE_STATUS
@@ -139,12 +143,18 @@ def fetch_html(
     raise last
 
 
-def _fetch_once(url: str, impersonate: str, timeout_seconds: float) -> str:
+def _fetch_once(
+    url: str,
+    impersonate: str,
+    timeout_seconds: float,
+    logger: logging.Logger,
+    module_id: str,
+) -> str:
     # Importado tarde para o resto da aplicacao nao depender de curl_cffi.
     from curl_cffi import requests as cffi_requests
 
     response = cffi_requests.get(url, impersonate=impersonate, timeout=timeout_seconds)
-    if response.status_code >= 400 and _is_challenge(response):
+    if response.status_code >= 400 and _is_challenge(response, logger, module_id, url):
         raise UpstreamChallenged(
             "upstream challenged the automated client "
             f"(Cloudflare {_CHALLENGE_HEADER}: {_CHALLENGE_VALUE}, "
@@ -163,19 +173,39 @@ def _fetch_once(url: str, impersonate: str, timeout_seconds: float) -> str:
     return text
 
 
-def _is_challenge(response) -> bool:
+def _is_challenge(response, logger: logging.Logger, module_id: str, url: str) -> bool:
     """True quando algum `cf-mitigated` traz o valor `challenge`, sem diferenciar maiúsculas.
 
     Igualdade por item, não substring: o Cloudflare documenta só o valor `challenge`, e o
     motivo afirma esse valor — `non-challenge` não pode virar desafio. O `curl_cffi` junta
     cabeçalhos repetidos com ", ", por isso a lista é separada antes de comparar.
+
+    A detecção só acrescenta informação ao motivo (issue #98): se a leitura dos cabeçalhos
+    falhar, a recusa segue como `upstream returned HTTP <status>`, com o status e a
+    repetição de sempre, e a falha vai para o log em vez de virar erro de rede.
     """
-    items = getattr(getattr(response, "headers", None), "items", None)
-    if not callable(items):
+    try:
+        items = getattr(getattr(response, "headers", None), "items", None)
+        if not callable(items):
+            return False
+        for name, value in items():
+            if str(name).lower() != _CHALLENGE_HEADER:
+                continue
+            tokens = str(value).split(",")
+            if any(token.strip().lower() == _CHALLENGE_VALUE for token in tokens):
+                return True
         return False
-    for name, value in items():
-        if str(name).lower() != _CHALLENGE_HEADER:
-            continue
-        if any(token.strip().lower() == _CHALLENGE_VALUE for token in str(value).split(",")):
-            return True
-    return False
+    except Exception as header_error:  # noqa: BLE001
+        # Nome próprio na cláusula: a allowlist de test_silent_fallbacks casa pelo texto,
+        # e "except Exception as exc" já está liberado para o loop de fetch_html.
+        logger.warning(
+            "could not read response headers to check for a challenge",
+            extra={
+                "event": "challenge_check_failed",
+                "module_id": module_id,
+                "status": getattr(response, "status_code", None),
+                "reason": f"{type(header_error).__name__}: {header_error}"[:_REASON_LIMIT],
+                "url": url,
+            },
+        )
+        return False

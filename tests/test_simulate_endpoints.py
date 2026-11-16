@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from simulate_endpoints import resolve_with_retry  # noqa: E402
+from simulate_endpoints import reason_row, resolve_with_retry  # noqa: E402
 
 
 def _runner(outcomes):
@@ -344,3 +344,12 @@ def test_check_contract_on_no_records_is_not_a_failure():
     count, missing, note = check_contract("aws", [])
     assert (count, missing) == (0, [])
     assert "no records" in note
+
+
+def test_the_reason_row_keeps_the_status_of_a_challenge():
+    """Issue #98: an 80-char cut dropped "HTTP 403" from the #94 challenge reason."""
+    reason = ("UpstreamChallenged: upstream challenged the automated client "
+              "(Cloudflare cf-mitigated: challenge, HTTP 403)")
+    row = reason_row(reason)
+    assert row.endswith(reason)
+    assert "HTTP 403" in row
