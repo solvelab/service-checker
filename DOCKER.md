@@ -193,6 +193,12 @@ aparecem. Passar uma chave que não está lá a descarta sem dizer nada — foi 
   Uma diretiva que a plataforma não conhece **não** faz o envio falhar — no Linux `strftime` devolve
   o texto literal —, então o módulo detecta que nada foi interpretado, avisa e cai para ISO-8601.
 - `TELEGRAM_TIMESTAMP_ZONE` (default `UTC`): `UTC` ou `LOCAL`, esta última usando o fuso do container.
+  Vale para os cartões do modo `per_event`.
+- `TELEGRAM_MODE` (default `daily_summary`): `daily_summary` mantém **uma mensagem por chat por dia**,
+  editada a cada evento, que só notifica quando um problema novo começa (issue #100); `per_event` envia
+  um cartão por evento, como antes. Valor desconhecido é avisado no boot e vira `daily_summary`.
+- `TELEGRAM_SUMMARY_TIMEZONE` (default `America/Sao_Paulo`): fuso IANA que decide onde o dia do resumo
+  começa e em que horário ele mostra início e resolução. Fuso inválido é avisado e vira o default.
 - `TELEGRAM_ENABLED` (default `false`)
 - `TELEGRAM_BOT_TOKEN` (required when enabled)
 - `TELEGRAM_CHAT_ID` (single chat/group)

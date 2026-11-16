@@ -65,6 +65,13 @@ class TelegramConfig:
     api_url: str
     timestamp_format: str
     timestamp_zone: str
+    # `per_event` aqui e `daily_summary` no loader de env (issue #100): quem constrói o
+    # dataclass na mão — os testes do contrato — continua descrevendo o modo de sempre.
+    mode: str = "per_event"
+    summary_timezone: str = "America/Sao_Paulo"
+
+
+TELEGRAM_MODES = ("daily_summary", "per_event")
 
 
 @dataclass
@@ -283,6 +290,8 @@ def _load_notification_config() -> NotificationConfig:
             "TELEGRAM_TIMESTAMP_FORMAT", "%Y-%m-%d %H:%M:%S %Z"
         ),
         timestamp_zone=os.getenv("TELEGRAM_TIMESTAMP_ZONE", "UTC"),
+        mode=_get_telegram_mode(),
+        summary_timezone=_get_summary_timezone(),
     )
     webhook = WebhookConfig(
         enabled=_get_bool("WEBHOOK_ENABLED", False),
@@ -331,6 +340,34 @@ def _load_notification_config() -> NotificationConfig:
         google_chat=google_chat,
         alertmanager=alertmanager,
     )
+
+
+def _get_telegram_mode() -> str:
+    raw = (os.getenv("TELEGRAM_MODE") or "daily_summary").strip().lower()
+    if raw in TELEGRAM_MODES:
+        return raw
+    _warn_config(
+        f"TELEGRAM_MODE={raw!r} is not one of {', '.join(TELEGRAM_MODES)}; "
+        "using daily_summary"
+    )
+    return "daily_summary"
+
+
+def _get_summary_timezone() -> str:
+    """IANA zone that decides where a summary day starts. Invalid falls back loudly."""
+    from zoneinfo import ZoneInfo
+
+    default = "America/Sao_Paulo"
+    raw = (os.getenv("TELEGRAM_SUMMARY_TIMEZONE") or default).strip()
+    try:
+        ZoneInfo(raw)
+    except Exception as exc:  # noqa: BLE001
+        _warn_config(
+            f"TELEGRAM_SUMMARY_TIMEZONE={raw!r} is not a known IANA zone "
+            f"({type(exc).__name__}); using {default}"
+        )
+        return default
+    return raw
 
 
 def _get_label_map(env_name: str) -> Dict[str, str]:

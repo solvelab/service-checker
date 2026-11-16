@@ -38,6 +38,9 @@ from .types import MonitorStatus
 
 SCHEMA_VERSION = 1
 
+#: Chaves de canal guardadas ao lado de `alerts` e `errors`, sem versão própria.
+CHANNEL_SECTIONS = ("telegram_summary",)
+
 #: A timestamp this far ahead of now is not a clock skew, it is a corrupt or
 #: hand-edited file. Keeping it would freeze the repeat throttle forever, because the
 #: elapsed time never reaches the repeat window.
@@ -94,6 +97,11 @@ class StateStore:
         # is every provider healthy and the document identical cycle after cycle;
         # without this the daemon would fsync ten times a minute to say nothing.
         self._last_written: Optional[str] = None
+        # Seções de canal (issue #100), opacas para o store: quem é dono do formato é o
+        # canal, que valida ao restaurar. Ficam fora do esquema versionado de propósito —
+        # um arquivo antigo não as tem e um binário antigo as ignora, então nem upgrade
+        # nem rollback apagam os alertas pendentes.
+        self.sections: dict = {}
 
     @property
     def enabled(self) -> bool:
@@ -124,6 +132,12 @@ class StateStore:
             # one. Forgetting is the safe direction.
             self._warn(f"state file schema is {version!r}, expected {SCHEMA_VERSION}", None)
             return {}, {}
+
+        self.sections = {
+            name: document[name]
+            for name in CHANNEL_SECTIONS
+            if isinstance(document.get(name), dict)
+        }
 
         now = now or _now()
         alerts: dict = {}
@@ -195,7 +209,9 @@ class StateStore:
 
     # -- save ---------------------------------------------------------------
 
-    def save(self, alert_state: dict, error_state: dict) -> None:
+    def save(
+        self, alert_state: dict, error_state: dict, sections: Optional[dict] = None
+    ) -> None:
         """Write the pending state atomically. Any failure is logged, never raised."""
         if self.path is None:
             return
@@ -225,6 +241,10 @@ class StateStore:
                 for key, state in error_state.items()
             },
         }
+
+        for name, section in (sections or {}).items():
+            if name in CHANNEL_SECTIONS and isinstance(section, dict):
+                document[name] = section
 
         payload = json.dumps(document, ensure_ascii=False, default=str, sort_keys=True)
         if payload == self._last_written:

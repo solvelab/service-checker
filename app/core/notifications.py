@@ -36,7 +36,13 @@ class NotificationManager:
         if self._store.enabled:
             self._alert_state, self._error_state = self._store.load()
         if config.telegram.enabled:
-            self.register("telegram", TelegramNotifier(config.telegram))
+            telegram = TelegramNotifier(
+                config.telegram,
+                max_age_minutes=getattr(config, "state_max_age_minutes", 1440),
+            )
+            if self._store.enabled:
+                telegram.restore_state(self._store.sections.get("telegram_summary"))
+            self.register("telegram", telegram)
         if config.webhook.enabled:
             self.register("webhook", WebhookNotifier(config.webhook))
         google_chat = getattr(config, "google_chat", None)
@@ -166,9 +172,39 @@ class NotificationManager:
         """
         try:
             await self._handle_result(**kwargs)
+            await self._flush_channels(kwargs["http_client"], kwargs["logger"])
         finally:
             if self._store.enabled:
-                self._store.save(self._alert_state, self._error_state)
+                self._store.save(
+                    self._alert_state, self._error_state, self._channel_sections()
+                )
+
+    async def _flush_channels(self, http_client, logger: logging.Logger) -> None:
+        """Let a channel retry what it could not deliver (the Telegram summary, #100).
+
+        A service recovery is never re-dispatched — its state is gone whatever the
+        channels answered — so a summary edit refused once would stay stale all day.
+        """
+        flush = getattr(self._notifiers.get("telegram"), "flush", None)
+        if not callable(flush):
+            return
+        try:
+            await flush(http_client=http_client, logger=logger)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "notification channel flush failed",
+                extra={
+                    "event": "notify_error",
+                    "target": "telegram",
+                    "reason": f"flush: {type(exc).__name__}: {exc}",
+                },
+            )
+
+    def _channel_sections(self) -> dict:
+        """State a channel keeps across restarts (the Telegram daily summary, #100)."""
+        export = getattr(self._notifiers.get("telegram"), "export_state", None)
+        section = export() if callable(export) else None
+        return {"telegram_summary": section} if isinstance(section, dict) else {}
 
     async def _handle_result(
         self,
