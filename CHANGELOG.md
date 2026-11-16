@@ -1,3 +1,10 @@
+# [2.9.0](https://github.com/solvelab/service-checker/compare/v2.8.13...v2.9.0) (2026-11-16)
+
+
+### Features
+
+* **telegram:** resumo diário numa mensagem só, editada ao longo do dia ([#101](https://github.com/solvelab/service-checker/issues/101)) ([d32346e](https://github.com/solvelab/service-checker/commit/d32346e87dce9c29b8134e1dcbe2dddefd51a731)), closes [#87](https://github.com/solvelab/service-checker/issues/87) [#100](https://github.com/solvelab/service-checker/issues/100)
+
 ## [2.8.13](https://github.com/solvelab/service-checker/compare/v2.8.12...v2.8.13) (2026-11-16)
 
 
