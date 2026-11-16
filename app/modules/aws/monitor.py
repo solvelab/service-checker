@@ -8,8 +8,8 @@ import httpx
 from ...core.config import ModuleConfig
 from ...core.types import MonitorResult, MonitorStatus
 
-# The public feed carries no typeCode/region/endTime fields — everything the rule
-# engine needs is encoded in the event ARN:
+# The public feed carries no typeCode/region fields — everything the rule engine
+# needs to identify an event is encoded in the event ARN:
 #
 #   arn:aws:health:eu-central-1::event/DIRECTCONNECT/AWS_DIRECTCONNECT_OPERATIONAL_ISSUE/
 #                  └── region ──┘                    └──────── type code ──────────┘
@@ -17,6 +17,11 @@ from ...core.types import MonitorResult, MonitorStatus
 #   └──────────── unique event id ─────────────────────┘
 #
 # Verified against the live endpoint on 2026-08-15.
+#
+# The feed also keeps an event listed for a while after it ends. Only such events
+# carry `end_time` (an epoch string); active ones have no such key. Observed
+# 2026-11-15: "[RESOLVED] Increased Connectivity issues in US-EAST-1" stayed in the
+# feed with end_time set, and treating it as active kept the alert open for hours.
 _ARN_RE = re.compile(
     r"^arn:aws:health:(?P<region>[^:]*):[^:]*:event/(?P<category>[^/]+)/"
     r"(?P<type_code>[^/]+)/(?P<event_id>.+)$",
@@ -61,7 +66,7 @@ class AwsStatusMonitor:
             )
 
         duration_ms = (time.perf_counter() - start) * 1000
-        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(data)
+        rule_status, rule_reason, payload, reason_items = self._evaluate_rule(data, logger)
 
         if rule_status == MonitorStatus.ERROR:
             return MonitorResult(
@@ -91,7 +96,10 @@ class AwsStatusMonitor:
         )
 
     def _evaluate_rule(
-        self, data: object
+        self,
+        data: object,
+        logger: logging.Logger,
+        now: Optional[float] = None,
     ) -> tuple[MonitorStatus, Optional[str], Optional[object], Optional[List[str]]]:
         if self.config is None:
             return MonitorStatus.ERROR, "missing config", None, None
@@ -112,6 +120,7 @@ class AwsStatusMonitor:
         if not code_tokens:
             code_tokens = {"operational_issue"}
 
+        now = time.time() if now is None else now
         active_events: List[Dict] = []
         for event in data:
             if not isinstance(event, dict):
@@ -119,13 +128,14 @@ class AwsStatusMonitor:
 
             parsed = _parse_event(event)
 
-            # Everything the endpoint returns is by definition a current event: it
-            # exposes no end timestamp and no resolved entries (verified 2026-08-15).
             if not _matches_filter(parsed, targets):
                 continue
 
             type_code = (parsed["type_code"] or "").lower()
             if type_code and not any(token in type_code for token in code_tokens):
+                continue
+
+            if self._has_ended(parsed, now, logger):
                 continue
 
             active_events.append(parsed)
@@ -138,6 +148,31 @@ class AwsStatusMonitor:
             return MonitorStatus.ALERT, "; ".join(items), active_events, items
 
         return MonitorStatus.OK, None, [], None
+
+    def _has_ended(self, event: Dict, now: float, logger: logging.Logger) -> bool:
+        """An event ends only through a readable `end_time` that is not in the future.
+
+        Neither the "[RESOLVED]" summary prefix nor the numeric status decides: the first
+        is free text, the second is undocumented severity. An `end_time` that cannot be
+        read keeps the event active — a field we cannot parse must not erase an incident.
+        """
+        raw = event["ended_at"]
+        if not raw:
+            return False
+        try:
+            ended_at = float(raw)
+        except (TypeError, ValueError):
+            logger.warning(
+                "aws event end_time is unreadable; keeping the event active",
+                extra={
+                    "event": "end_time_unreadable",
+                    "module_id": self.id,
+                    "check_id": self.id,
+                    "reason": f"{event['id']}: end_time={raw!r}",
+                },
+            )
+            return False
+        return ended_at <= now
 
 
 def _parse_event(event: Dict) -> Dict:
@@ -165,6 +200,7 @@ def _parse_event(event: Dict) -> Dict:
         "status": str(event.get("status") or "unknown"),
         "summary": event.get("summary") or "",
         "started_at": event.get("date") or "",
+        "ended_at": str(event.get("end_time") or ""),
     }
 
 
