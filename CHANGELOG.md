@@ -1,3 +1,10 @@
+# [2.11.0](https://github.com/solvelab/service-checker/compare/v2.10.1...v2.11.0) (2026-11-17)
+
+
+### Features
+
+* **notifications:** tolerar sequência de desafio anti-bot antes de avisar ([#113](https://github.com/solvelab/service-checker/issues/113)) ([19e2ad9](https://github.com/solvelab/service-checker/commit/19e2ad98a7785c5b17a7b905d527502824cb9030)), closes [#112](https://github.com/solvelab/service-checker/issues/112)
+
 ## [2.10.1](https://github.com/solvelab/service-checker/compare/v2.10.0...v2.10.1) (2026-11-16)
 
 
