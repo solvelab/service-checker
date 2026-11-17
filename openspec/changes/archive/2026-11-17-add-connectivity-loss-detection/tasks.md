@@ -26,4 +26,4 @@
 ## 5. Validação
 - [x] 5.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 5.2 `openspec validate add-connectivity-loss-detection --strict`.
-- [ ] 5.3 Em produção, a próxima queda do roteador aparece como `connectivity_lost`/`connectivity_restored`, sem falhas por módulo.
+- [x] 5.3 Em produção, a próxima queda do roteador aparece como `connectivity_lost`/`connectivity_restored`, sem falhas por módulo. Verificado na queda de 2026-11-17 às 04:00 BRT: `connectivity_lost` às 07:02:18Z (10/10 módulos desde 07:00:14Z), `connectivity_restored` às 07:05:55Z (5 min, abaixo da tolerância, sem mensagem nos canais), nenhum `monitor_failure` nem `monitor_blind_window` de módulo.
