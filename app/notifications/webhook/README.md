@@ -75,6 +75,10 @@ at most every `NOTIFICATION_REPEAT_MINUTES`. `MONITOR_RECOVERED` follows only af
 }
 ```
 
+`payload` is `null`, except when the failure is announced after its real start: the
+connectivity loss of the module `checker` (#106) and a challenge streak held by
+`NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES` (#112) carry `[{"started_at": "<iso8601>"}]`.
+
 ### MONITOR_RECOVERED
 Emitted when the module evaluates successfully again — but only if the corresponding
 `MONITOR_ERROR` was actually sent.

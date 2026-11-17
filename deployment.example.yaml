@@ -277,3 +277,5 @@ spec:
               value: ""
             - name: NOTIFICATION_CONNECTIVITY_TIMEZONE
               value: "America/Sao_Paulo"
+            - name: NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES
+              value: "60"

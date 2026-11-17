@@ -49,6 +49,12 @@ requests while `chrome124` passed all 10. The challenge is retried like any reje
 recovery hysteresis (`NOTIFICATION_RECOVERY_THRESHOLD`) keeps a flapping challenge from paging on
 every flap. A 403 **without** that header still reads `upstream returned HTTP 403`.
 
+A failure streak made only of challenges does not page before
+`NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES` (default `60`, issue #112): on 2026-11-17 the streaks
+lasted up to 45 minutes and opened six monitoring failures with no Steam incident behind them. A
+shorter streak logs `monitor_challenge_absorbed`; any other error in the streak pages at the plain
+threshold.
+
 ## 🔧 Environment variables (`STEAM_`)
 - `URL` (default `https://steamstat.us/`)
 - `INTERVAL_SECONDS` (default 60)

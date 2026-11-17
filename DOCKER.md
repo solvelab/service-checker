@@ -69,6 +69,7 @@ These apply across modules:
 - `NOTIFICATION_CONNECTIVITY_TOLERANCE_MINUTES` (default `10`): a connectivity loss shorter than this reaches no channel, only the log (`connectivity_lost` / `connectivity_restored`). `0` announces every loss.
 - `NOTIFICATION_CONNECTIVITY_WINDOWS` (optional, e.g. `04:00-04:15,05:00-05:10`): windows where a loss is expected, such as a scheduled router reboot. A loss that starts inside one and ends before its end never notifies; one that outlasts it falls back to the tolerance. A single provider failing inside a window still pages. A malformed item is ignored with a `config_fallback` warning; the windows read are listed in the `startup` log.
 - `NOTIFICATION_CONNECTIVITY_TIMEZONE` (default `America/Sao_Paulo`): IANA zone the windows are read in.
+- `NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES` (default `60`): a failure streak made only of the source's anti-bot challenge (`UpstreamChallenged`, steam and rockstar) is announced only once it lasts this long; a shorter one only logs `monitor_challenge_absorbed`. Any other error in the streak pages at the plain threshold, and a failure already announced keeps repeating. `0` pages a challenge at the threshold. Negative or not a whole number warns and uses the default.
 
 ## 🔧 Module configuration
 Each module supports the same environment shape:

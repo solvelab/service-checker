@@ -314,6 +314,27 @@ def test_the_module_error_reason_names_the_challenge(monitor_cls, slug, url, ser
         )
     assert result.status == MonitorStatus.ERROR
     assert result.reason.startswith("UpstreamChallenged: upstream challenged the automated client")
+    # The flag the challenge tolerance reads (#112), set from the exception type.
+    assert result.challenged is True
+
+
+@pytest.mark.parametrize("monitor_cls, slug, url, service_filter", [
+    (SteamMonitor, "steam", "https://steamstat.us/", []),
+    (RockstarStatusMonitor, "rockstar", "https://support.rockstargames.com/servicestatus",
+     ["FiveM"]),
+])
+def test_a_plain_rejection_is_not_marked_as_a_challenge(monitor_cls, slug, url,
+                                                        service_filter):
+    monitor = monitor_cls()
+    monitor.configure(_module_config(slug, url, service_filter))
+    monitor._backoff = 0.0
+    plain = _challenge({"cf-mitigated": "block"})
+    with patch("curl_cffi.requests.get", _sequence(plain, plain, plain)):
+        result = asyncio.run(
+            monitor.check(http_client=None, logger=logging.getLogger("test"))
+        )
+    assert result.status == MonitorStatus.ERROR
+    assert result.challenged is False
 
 
 # ---------------------------------------------------------------------------
@@ -345,6 +366,9 @@ def test_the_monitoring_failure_notification_carries_the_challenge():
             webhook=WebhookConfig(False, None, None, "Authorization"),
             repeat_minutes=10,
             error_threshold=3,
+            # The reason is what is under test here, not the challenge tolerance (#112),
+            # which would otherwise hold this three-minute streak.
+            challenge_tolerance_minutes=0,
         )
     )
     spy = _Spy()

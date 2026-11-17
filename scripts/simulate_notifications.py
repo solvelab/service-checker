@@ -432,6 +432,76 @@ async def _connectivity_loss_report() -> list[str]:
     return failures
 
 
+async def _challenge_tolerance_report() -> list[str]:
+    """Drive a steam challenge streak through the manager and the summary (#112).
+
+    The longest streak of 2026-11-17 started at 08:41:46Z and lasted 45 minutes. Under
+    the default tolerance (60 min) it must reach no channel; with tolerance 0 it rings
+    as before. A 70-minute streak must ring once, dated at its real start.
+    """
+    start = datetime(2026, 11, 17, 8, 41, 46, tzinfo=timezone.utc)
+    challenged = MonitorResult(
+        status=MonitorStatus.ERROR,
+        message="steam request failed",
+        reason=("UpstreamChallenged: upstream challenged the automated client "
+                "(Cloudflare cf-mitigated: challenge, HTTP 403)"),
+        duration_ms=10.0,
+        challenged=True,
+    )
+
+    failures = []
+    print("\nchallenge tolerance (steam, streak from 2026-11-17 08:41:46Z)")
+    for minutes, tolerance, expected_rings in ((45, 60, 0), (45, 0, 1), (70, 60, 1)):
+        config = _notification_config()
+        config.telegram.mode = "daily_summary"
+        config.telegram.summary_timezone = "America/Sao_Paulo"
+        config.webhook.enabled = False
+        config.google_chat.enabled = False
+        config.alertmanager.enabled = False
+        config.challenge_tolerance_minutes = tolerance
+        manager = NotificationManager(config)
+        client = BotApiClient()
+        logger = logging.getLogger("simulate")
+        module_config = _module_config()
+        module_config.slug = "steam"
+        timeline = [(start + timedelta(minutes=i), challenged) for i in range(minutes)]
+        timeline += [(start + timedelta(minutes=minutes + i), _ok()) for i in range(3)]
+        for when, result in timeline:
+            await manager.handle_result(
+                module_id="steam",
+                result=result,
+                module_config=module_config,
+                level_name="INFO",
+                event_name="monitor_check",
+                event_time=when,
+                http_client=client,
+                logger=logger,
+            )
+        rings = [b for m, b in client.calls
+                 if m == "sendMessage" and not b["disable_notification"]]
+        print(f"  {minutes} min streak, tolerance {tolerance} min: "
+              f"{len(client.calls)} bot api call(s), {len(rings)} ring(s)")
+        if len(rings) != expected_rings:
+            failures.append(f"a {minutes}-minute challenge streak under a {tolerance}-minute "
+                            f"tolerance rang {len(rings)} times, expected {expected_rings}")
+        if not expected_rings:
+            if client.calls:
+                failures.append(f"a {minutes}-minute challenge streak under a "
+                                f"{tolerance}-minute tolerance reached Telegram")
+            continue
+        final = [b for m, b in client.calls if m in ("sendMessage", "editMessageText")][-1]
+        lines = [line for line in final["text"].splitlines() if line.startswith(("✅", "🔴"))]
+        for line in lines:
+            print(f"    | {line}")
+        # Announced at the threshold the line starts then (05:43 local), as before #112;
+        # announced late it keeps the streak's real start, 08:41Z = 05:41 local.
+        expected_start = "05:43" if tolerance == 0 else "05:41"
+        if len(lines) != 1 or f"steam · {expected_start}" not in lines[0]:
+            failures.append(f"the summary shows {lines!r}, expected one steam line from "
+                            f"{expected_start}")
+    return failures
+
+
 async def main() -> int:
     logging.disable(logging.CRITICAL)
 
@@ -536,6 +606,7 @@ async def main() -> int:
 
     failures.extend(await _daily_summary_report(timeline))
     failures.extend(await _connectivity_loss_report())
+    failures.extend(await _challenge_tolerance_report())
 
     if failures:
         print(f"\n{len(failures)} FAILURE(S):")

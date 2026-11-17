@@ -28,6 +28,10 @@ class MonitorResult:
     # joined string back apart cannot work: every separator collides with content
     # from some provider (OCI titles contain "|", GitHub incident titles contain ",").
     reason_items: Optional[List[str]] = None
+    # The ERROR is the edge's anti-bot challenge (`UpstreamChallenged`), the source
+    # operator's policy rather than a fault of the provider; the manager tolerates a
+    # streak made only of these for longer (#112).
+    challenged: bool = False
 
 
 

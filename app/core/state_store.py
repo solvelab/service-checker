@@ -196,6 +196,9 @@ class StateStore:
                 # Absent in files written before the connectivity loss detection (#106).
                 first_error_at=_parse_dt(raw.get("first_error_at")),
                 connectivity_loss=raw.get("connectivity_loss") is True,
+                # Absent in files written before the challenge tolerance (#112).
+                challenge_only=raw.get("challenge_only") is True,
+                challenge_absorbed=raw.get("challenge_absorbed") is True,
             )
 
         self._logger.info(
@@ -245,6 +248,8 @@ class StateStore:
                         state.first_error_at.isoformat() if state.first_error_at else None
                     ),
                     "connectivity_loss": state.connectivity_loss,
+                    "challenge_only": state.challenge_only,
+                    "challenge_absorbed": state.challenge_absorbed,
                 }
                 for key, state in error_state.items()
             },

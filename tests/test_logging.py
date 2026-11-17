@@ -274,3 +274,17 @@ def test_the_startup_log_keeps_the_connectivity_settings():
                            "windows": ["04:00-04:15"], "timezone": "America/Sao_Paulo"}
     line = json.loads(JsonFormatter().format(record))
     assert line["connectivity"]["windows"] == ["04:00-04:15"]
+
+
+def test_the_startup_log_keeps_the_challenge_tolerance():
+    # #112: same formatter allowlist as the connectivity block (#108).
+    import logging as std_logging
+
+    from app.core.logging import JsonFormatter
+
+    record = std_logging.LogRecord("t", std_logging.INFO, __file__, 1, "service monitor starting",
+                                   None, None)
+    record.event = "startup"
+    record.challenge = {"tolerance_minutes": 60}
+    line = json.loads(JsonFormatter().format(record))
+    assert line["challenge"] == {"tolerance_minutes": 60}
