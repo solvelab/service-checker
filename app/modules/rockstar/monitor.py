@@ -13,6 +13,7 @@ from ...core.config import ModuleConfig
 from ...core.impersonated_fetch import (
     DEFAULT_ATTEMPTS,
     DEFAULT_BACKOFF_SECONDS,
+    UpstreamChallenged,
     fetch_html,
 )
 from ...core.types import MonitorResult, MonitorStatus
@@ -67,6 +68,7 @@ class RockstarStatusMonitor:
                 message="rockstar status request failed",
                 reason=f"{type(exc).__name__}: {exc}",
                 duration_ms=round(duration_ms, 2),
+                challenged=isinstance(exc, UpstreamChallenged),
             )
 
         duration_ms = (time.perf_counter() - start) * 1000

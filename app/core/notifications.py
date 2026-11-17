@@ -45,6 +45,10 @@ class NotificationManager:
             getattr(config, "connectivity_timezone", "America/Sao_Paulo")
         )
         self._connectivity: Optional[ConnectivityLoss] = None
+        # A streak made only of anti-bot challenges waits this long before paging (#112).
+        self._challenge_tolerance = timedelta(
+            minutes=max(getattr(config, "challenge_tolerance_minutes", 60), 0)
+        )
         # Modules finish their cycles concurrently; without this, every result that
         # arrives while an announcement is in flight announces it again (bug-hunter).
         self._connectivity_lock = asyncio.Lock()
@@ -386,6 +390,11 @@ class NotificationManager:
         state.last_reason = result.reason or result.message
         if state.consecutive_errors == 1 or state.first_error_at is None:
             state.first_error_at = event_time
+            state.challenge_only = result.challenged
+        elif not result.challenged:
+            # One error that is not the edge's challenge makes the streak an ordinary
+            # failure again, paged at the plain threshold (#112).
+            state.challenge_only = False
 
         if state.consecutive_errors < self._error_threshold:
             return
@@ -403,6 +412,12 @@ class NotificationManager:
                 # it. A module that crossed it earlier had its send attempted (and maybe
                 # refused), so it keeps its blind-window log.
                 state.connectivity_loss = True
+            return
+
+        if self._challenge_tolerated(state, event_time):
+            # The source refused the robot, which says nothing about the provider: hold
+            # the page until the challenge outlasts the tolerance (#112).
+            state.challenge_absorbed = True
             return
 
         if state.last_notified_at is not None:
@@ -428,7 +443,16 @@ class NotificationManager:
                 f"last error: {state.last_reason or 'unknown'}"
             ),
             duration_ms=result.duration_ms,
+            # A held challenge streak is announced late, so it carries its real start
+            # for a channel that dates the problem itself (the Telegram summary).
+            payload=(
+                [{"started_at": state.first_error_at.isoformat()}]
+                if state.challenge_absorbed or self._challenge_announced_late(state, event_time)
+                else None
+            ),
         )
+        # From here a send was attempted: a refusal is a blind window again.
+        state.challenge_absorbed = False
         delivered = await self._dispatch(
             "send_monitor_error",
             module_id=module_id,
@@ -482,6 +506,8 @@ class NotificationManager:
             # Absorbed by a connectivity loss: nothing was attempted for this module,
             # the loss itself is what gets announced (#106).
             and not state.connectivity_loss
+            # Held by the challenge tolerance: nothing was attempted either (#112).
+            and not state.challenge_absorbed
         ):
             # Houve uma sequencia de falhas que nunca conseguiu ser anunciada — tipico
             # de perda de conectividade, em que o monitor e o canal caem juntos. Nao ha
@@ -502,6 +528,46 @@ class NotificationManager:
                 },
             )
 
+        # A held streak that turned into another error inside a connectivity loss was
+        # never attempted either, but it is no longer a challenge streak (bug-hunter).
+        if state is not None and state.challenge_absorbed and state.challenge_only:
+            logger.info(
+                "challenge streak ended below the tolerance",
+                extra={
+                    "event": "monitor_challenge_absorbed",
+                    "module_id": module_id,
+                    "reason": (
+                        f"{state.consecutive_errors} consecutive challenged check(s) from "
+                        f"{state.first_error_at.isoformat() if state.first_error_at else 'unknown'} "
+                        f"to {event_time.isoformat()}; last error: "
+                        f"{state.last_reason or 'unknown'}"
+                    ),
+                },
+            )
+
+    def _challenge_tolerated(self, state: "MonitorErrorState", event_time: datetime) -> bool:
+        """A not-yet-announced streak of challenges only, still inside the tolerance."""
+        if (
+            state.last_notified_at is not None
+            or not state.challenge_only
+            or state.first_error_at is None
+        ):
+            return False
+        held = event_time - state.first_error_at
+        # A start in the future (restored file, clock stepped back) would hold the page
+        # forever, even with the tolerance off: it pages instead (bug-hunter).
+        return timedelta(0) <= held < self._challenge_tolerance
+
+    def _challenge_announced_late(self, state: "MonitorErrorState", event_time: datetime) -> bool:
+        """A first announcement of a challenge streak the tolerance held, retries included."""
+        return (
+            self._challenge_tolerance > timedelta(0)
+            and state.last_notified_at is None
+            and state.challenge_only
+            and state.first_error_at is not None
+            and event_time - state.first_error_at >= self._challenge_tolerance
+        )
+
     # -- connectivity loss of the checker (#106) -------------------------------
 
     def _connectivity_enabled(self) -> bool:
@@ -518,6 +584,9 @@ class NotificationManager:
             if module_id in self._module_ids
             and state.consecutive_errors >= 1
             and state.consecutive_successes == 0
+            # A challenge means the edge answered: it is no evidence that the checker's
+            # network is down (#112, bug-hunter).
+            and not state.challenge_only
         ]
 
     def _connectivity_quorum_reached(self) -> bool:
@@ -594,6 +663,8 @@ class NotificationManager:
         # Whoever is still failing goes back to the per-module flow and must reach the
         # threshold again from here: a provider that really went down together with
         # the network is still caught, without inheriting the outage's count.
+        # A challenge-only streak is not among them (it never counted toward the loss),
+        # so its tolerance clock keeps the real start (#112, bug-hunter).
         for module_id in self._failing_modules():
             state = self._error_state[module_id]
             state.consecutive_errors = 0
@@ -1041,6 +1112,10 @@ class MonitorErrorState:
     # The streak reached the threshold during a connectivity loss of the checker, so
     # the loss stood in for this module's own failure notification.
     connectivity_loss: bool = False
+    # Every error of the current streak was the edge's anti-bot challenge (#112).
+    challenge_only: bool = False
+    # The challenge tolerance held this streak's announcement: nothing was attempted.
+    challenge_absorbed: bool = False
 
 
 @dataclass

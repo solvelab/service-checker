@@ -53,6 +53,12 @@ Details of the lifecycle:
   2026-11-16 (10 modules, 6 minutes): 20 cards before, none with the default tolerance. A module
   absorbed by the loss logs no `monitor_blind_window`; one still failing after it counts its
   threshold from the end of the loss.
+- An **anti-bot challenge of the source** (#112) — a streak made only of `UpstreamChallenged`
+  results (steam, rockstar) — is held until it lasts `NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES`
+  (default `60`), then announced with its real start; a shorter one logs only
+  `monitor_challenge_absorbed`, never `monitor_blind_window`. Any other error in the streak pages at
+  the plain threshold. Replayed on the steam checks of 2026-11-17 05:53Z-11:53Z (63% challenged,
+  streaks up to 45 minutes): 20 failure cards before, none with the default tolerance.
 - Sustained failures respect `NOTIFICATION_REPEAT_MINUTES`, so a day-long outage does not
   produce one card per cycle.
 - A pending service alert survives a monitoring outage: `ALERT` → long failure → `OK` emits

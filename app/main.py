@@ -40,6 +40,9 @@ async def run_monitor_service() -> None:
                 ],
                 "timezone": config.notifications.connectivity_timezone,
             },
+            "challenge": {
+                "tolerance_minutes": config.notifications.challenge_tolerance_minutes,
+            },
         },
     )
 

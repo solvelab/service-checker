@@ -136,6 +136,9 @@ class NotificationConfig:
     # A loss that starts inside one and ends before its end never notifies.
     connectivity_windows: Tuple[Tuple[int, int], ...] = ()
     connectivity_timezone: str = "America/Sao_Paulo"
+    # A streak made only of anti-bot challenges is announced only once it lasts this
+    # long (#112); 0 announces it at the threshold like any other failure.
+    challenge_tolerance_minutes: int = 60
 
 
 def load_app_config() -> AppConfig:
@@ -352,6 +355,13 @@ def _load_notification_config() -> NotificationConfig:
             f"{connectivity_tolerance_minutes!r} is negative; using the default 10"
         )
         connectivity_tolerance_minutes = 10
+    challenge_tolerance_minutes = _get_int("NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES", 60)
+    if challenge_tolerance_minutes < 0:
+        _warn_config(
+            "NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES="
+            f"{challenge_tolerance_minutes!r} is negative; using the default 60"
+        )
+        challenge_tolerance_minutes = 60
     return NotificationConfig(
         telegram=telegram,
         webhook=webhook,
@@ -364,6 +374,7 @@ def _load_notification_config() -> NotificationConfig:
         connectivity_tolerance_minutes=connectivity_tolerance_minutes,
         connectivity_windows=_get_time_windows("NOTIFICATION_CONNECTIVITY_WINDOWS"),
         connectivity_timezone=_get_timezone("NOTIFICATION_CONNECTIVITY_TIMEZONE"),
+        challenge_tolerance_minutes=challenge_tolerance_minutes,
         google_chat=google_chat,
         alertmanager=alertmanager,
     )
