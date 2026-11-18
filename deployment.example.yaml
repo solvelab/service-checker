@@ -35,7 +35,7 @@ spec:
           command: ["python", "-m", "app"]
           env:
             - name: SERVICE_MONITOR_MODULES
-              value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell"
+              value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell,elevenlabs"
             - name: SERVICE_MONITOR_LOG_LEVEL
               value: "INFO"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
@@ -225,6 +225,22 @@ spec:
             - name: RETELL_SERVICE_FILTER
               value: ""
             - name: RETELL_ENABLED
+              value: "true"
+            - name: ELEVENLABS_URL
+              value: "https://status.elevenlabs.io/api/v2/summary.json"
+            - name: ELEVENLABS_INTERVAL_SECONDS
+              value: "60"
+            - name: ELEVENLABS_TIMEOUT_SECONDS
+              value: "10"
+            - name: ELEVENLABS_USER_AGENT
+              value: "service-checker/elevenlabs"
+            - name: ELEVENLABS_RULE_KIND
+              value: "status"
+            - name: ELEVENLABS_RULE_VALUE
+              value: "minor"
+            - name: ELEVENLABS_SERVICE_FILTER
+              value: ""
+            - name: ELEVENLABS_ENABLED
               value: "true"
             - name: TELEGRAM_ENABLED
               value: "false"
