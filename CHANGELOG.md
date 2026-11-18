@@ -1,3 +1,10 @@
+# [2.12.0](https://github.com/solvelab/service-checker/compare/v2.11.1...v2.12.0) (2026-11-18)
+
+
+### Features
+
+* **modules:** monitorar a Retell AI pela Statuspage ([#118](https://github.com/solvelab/service-checker/issues/118)) ([ebf9ce4](https://github.com/solvelab/service-checker/commit/ebf9ce4b1093d33c4a5fd9ce7600191810983991)), closes [#116](https://github.com/solvelab/service-checker/issues/116)
+
 ## [2.11.1](https://github.com/solvelab/service-checker/compare/v2.11.0...v2.11.1) (2026-11-18)
 
 
