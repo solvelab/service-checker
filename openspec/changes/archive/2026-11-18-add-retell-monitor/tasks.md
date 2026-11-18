@@ -17,4 +17,4 @@
 ## 4. Validação
 - [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 4.2 `openspec validate add-retell-monitor --strict`.
-- [ ] 4.3 Em produção, o startup lista `retell` e a checagem dá `OK` ou `ALERT`.
+- [x] 4.3 Em produção, o startup lista `retell` e a checagem dá `OK` ou `ALERT`. O pod da `v2.12.0` iniciou às 2026-11-18T18:45:41Z com 11 módulos e `module_load` do `retell`, e a primeira checagem deu `OK` em 405 ms (didevlab/housek8s#518).
