@@ -183,6 +183,8 @@ PROVIDERS = [
              "degraded_performance,partial_outage,major_outage"),
     Provider("cloudflare", "cloudflare/summary.json", "json", _cloudflare_degrade,
              "degraded_performance,partial_outage,major_outage"),
+    Provider("retell", "retell/summary.json", "json", _statuspage_degrade,
+             "degraded_performance,partial_outage,major_outage"),
     Provider("rockstar", "rockstar/all_operational.html", "text", _rockstar_degrade, "*"),
     Provider("oci", "oci/incident_summary.rss", "text", _oci_degrade,
              "investigating,identified,monitoring"),

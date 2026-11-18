@@ -6,8 +6,8 @@ e quando volta. Existe para trocar a checagem manual de dez páginas por um úni
 com filtro por serviço e por região, para que a equipe descubra um incidente upstream antes que o
 usuário reclame.
 
-Dez provedores hoje: Steam, OpenAI, Claude, Rockstar (que absorveu Cfx.re / FiveM / RedM), OCI,
-GCP, AWS, GitHub, Bitbucket e Cloudflare.
+Onze provedores hoje: Steam, OpenAI, Claude, Rockstar (que absorveu Cfx.re / FiveM / RedM), OCI,
+GCP, AWS, GitHub, Bitbucket, Cloudflare e Retell AI.
 
 Quatro canais de saída: Telegram, webhook genérico, Google Chat e Alertmanager. Cada um é isolado —
 um canal que levanta não impede os outros de receberem o mesmo evento —, e o estado de notificação
@@ -150,7 +150,7 @@ dentro do conteúdo de algum provedor.
 - **Sem servidor HTTP.** Não há endpoint de health nem `/metrics`. A observabilidade é o stdout em
   JSON, e é por isso que falha de monitoramento precisa virar notificação.
 - **Três dependências de runtime.** Adicionar uma quarta é decisão consciente, não conveniência.
-- **Endpoints públicos, sem contrato.** Nenhum dos dez provedores garante o formato que
+- **Endpoints públicos, sem contrato.** Nenhum dos onze provedores garante o formato que
   publicamos consumir; alguns nem documentam a semântica dos campos. Quando a semântica não é
   documentada, o campo entra no payload como metadado e **não** decide alerta.
 - **Cloudflare bloqueia por TLS fingerprint** em `steamstat.us` e na Rockstar. Trocar `User-Agent`
