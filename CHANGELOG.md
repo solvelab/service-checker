@@ -1,3 +1,10 @@
+## [2.11.1](https://github.com/solvelab/service-checker/compare/v2.11.0...v2.11.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **notifications:** reiniciar a sequência de desafio no primeiro erro que não é desafio ([#115](https://github.com/solvelab/service-checker/issues/115)) ([fe4a7ae](https://github.com/solvelab/service-checker/commit/fe4a7ae22089bd4cee4efac93a9105c47fd4b0f1)), closes [#114](https://github.com/solvelab/service-checker/issues/114)
+
 # [2.11.0](https://github.com/solvelab/service-checker/compare/v2.10.1...v2.11.0) (2026-11-17)
 
 
