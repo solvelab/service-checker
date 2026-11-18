@@ -12,7 +12,7 @@ O aviso diz que a fonte recusou o robô, não que a Steam caiu.
 ## What Changes
 - Os módulos `steam` e `rockstar` marcam o resultado `ERROR` cuja causa é `UpstreamChallenged` (`MonitorResult.challenged`).
 - Uma sequência de erros formada só por resultados marcados não anuncia a falha de monitoramento enquanto a duração, contada desde o primeiro erro da sequência, for menor que `NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES`. O default é `60`, e `0` desliga a tolerância.
-- Um erro não marcado na sequência a devolve ao limiar normal.
+- Um erro não marcado que chega a uma sequência só de desafio ainda não anunciada encerra a parte de desafio e começa uma sequência nova, contada a partir dele, no limiar normal. Antes da #114 a contagem dos desafios era herdada: em 2026-11-18 às 11:43:20Z, o primeiro `DNSError` de uma queda do roteador chegou ao `steam` com contagem 5 e anunciou a falha 1min35s antes de a queda de conectividade abrir.
 - Uma sequência absorvida que termina fica só no log (`monitor_challenge_absorbed`), sem `monitor_blind_window`.
 - A tolerância vale só para uma falha ainda não anunciada. A repetição de uma falha já anunciada segue como hoje.
 - O estado da sequência sobrevive a restart, nos campos novos de `MonitorErrorState` no `state.json`, sem subir `SCHEMA_VERSION`.

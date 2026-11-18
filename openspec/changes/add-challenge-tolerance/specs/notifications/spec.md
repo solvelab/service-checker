@@ -5,8 +5,10 @@ Um resultado `ERROR` cuja causa é o desafio anti-bot da borda (`UpstreamChallen
 marcado pelo módulo como desafio. Uma sequência de erros de um módulo formada somente por resultados
 marcados SHALL NOT anunciar a falha de monitoramento enquanto a duração, contada desde o primeiro erro
 da sequência, for menor que `NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES` (default `60`; `0` desliga a
-tolerância). Um erro não marcado na sequência SHALL devolvê-la ao limiar normal. A tolerância SHALL
-valer somente para uma falha ainda não anunciada.
+tolerância). Com a tolerância ligada, um erro não marcado que chega a uma sequência só de desafio
+ainda retida pela tolerância SHALL encerrar a parte de desafio e começar uma sequência nova nesse erro, com
+contagem `1`, anunciada no limiar normal; a contagem dos desafios SHALL NOT ser herdada. A tolerância
+SHALL valer somente para uma falha ainda não anunciada.
 
 #### Scenario: Desafio intermitente abaixo da tolerância
 - **WHEN** a tolerância é 60 minutos e o `steam` produz uma sequência de 45 minutos só de desafio,
@@ -19,12 +21,27 @@ valer somente para uma falha ainda não anunciada.
 - **THEN** a falha de monitoramento é emitida, com o motivo do desafio e o início real da sequência
 
 #### Scenario: Sequência mista
-- **WHEN** a sequência tem um erro que não é desafio
-- **THEN** a falha é anunciada ao atingir `NOTIFICATION_ERROR_THRESHOLD`, como antes desta mudança
+- **WHEN** com limiar 3, uma sequência só de desafio ainda não anunciada recebe um erro que não é
+  desafio
+- **THEN** começa uma sequência nova nesse erro, a falha é anunciada no terceiro erro dela e não
+  antes, e uma parte de desafio retida pela tolerância é registrada como `monitor_challenge_absorbed`
+
+#### Scenario: Queda de conectividade no meio de um desafio
+- **WHEN** o `steam` está numa sequência só de desafio retida e a queda do roteador começa, com o
+  primeiro erro de rede do `steam` chegando antes de a queda de conectividade abrir
+- **THEN** a falha do `steam` não é anunciada, e a queda de conectividade a absorve como a de qualquer
+  outro módulo
+
+#### Scenario: Falha já anunciada
+- **WHEN** uma sequência só de desafio já anunciada, ou que já passou da tolerância com o envio
+  recusado, recebe um erro que não é desafio
+- **THEN** a sequência continua, sem reiniciar a contagem nem o início, e uma recuperação depois de
+  um envio recusado registra `monitor_blind_window`
 
 #### Scenario: Tolerância desligada
 - **WHEN** a tolerância é `0`
-- **THEN** a sequência só de desafio é anunciada ao atingir o limiar, como antes desta mudança
+- **THEN** a sequência só de desafio é anunciada ao atingir o limiar, como antes desta mudança, e um erro que não é
+  desafio não reinicia a sequência
 
 #### Scenario: Valor inválido
 - **WHEN** a variável não é um inteiro maior ou igual a zero

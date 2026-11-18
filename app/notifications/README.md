@@ -56,8 +56,10 @@ Details of the lifecycle:
 - An **anti-bot challenge of the source** (#112) — a streak made only of `UpstreamChallenged`
   results (steam, rockstar) — is held until it lasts `NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES`
   (default `60`), then announced with its real start; a shorter one logs only
-  `monitor_challenge_absorbed`, never `monitor_blind_window`. Any other error in the streak pages at
-  the plain threshold. Replayed on the steam checks of 2026-11-17 05:53Z-11:53Z (63% challenged,
+  `monitor_challenge_absorbed`, never `monitor_blind_window`. Any other error ends a held streak
+  (logged as absorbed) and starts a new one that pages at the plain threshold, counted from that
+  error: the challenges are not inherited, so a router outage that begins mid-challenge is still
+  absorbed by the connectivity loss (#114). An already announced streak just goes on. Replayed on the steam checks of 2026-11-17 05:53Z-11:53Z (63% challenged,
   streaks up to 45 minutes): 20 failure cards before, none with the default tolerance.
 - Sustained failures respect `NOTIFICATION_REPEAT_MINUTES`, so a day-long outage does not
   produce one card per cycle.

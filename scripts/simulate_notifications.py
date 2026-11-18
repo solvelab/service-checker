@@ -499,6 +499,51 @@ async def _challenge_tolerance_report() -> list[str]:
         if len(lines) != 1 or f"steam · {expected_start}" not in lines[0]:
             failures.append(f"the summary shows {lines!r}, expected one steam line from "
                             f"{expected_start}")
+
+    # A router outage that starts inside a held streak (#114): the 2026-11-16 reboot with
+    # steam failing first, as on 2026-11-18, right after four challenges. Inheriting them,
+    # its first DNS error paged at once, before the connectivity loss could open.
+    day = datetime(2026, 11, 16, tzinfo=timezone.utc)
+    first_dns = day + timedelta(hours=7, minutes=0, seconds=10)
+    events = [(first_dns - timedelta(minutes=4 - i), "steam", challenged) for i in range(4)]
+    outage = [("steam", "07:00:10", 6, "07:06:36") if row[0] == "steam" else row
+              for row in _OUTAGE_2026_11_16]
+    for module_id, first, errors, recovered in outage:
+        h, m, s = (int(x) for x in first.split(":"))
+        start = day + timedelta(hours=h, minutes=m, seconds=s)
+        events += [(start + timedelta(minutes=i), module_id, _error()) for i in range(errors)]
+        h, m, s = (int(x) for x in recovered.split(":"))
+        ok = day + timedelta(hours=h, minutes=m, seconds=s)
+        events += [(ok + timedelta(minutes=i), module_id, _ok()) for i in range(4)]
+    events.sort(key=lambda event: event[0])
+    config = _notification_config()
+    config.telegram.mode = "daily_summary"
+    config.telegram.summary_timezone = "America/Sao_Paulo"
+    config.webhook.enabled = False
+    config.google_chat.enabled = False
+    config.alertmanager.enabled = False
+    manager = NotificationManager(
+        config, module_ids=[module_id for module_id, *_ in _OUTAGE_2026_11_16])
+    client = BotApiClient()
+    logger = logging.getLogger("simulate")
+    for when, module_id, result in events:
+        module_config = _module_config()
+        module_config.slug = module_id
+        await manager.handle_result(
+            module_id=module_id,
+            result=result,
+            module_config=module_config,
+            level_name="INFO",
+            event_name="monitor_check",
+            event_time=when,
+            http_client=client,
+            logger=logger,
+        )
+    print(f"  router outage after 4 held challenges on steam: "
+          f"{len(client.calls)} bot api call(s)")
+    if client.calls:
+        failures.append(f"a router outage inside a held challenge streak reached Telegram "
+                        f"({len(client.calls)} calls)")
     return failures
 
 
