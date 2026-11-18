@@ -1,3 +1,10 @@
+# [2.13.0](https://github.com/solvelab/service-checker/compare/v2.12.0...v2.13.0) (2026-11-18)
+
+
+### Features
+
+* **modules:** monitorar a ElevenLabs pelo indicador da página e pelos incidentes ([#121](https://github.com/solvelab/service-checker/issues/121)) ([776c70d](https://github.com/solvelab/service-checker/commit/776c70de8e917bfa792a73831665d7837df7cf22)), closes [#117](https://github.com/solvelab/service-checker/issues/117)
+
 # [2.12.0](https://github.com/solvelab/service-checker/compare/v2.11.1...v2.12.0) (2026-11-18)
 
 
