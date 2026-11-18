@@ -261,26 +261,111 @@ async def test_a_challenge_streak_that_reaches_the_tolerance_pages_with_its_real
 
 
 async def test_an_error_that_is_not_a_challenge_pages_at_the_plain_threshold():
+    # The challenges before it are not inherited: the threshold counts from the first
+    # error that is not one (#114).
     manager, spy = _manager()
-    logger, _ = _logger()
-    await _run(manager, "CCE", logger)
+    logger, events = _logger()
+    await _run(manager, "CCEE", logger)
+    assert spy.errors == []
 
+    await _run(manager, "E", logger, start=_T0 + timedelta(minutes=4))
     [error] = spy.errors
-    assert "DNSError" in error.reason
+    assert "3 consecutive failed checks; last error: DNSError" in error.reason
     assert error.payload is None
+    # Two challenges never reached the threshold, so nothing was held.
+    assert events.of("monitor_challenge_absorbed") == []
 
 
-async def test_a_held_streak_that_turns_into_another_error_pages_on_that_error():
+async def test_a_held_streak_that_turns_into_another_error_starts_a_new_streak():
     manager, spy = _manager()
     logger, events = _logger()
     await _run(manager, "CCCCC", logger)
+    await _run(manager, "EE", logger, start=_T0 + timedelta(minutes=5))
     assert spy.errors == []
+    [absorbed] = events.of("monitor_challenge_absorbed")
+    assert absorbed.reason.startswith(
+        f"5 consecutive challenged check(s) from {_T0.isoformat()} "
+        f"to {(_T0 + timedelta(minutes=5)).isoformat()}")
 
-    await _run(manager, "E", logger, start=_T0 + timedelta(minutes=5))
+    await _run(manager, "E", logger, start=_T0 + timedelta(minutes=7))
     [error] = spy.errors
-    assert "6 consecutive failed checks" in error.reason
-    # Announced late: the real start goes with it.
-    assert error.payload == [{"started_at": _T0.isoformat()}]
+    assert "3 consecutive failed checks" in error.reason
+    # Not a late challenge page: the failure is the new streak, dated by the channel.
+    assert error.payload is None
+
+    await _run(manager, "OOO", logger, start=_T0 + timedelta(minutes=8))
+    assert [kind for kind, _ in spy.calls] == ["monitor_error", "monitor_recovered"]
+    assert events.of("monitor_blind_window") == []
+    assert len(events.of("monitor_challenge_absorbed")) == 1
+
+
+async def test_with_the_tolerance_off_another_error_does_not_restart_the_streak():
+    manager, spy = _manager(tolerance=0)
+    logger, events = _logger()
+    await _run(manager, "CCE", logger)
+
+    [error] = spy.errors
+    assert "3 consecutive failed checks; last error: DNSError" in error.reason
+    assert events.of("monitor_challenge_absorbed") == []
+
+
+async def test_an_announced_challenge_failure_does_not_restart_on_another_error():
+    manager, spy = _manager()
+    logger, _ = _logger()
+    await _run(manager, "C" * 61, logger)
+    assert len(spy.errors) == 1
+
+    await _run(manager, "E" * 10, logger, start=_T0 + timedelta(minutes=61))
+    # Still the same failure: one repeat at the 10-minute window, the count goes on.
+    assert len(spy.errors) == 2
+    assert spy.errors[1].reason.startswith("71 consecutive failed checks")
+    assert spy.errors[1].payload is None
+
+
+async def test_a_refused_late_page_that_turns_into_another_error_is_still_a_blind_window():
+    # Past the tolerance the send was attempted: the error must not wipe it (bug-hunter).
+    manager, spy = _manager(spy=Spy(up=False))
+    logger, events = _logger()
+    await _run(manager, "C" * 61 + "EO", logger)
+
+    [blind] = events.of("monitor_blind_window")
+    assert blind.reason.startswith("62 consecutive failed check(s)")
+    assert events.of("monitor_challenge_absorbed") == []
+
+
+async def test_a_refused_late_page_is_retried_on_the_next_error_without_restarting():
+    manager, spy = _manager(spy=Spy(up=False))
+    logger, _ = _logger()
+    await _run(manager, "C" * 61, logger)
+    spy.up = True
+
+    await _run(manager, "E", logger, start=_T0 + timedelta(minutes=61))
+    assert len(spy.errors) == 2
+    assert spy.errors[1].reason.startswith("62 consecutive failed checks")
+
+
+async def test_a_stray_error_between_held_streaks_pages_nothing():
+    # A choice, not an accident: like `EEO`, a lone error under the threshold is
+    # transient, and each held part is logged (#114).
+    manager, spy = _manager()
+    logger, events = _logger()
+    await _run(manager, ("C" * 59 + "EO") * 3, logger)
+
+    assert spy.calls == []
+    assert len(events.of("monitor_challenge_absorbed")) == 3
+
+
+async def test_a_restart_keeps_the_new_streak_start(tmp_path):
+    path = str(tmp_path / "state.json")
+    manager, _ = _manager(state_path=path)
+    logger, _ = _logger()
+    await _run(manager, "CCCCEE", logger)
+
+    manager, spy = _manager(state_path=path)
+    logger, events = _logger()
+    await _run(manager, "E", logger, start=_T0 + timedelta(minutes=6))
+    [error] = spy.errors
+    assert "3 consecutive failed checks" in error.reason
 
 
 async def test_zero_turns_the_tolerance_off():
@@ -435,9 +520,11 @@ async def test_challenged_modules_do_not_count_toward_the_connectivity_quorum():
         "aws", "gcp", "github", "oci"}
 
 
-async def test_a_held_streak_that_meets_a_connectivity_loss_is_not_logged_as_absorbed():
+async def test_a_held_streak_that_meets_a_connectivity_loss_is_logged_once_as_absorbed():
+    # The challenge part ends at the first network error (#114); the loss then absorbs
+    # the new streak, and the recovery logs nothing more.
     modules = ("steam", "aws", "gcp", "github")
-    manager, _ = _manager(modules=modules)
+    manager, spy = _manager(modules=modules)
     logger, events = _logger()
     await _run(manager, "CCCC", logger)
     for minute in range(4, 7):
@@ -445,5 +532,69 @@ async def test_a_held_streak_that_meets_a_connectivity_loss_is_not_logged_as_abs
             await _feed(manager, "E", _T0 + timedelta(minutes=minute), logger, module_id)
     await _feed(manager, "O", _T0 + timedelta(minutes=7), logger)
 
-    assert events.of("monitor_challenge_absorbed") == []
+    assert spy.calls == []
+    [absorbed] = events.of("monitor_challenge_absorbed")
+    assert absorbed.reason.startswith("4 consecutive challenged check(s)")
     assert events.of("monitor_blind_window") == []
+
+
+# ---------------------------------------------------------------------------
+# The router outage of 2026-11-18 (#114)
+# ---------------------------------------------------------------------------
+
+_MODULES = ("steam", "aws", "bitbucket", "claude", "cloudflare",
+            "gcp", "github", "oci", "openai", "rockstar")
+
+#: Every check of every module, 2026-11-18 11:38:55Z-12:02:02Z, from the production log:
+#: "HH:MM:SS" UTC, then C/E/O as above, then the module's index in `_MODULES`. v2.11.0
+#: paged steam at 11:43:20Z: its first DNS error inherited four held challenges, and the
+#: connectivity loss opened only at 11:44:55Z.
+_OUTAGE_2026_11_18 = """
+    11:38:55C0 11:39:11O7 11:39:13O4 11:39:14O9 11:39:15O1 11:39:19O6 11:39:23O5 11:39:24O3
+    11:39:25O8 11:39:27O2 11:39:58C0 11:40:12O7 11:40:14O4 11:40:15O9 11:40:16O1 11:40:19O6
+    11:40:24O5 11:40:24O3 11:40:25O8 11:40:28O2 11:41:01C0 11:41:12O7 11:41:14O4 11:41:15O9
+    11:41:17O1 11:41:20O6 11:41:24O5 11:41:24O3 11:41:25O8 11:41:28O2 11:42:05C0 11:42:12O7
+    11:42:15O4 11:42:15O9 11:42:17O1 11:42:20O6 11:42:24O5 11:42:24O3 11:42:26O8 11:42:28O2
+    11:43:16E7 11:43:19E4 11:43:20E0 11:43:21E1 11:43:24E6 11:43:28E5 11:43:28E3 11:43:30E8
+    11:43:30E9 11:43:32E2 11:44:16E7 11:44:19E4 11:44:36E1 11:44:44E6 11:44:55E0 11:45:00E5
+    11:45:08E3 11:45:10E8 11:45:10E2 11:45:13E9 11:45:16E7 11:45:19E4 11:45:36E1 11:45:44E6
+    11:46:06E5 11:46:12E3 11:46:14E8 11:46:14E0 11:46:14E2 11:46:22E9 11:46:22E7 11:46:23E4
+    11:46:40E1 11:46:44E6 11:47:14O5 11:47:24O3 11:47:29O9 11:47:29O2 11:47:29O7 11:47:29O8
+    11:47:30O4 11:47:32C0 11:47:40O1 11:47:44O6 11:48:14O5 11:48:24O3 11:48:29O2 11:48:29O7
+    11:48:29O9 11:48:30O8 11:48:30O4 11:48:35C0 11:48:41O1 11:48:44O6 11:49:15O5 11:49:24O3
+    11:49:30O7 11:49:30O2 11:49:30O9 11:49:30O8 11:49:31O4 11:49:39C0 11:49:42O1 11:49:44O6
+    11:50:15O5 11:50:25O3 11:50:30O2 11:50:30O7 11:50:30O9 11:50:30O8 11:50:31O4 11:50:42C0
+    11:50:42O1 11:50:44O6 11:51:15O5 11:51:25O3 11:51:30O7 11:51:30O2 11:51:30O9 11:51:31O8
+    11:51:32O4 11:51:43O1 11:51:45O6 11:51:46C0 11:52:16O5 11:52:25O3 11:52:30O7 11:52:30O2
+    11:52:31O9 11:52:32O8 11:52:33O4 11:52:44O1 11:52:45O6 11:52:50C0 11:53:17O5 11:53:26O3
+    11:53:31O7 11:53:31O2 11:53:31O9 11:53:32O8 11:53:33O4 11:53:45O1 11:53:46O6 11:53:50O0
+    11:54:17O5 11:54:26O3 11:54:31O7 11:54:31O2 11:54:31O9 11:54:32O8 11:54:34O4 11:54:46O1
+    11:54:46O6 11:54:54C0 11:55:18O5 11:55:26O3 11:55:31O7 11:55:31O2 11:55:32O9 11:55:32O8
+    11:55:34O4 11:55:46O6 11:55:46O1 11:55:57C0 11:56:18O5 11:56:26O3 11:56:31O2 11:56:31O7
+    11:56:32O9 11:56:33O8 11:56:35O4 11:56:46O6 11:56:47O1 11:56:57O0 11:57:18O5 11:57:26O3
+    11:57:31O7 11:57:31O2 11:57:32O9 11:57:33O8 11:57:35O4 11:57:46O6 11:57:47O1 11:57:58O0
+    11:58:19O5 11:58:27O3 11:58:31O7 11:58:32O2 11:58:33O9 11:58:34O8 11:58:36O4 11:58:46O6
+    11:58:48O1 11:59:01C0 11:59:19O5 11:59:27O3 11:59:32O7 11:59:32O2 11:59:33O9 11:59:34O8
+    11:59:36O4 11:59:46O6 11:59:49O1 12:00:01O0 12:00:21O5 12:00:27O3 12:00:32O7 12:00:32O2
+    12:00:33O9 12:00:34O8 12:00:37O4 12:00:47O6 12:00:49O1 12:01:01O0 12:01:21O5 12:01:27O3
+    12:01:32O7 12:01:32O2 12:01:34O9 12:01:34O8 12:01:37O4 12:01:47O6 12:01:50O1 12:02:02O0
+"""
+
+
+async def test_the_router_outage_inside_a_challenge_streak_pages_nothing():
+    manager, spy = _manager(modules=_MODULES)
+    logger, events = _logger()
+    day = datetime(2026, 11, 18, tzinfo=timezone.utc)
+    checks = _OUTAGE_2026_11_18.split()
+    assert len(checks) == 224
+    for token in checks:
+        hours, minutes, seconds = (int(part) for part in token[:8].split(":"))
+        when = day + timedelta(hours=hours, minutes=minutes, seconds=seconds)
+        await _feed(manager, token[8], when, logger, _MODULES[int(token[9])])
+
+    assert spy.calls == []
+    assert len(events.of("connectivity_lost")) == 1
+    assert len(events.of("connectivity_restored")) == 1
+    assert events.of("monitor_blind_window") == []
+    absorbed = [r.reason for r in events.of("monitor_challenge_absorbed")]
+    assert absorbed[0].startswith("4 consecutive challenged check(s) from 2026-11-18T11:38:55")

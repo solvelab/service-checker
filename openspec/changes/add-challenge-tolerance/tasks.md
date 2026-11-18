@@ -21,7 +21,13 @@
 - [x] 4.1 `.env.example`, `DOCKER.md`, `deployment.example.yaml`, `app/notifications/README.md`, READMEs do `steam` e do `rockstar`.
 - [x] 4.2 `scripts/simulate_notifications.py` com o replay passando pelo manager e pelo resumo do Telegram.
 
-## 5. Validação
-- [x] 5.1 `ruff check app tests scripts` e `pytest tests/` verdes.
-- [x] 5.2 `openspec validate add-challenge-tolerance --strict`.
-- [ ] 5.3 Em produção, um dia de desafio do `steam` não abre falha de monitoramento abaixo da tolerância.
+## 5. Virada para sequência mista (#114)
+- [x] 5.1 Na virada de só desafio para mista, ainda não anunciada e com tolerância ligada, a parte de desafio termina (com `monitor_challenge_absorbed` se foi retida) e uma sequência nova começa no erro.
+- [x] 5.2 Testes: replay de 2026-11-18 11:38Z–12:02Z com queda de conectividade; virada abaixo do limiar; virada já retida; falha já anunciada; tolerância `0`; restart na sequência nova.
+- [x] 5.3 `scripts/simulate_notifications.py` com o caso da virada; `app/notifications/README.md`.
+- [x] 5.4 bug-hunter no diff: 5 ataques. Corrigido com teste o reinício depois da tolerância vencida, que apagava um envio já recusado (sem `monitor_blind_window`) e a retentativa dele. Fixados como escolha: um erro solto entre sequências retidas não avisa (como `EEO`), e desafios depois de uma sequência reiniciada contam no limiar normal, como em qualquer sequência mista. Uma queda do roteador no meio de um desafio longo reinicia o relógio da tolerância depois da queda, como previsto.
+
+## 6. Validação
+- [x] 6.1 `ruff check app tests scripts` e `pytest tests/` verdes.
+- [x] 6.2 `openspec validate add-challenge-tolerance --strict`.
+- [ ] 6.3 Em produção, um dia de desafio do `steam` não abre falha de monitoramento abaixo da tolerância.

@@ -386,14 +386,26 @@ class NotificationManager:
             # `last_notified_at` is kept for that.
             state.consecutive_errors = 0
             state.consecutive_successes = 0
+        if (
+            state.consecutive_errors
+            and state.challenge_only
+            and not result.challenged
+            # Still held: past the tolerance the page is due (and maybe already
+            # refused), so the streak goes on and keeps its blind window (bug-hunter).
+            and self._challenge_tolerated(state, event_time)
+        ):
+            # The challenges said nothing about the provider, so they must not count
+            # toward this error's threshold: inherited, the first DNS error of a router
+            # outage paged at once, before the connectivity loss could open (#114).
+            self._end_challenge_streak(module_id, state, event_time, logger)
         state.consecutive_errors += 1
         state.last_reason = result.reason or result.message
         if state.consecutive_errors == 1 or state.first_error_at is None:
             state.first_error_at = event_time
             state.challenge_only = result.challenged
         elif not result.challenged:
-            # One error that is not the edge's challenge makes the streak an ordinary
-            # failure again, paged at the plain threshold (#112).
+            # One error that is not the edge's challenge makes an announced streak an
+            # ordinary failure again (#112); a held one was restarted above (#114).
             state.challenge_only = False
 
         if state.consecutive_errors < self._error_threshold:
@@ -528,22 +540,46 @@ class NotificationManager:
                 },
             )
 
-        # A held streak that turned into another error inside a connectivity loss was
-        # never attempted either, but it is no longer a challenge streak (bug-hunter).
+        # Only a streak that is still challenge-only was held as one (bug-hunter).
         if state is not None and state.challenge_absorbed and state.challenge_only:
-            logger.info(
-                "challenge streak ended below the tolerance",
-                extra={
-                    "event": "monitor_challenge_absorbed",
-                    "module_id": module_id,
-                    "reason": (
-                        f"{state.consecutive_errors} consecutive challenged check(s) from "
-                        f"{state.first_error_at.isoformat() if state.first_error_at else 'unknown'} "
-                        f"to {event_time.isoformat()}; last error: "
-                        f"{state.last_reason or 'unknown'}"
-                    ),
-                },
-            )
+            self._log_challenge_absorbed(module_id, state, event_time, logger)
+
+    def _end_challenge_streak(
+        self,
+        module_id: str,
+        state: "MonitorErrorState",
+        event_time: datetime,
+        logger: logging.Logger,
+    ) -> None:
+        """Close a not-yet-announced challenge streak so the next error starts its own."""
+        if state.challenge_absorbed:
+            self._log_challenge_absorbed(module_id, state, event_time, logger)
+        state.consecutive_errors = 0
+        state.first_error_at = None
+        state.challenge_only = False
+        state.challenge_absorbed = False
+        state.connectivity_loss = False
+
+    @staticmethod
+    def _log_challenge_absorbed(
+        module_id: str,
+        state: "MonitorErrorState",
+        event_time: datetime,
+        logger: logging.Logger,
+    ) -> None:
+        logger.info(
+            "challenge streak ended below the tolerance",
+            extra={
+                "event": "monitor_challenge_absorbed",
+                "module_id": module_id,
+                "reason": (
+                    f"{state.consecutive_errors} consecutive challenged check(s) from "
+                    f"{state.first_error_at.isoformat() if state.first_error_at else 'unknown'} "
+                    f"to {event_time.isoformat()}; last error: "
+                    f"{state.last_reason or 'unknown'}"
+                ),
+            },
+        )
 
     def _challenge_tolerated(self, state: "MonitorErrorState", event_time: datetime) -> bool:
         """A not-yet-announced streak of challenges only, still inside the tolerance."""
