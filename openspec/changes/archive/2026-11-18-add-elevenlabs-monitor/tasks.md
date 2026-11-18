@@ -17,4 +17,4 @@
 ## 4. Validação
 - [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 4.2 `openspec validate add-elevenlabs-monitor --strict`.
-- [ ] 4.3 Em produção, o startup lista `elevenlabs` e a checagem dá `OK` ou `ALERT`.
+- [x] 4.3 Em produção, o startup lista `elevenlabs` e a checagem dá `OK` ou `ALERT`. Evidência: pod de 2026-11-18T19:28:47Z (didevlab/housek8s#520), 12 módulos, `elevenlabs` em `ALERT` pelo incidente aberto.
