@@ -75,6 +75,15 @@ def _cloudflare_degrade(payload):
     return broken, "product 'Tunnel' -> major_outage"
 
 
+def _elevenlabs_degrade(payload):
+    """incident.io, no components: raise the page indicator and open one incident."""
+    broken = copy.deepcopy(payload)
+    broken["status"] = {"indicator": "major", "description": "Partial System Outage"}
+    broken["incidents"] = [{"id": "sim-incident", "name": "Simulated TTS outage",
+                            "status": "investigating", "impact": "major"}]
+    return broken, "indicator -> major, incident 'Simulated TTS outage' opened"
+
+
 def _steam_degrade(html):
     """steamstat.us: raise one service's severity class from good to major."""
     match = re.search(r'<span class="status good" id="(?!pageviews)([^"]+)">([^<]*)</span>', html)
@@ -185,6 +194,8 @@ PROVIDERS = [
              "degraded_performance,partial_outage,major_outage"),
     Provider("retell", "retell/summary.json", "json", _statuspage_degrade,
              "degraded_performance,partial_outage,major_outage"),
+    Provider("elevenlabs", "elevenlabs/summary_healthy.json", "json", _elevenlabs_degrade,
+             "minor"),
     Provider("rockstar", "rockstar/all_operational.html", "text", _rockstar_degrade, "*"),
     Provider("oci", "oci/incident_summary.rss", "text", _oci_degrade,
              "investigating,identified,monitoring"),

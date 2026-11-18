@@ -216,6 +216,8 @@ def _default_url(slug: str) -> str:
         return "https://www.cloudflarestatus.com/api/v2/summary.json"
     if slug.lower() == "retell":
         return "https://status.retellai.com/api/v2/summary.json"
+    if slug.lower() == "elevenlabs":
+        return "https://status.elevenlabs.io/api/v2/summary.json"
     return f"https://{slug}.example.com/"
 
 

@@ -1,0 +1,14 @@
+{
+ "page": {
+  "id": "01M52F9K83Y2RK5C9GK98EBYHB",
+  "name": "ElevenLabs",
+  "url": "https://status.elevenlabs.io/",
+  "updated_at": "2026-11-18T18:36:00Z"
+ },
+ "status": {
+  "description": "All Systems Operational",
+  "indicator": "none"
+ },
+ "components": [],
+ "incidents": []
+}

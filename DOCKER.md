@@ -49,7 +49,7 @@ docker compose -f docker-compose-dev.yml up --build
 
 ## 🧰 Global configuration
 These apply across modules:
-- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell`).
+- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell,elevenlabs`).
 - `SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS`: default polling interval in seconds.
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
@@ -153,6 +153,14 @@ Each module supports the same environment shape:
 - `RETELL_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`. A value naming no
   component status (the generic default `major,minor`) falls back to these three.
 - `RETELL_SERVICE_FILTER`: empty (all 15). Example: `api,phone-call,web-call`.
+
+**ElevenLabs (`ELEVENLABS_`)**
+- `ELEVENLABS_URL`: `https://status.elevenlabs.io/api/v2/summary.json` (incident.io, no components)
+- `ELEVENLABS_RULE_KIND`: `status`
+- `ELEVENLABS_RULE_VALUE`: the **minimum severity** — page indicator and each incident's impact — that alerts, `minor` < `major` <
+  `critical`. Default `minor`; `major` silences minor incidents. A value naming no severity
+  (the generic default `major,minor` included) reads as `minor`.
+- `ELEVENLABS_SERVICE_FILTER`: applies only if the page starts publishing components.
 
 ## 🔁 Retry on impersonated fetches
 

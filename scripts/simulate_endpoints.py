@@ -54,6 +54,8 @@ CONTRACTS: dict[str, dict] = {
     "claude": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
     "cloudflare": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
     "retell": {"kind": "json-collection", "collection": "components", "record_fields": ["id", "name", "status"]},
+    # incident.io: no components; the page indicator and the open incidents are the contract.
+    "elevenlabs": {"kind": "json-collection", "collection": "incidents", "record_fields": ["id", "name", "status"]},
     # steam and rockstar parse HTML behind TLS impersonation; the module's own parse
     # count is the only meaningful signal, so they carry no field contract.
 }
