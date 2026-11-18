@@ -9,9 +9,9 @@
 ![CI](https://github.com/solvelab/service-checker/actions/workflows/ci.yml/badge.svg)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ZUADM4SZT5DC8&no_recurring=0&item_name=Projetos+desenvolvidos+com+cuidado+e+dedica%C3%A7%C3%A3o.+O+apoio+incentiva+a+continuidade+e+a+evolu%C3%A7%C3%A3o+constante.&currency_code=BRL)
 
-🔗 Nav: [🎮 Steam](app/modules/steam/README.md) · [🤖 OpenAI](app/modules/openai/README.md) · [🟣 Claude](app/modules/claude/README.md) · [🎮 Rockstar](app/modules/rockstar/README.md) · [☁️ OCI](app/modules/oci/README.md) · [🌐 GCP](app/modules/gcp/README.md) · [☁️ AWS](app/modules/aws/README.md) · [🐙 GitHub](app/modules/github/README.md) · [🪣 Bitbucket](app/modules/bitbucket/README.md) · [🟠 Cloudflare](app/modules/cloudflare/README.md) · [🔔 Notifications](app/notifications/README.md) · [🐳 Docker](DOCKER.md)
+🔗 Nav: [🎮 Steam](app/modules/steam/README.md) · [🤖 OpenAI](app/modules/openai/README.md) · [🟣 Claude](app/modules/claude/README.md) · [🎮 Rockstar](app/modules/rockstar/README.md) · [☁️ OCI](app/modules/oci/README.md) · [🌐 GCP](app/modules/gcp/README.md) · [☁️ AWS](app/modules/aws/README.md) · [🐙 GitHub](app/modules/github/README.md) · [🪣 Bitbucket](app/modules/bitbucket/README.md) · [🟠 Cloudflare](app/modules/cloudflare/README.md) · [📞 Retell](app/modules/retell/README.md) · [🔔 Notifications](app/notifications/README.md) · [🐳 Docker](DOCKER.md)
 
-A modular Python monitor that continuously checks third-party status pages (Steam, OpenAI, Claude, Rockstar, OCI, GCP, AWS, GitHub, Bitbucket, and Cloudflare) and sends configurable alerts when any module detects an incident.
+A modular Python monitor that continuously checks third-party status pages (Steam, OpenAI, Claude, Rockstar, OCI, GCP, AWS, GitHub, Bitbucket, Retell AI, and Cloudflare) and sends configurable alerts when any module detects an incident.
 
 ## 📸 Preview
 
@@ -67,6 +67,7 @@ Each module pulls a provider-specific status source and applies rules configured
 - 🐙 **GitHub**: https://www.githubstatus.com (`/api/v2/summary.json`). [📖](app/modules/github/README.md)
 - 🪣 **Bitbucket**: https://bitbucket.status.atlassian.com (`/api/v2/summary.json`). [📖](app/modules/bitbucket/README.md)
 - 🟠 **Cloudflare**: https://www.cloudflarestatus.com (`/api/v2/summary.json`). 475 componentes, por isso o filtro default é uma allowlist curada e não "tudo". [📖](app/modules/cloudflare/README.md)
+- 📞 **Retell AI**: https://status.retellai.com (`/api/v2/summary.json`). [📖](app/modules/retell/README.md)
 
 See each module README for rules, filters, and examples.
 
@@ -104,7 +105,7 @@ others from receiving the same event.
 ## 🗺️ Flow overview
 ```
 Providers -> Modules -> Monitor Core -> NotificationManager -> Channels
-             (10)                        state + throttle       (4)
+             (11)                        state + throttle       (4)
 ```
 
 One `asyncio` task per module, each on its own interval. A module that fails to load is logged and
@@ -213,7 +214,7 @@ See [DOCKER.md](DOCKER.md) for GHCR image usage, dev builds (`docker-compose-dev
   at a file that outlives the container — an `emptyDir` will not do — and pending alerts survive.
 
 ## 🔗 Documentation
-- Modules: [Steam](app/modules/steam/README.md), [OpenAI](app/modules/openai/README.md), [Claude](app/modules/claude/README.md), [Rockstar](app/modules/rockstar/README.md), [OCI](app/modules/oci/README.md), [GCP](app/modules/gcp/README.md), [AWS](app/modules/aws/README.md), [GitHub](app/modules/github/README.md), [Bitbucket](app/modules/bitbucket/README.md), [Cloudflare](app/modules/cloudflare/README.md)
+- Modules: [Steam](app/modules/steam/README.md), [OpenAI](app/modules/openai/README.md), [Claude](app/modules/claude/README.md), [Rockstar](app/modules/rockstar/README.md), [OCI](app/modules/oci/README.md), [GCP](app/modules/gcp/README.md), [AWS](app/modules/aws/README.md), [GitHub](app/modules/github/README.md), [Bitbucket](app/modules/bitbucket/README.md), [Cloudflare](app/modules/cloudflare/README.md), [Retell](app/modules/retell/README.md)
 - Notifications: [Overview](app/notifications/README.md) · [Telegram](app/notifications/telegram/README.md) · [Webhook](app/notifications/webhook/README.md) · [Google Chat](app/notifications/google_chat/README.md) · [Alertmanager](app/notifications/alertmanager/README.md)
 - Behaviour: [openspec/specs](openspec/specs) · Contributing conventions: [AGENTS.md](AGENTS.md)
 - Infra: [DOCKER.md](DOCKER.md), [docker-compose.yml](docker-compose.yml)

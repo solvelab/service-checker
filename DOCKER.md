@@ -49,7 +49,7 @@ docker compose -f docker-compose-dev.yml up --build
 
 ## 🧰 Global configuration
 These apply across modules:
-- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare`).
+- `SERVICE_MONITOR_MODULES`: comma-separated list of module slugs to load (default `steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell`).
 - `SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS`: default polling interval in seconds.
 - `SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS`: default HTTP timeout in seconds.
 - `SERVICE_MONITOR_DEFAULT_USER_AGENT`: default user-agent used by all modules.
@@ -146,6 +146,13 @@ Each module supports the same environment shape:
   A component name containing a comma must be quoted — every PoP has one:
   `CLOUDFLARE_SERVICE_FILTER='Tunnel,"Arica, Chile - (ARI)"'`. Applies to every
   module's `SERVICE_FILTER`.
+
+**Retell AI (`RETELL_`)**
+- `RETELL_URL`: `https://status.retellai.com/api/v2/summary.json`
+- `RETELL_RULE_KIND`: `status`
+- `RETELL_RULE_VALUE`: `degraded_performance,partial_outage,major_outage`. A value naming no
+  component status (the generic default `major,minor`) falls back to these three.
+- `RETELL_SERVICE_FILTER`: empty (all 15). Example: `api,phone-call,web-call`.
 
 ## 🔁 Retry on impersonated fetches
 
