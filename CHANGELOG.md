@@ -1,3 +1,10 @@
+# [2.14.0](https://github.com/solvelab/service-checker/compare/v2.13.0...v2.14.0) (2026-11-19)
+
+
+### Features
+
+* **notifications:** avisar a subida e mandar heartbeat diário aos canais humanos ([#126](https://github.com/solvelab/service-checker/issues/126)) ([09d180b](https://github.com/solvelab/service-checker/commit/09d180bb6dcf33d6e035161c7096b84a4d0ce56b))
+
 # [2.13.0](https://github.com/solvelab/service-checker/compare/v2.12.0...v2.13.0) (2026-11-18)
 
 
