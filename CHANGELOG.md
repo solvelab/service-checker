@@ -1,3 +1,10 @@
+# [2.17.0](https://github.com/solvelab/service-checker/compare/v2.16.0...v2.17.0) (2026-11-19)
+
+
+### Features
+
+* **elevenlabs:** região do incidente no alerta e filtro por região ([#139](https://github.com/solvelab/service-checker/issues/139)) ([9a42676](https://github.com/solvelab/service-checker/commit/9a426766a0dc3c97e9a30840a0939d54c57978a3)), closes [#136](https://github.com/solvelab/service-checker/issues/136)
+
 # [2.16.0](https://github.com/solvelab/service-checker/compare/v2.15.0...v2.16.0) (2026-11-19)
 
 

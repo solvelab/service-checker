@@ -17,7 +17,7 @@ This guide covers two Docker Compose setups:
 The release image is published in GitHub Packages (GHCR).
 
 ```bash
-docker pull ghcr.io/solvelab/service-checker:v2.16.0
+docker pull ghcr.io/solvelab/service-checker:v2.17.0
 ```
 
 Start the service using the image:
@@ -25,9 +25,9 @@ Start the service using the image:
 docker compose up -d
 ```
 
-To pin a release, set `SERVICE_MONITOR_IMAGE_TAG` in `.env` to the current release tag (for example, `v2.16.0`):
+To pin a release, set `SERVICE_MONITOR_IMAGE_TAG` in `.env` to the current release tag (for example, `v2.17.0`):
 ```bash
-SERVICE_MONITOR_IMAGE_TAG=v2.16.0
+SERVICE_MONITOR_IMAGE_TAG=v2.17.0
 ```
 
 If you forked the repository under a different GitHub owner, set `GHCR_OWNER` in `.env`:
@@ -244,7 +244,7 @@ Não há dashboard: `kubectl logs` é o painel, então o log separa rotina de no
   quem lê o log é gente; `json` quando é um coletor (Loki, Elastic).
 
 ```
-2026-11-19 05:17:44Z  INFO   ── status board ─ v2.16.0 ─ up 0m ─────────────────────────────────────
+2026-11-19 05:17:44Z  INFO   ── status board ─ v2.17.0 ─ up 0m ─────────────────────────────────────
   PROVIDER    STATUS  SINCE        CHECKED   NOTE
   oci         OK      19/11 05:17  05:17:43  —
   openai      OK      19/11 05:17  05:17:43  —
