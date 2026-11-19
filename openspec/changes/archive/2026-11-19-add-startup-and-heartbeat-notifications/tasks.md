@@ -15,6 +15,6 @@
 - [x] 3.3 bug-hunter no diff: 9 ataques. Corrigidos com teste: o horário era comparado como relógio de parede e não como instante, o que repetia o heartbeat na hora repetida do fim do horário de verão e o perdia na hora pulada do início; o texto do Telegram passava de 4096 caracteres com uns 16 provedores em `ERROR` (agora os motivos encolhem até caber); dois envios simultâneos ao Google Chat passavam juntos pela cota (agora a cota e o POST ficam sob um lock); uma exceção montando o relatório encerrava o heartbeat para sempre; e as configurações lidas não apareciam no log de `startup`. Ficam como lacuna: o "desde" do heartbeat conta a partir da subida depois de um restart; um sleep longo atrasa o heartbeat se o host suspender; um CrashLoop manda um aviso de subida por volta.
 
 ## 4. Validação
-- [ ] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
-- [ ] 4.2 `openspec validate add-startup-and-heartbeat-notifications --strict`.
-- [ ] 4.3 Em produção, o pod novo manda o aviso de subida ao Telegram com os 12 provedores.
+- [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
+- [x] 4.2 `openspec validate add-startup-and-heartbeat-notifications --strict`.
+- [x] 4.3 Em produção, o pod novo manda o aviso de subida ao Telegram com os 12 provedores. Evidência: pod de 2026-11-19T05:03:29Z (didevlab/housek8s#522), `startup_announced` às 05:03:33Z com `12 OK`, entregue ao grupo do Telegram.
