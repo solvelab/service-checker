@@ -375,7 +375,9 @@ async def test_a_refused_announcement_is_retried_and_keeps_its_order():
 
 async def test_a_restart_in_the_middle_of_the_loss_keeps_its_start(tmp_path):
     path = str(tmp_path / "state.json")
-    day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Anchored so the cut lands ~25 minutes ago: `restore` discards a loss seen in the
+    # future or more than a day ago, so a midnight anchor broke this before 07:04 UTC.
+    day = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(hours=7, minutes=30)
     events = _outage_events(day=day)
     cut = day + timedelta(hours=7, minutes=4)
     before, _ = _manager(tolerance=0, state_path=path, spy=Spy(up=False))
