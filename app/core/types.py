@@ -143,6 +143,10 @@ class ModuleReport:
     reason: Optional[str] = None
     checked_at: Optional[datetime] = None
     since: Optional[datetime] = None
+    # The most recent ERROR, kept after the module recovers, so the log's status board
+    # still shows an error that already scrolled away (#125).
+    last_error: Optional[str] = None
+    last_error_at: Optional[datetime] = None
 
 
 @dataclass(frozen=True)

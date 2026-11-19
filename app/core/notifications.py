@@ -67,6 +67,8 @@ class NotificationManager:
         self._snapshots: dict[str, ModuleReport] = {}
         # Set once every loaded module has delivered its first result.
         self.first_round = asyncio.Event()
+        # Set when a module's status changes, so the log's status board follows (#125).
+        self.status_changed = asyncio.Event()
         if not self._module_ids:
             self.first_round.set()
         self._alert_state: dict[str, AlertState] = {}
@@ -221,13 +223,25 @@ class NotificationManager:
         at = _ensure_aware(event_time)
         previous = self._snapshots.get(module_id)
         since = previous.since if previous and previous.status == result.status else at
+        if result.status == MonitorStatus.ERROR:
+            last_error, last_error_at = result.reason, at
+        elif previous is not None:
+            last_error, last_error_at = previous.last_error, previous.last_error_at
+        else:
+            last_error, last_error_at = None, None
         self._snapshots[module_id] = ModuleReport(
             module_id=module_id,
             status=result.status,
             reason=result.reason,
             checked_at=at,
             since=since,
+            last_error=last_error,
+            last_error_at=last_error_at,
         )
+        # A first result counts as a change: a module slower than the startup timeout
+        # would otherwise show "—" on every board until its status flipped.
+        if previous is None or previous.status != result.status:
+            self.status_changed.set()
         if not self.first_round.is_set() and self._module_ids <= self._snapshots.keys():
             self.first_round.set()
 
@@ -237,6 +251,20 @@ class NotificationManager:
             self._snapshots.get(module_id)
             or ModuleReport(module_id=module_id, status=None)
             for module_id in module_ids
+        )
+
+    def open_alerts(self) -> int:
+        """Service alerts announced and not yet recovered.
+
+        `_alert_state` also keeps an OK entry per module once it recovered or started
+        healthy; counting entries said "2 open alerts" on an all-green board. Entries
+        restored from the state file for a module no longer loaded have no row on the
+        board, so they are left out. Keys are `<module>` or `<module>:<component>`.
+        """
+        return sum(
+            state.last_status == MonitorStatus.ALERT
+            for key, state in self._alert_state.items()
+            if key.split(":", 1)[0] in self._module_ids
         )
 
     def channel_names(self) -> tuple:

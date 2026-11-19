@@ -6,13 +6,14 @@ from .core.http_client import create_http_client
 from .core.loader import load_monitors
 from .core.logging import configure_logging
 from .core.notifications import NotificationManager
+from .core.board import run_status_board
 from .core.reports import run_status_reports
 from .core.scheduler import schedule_monitors
 
 
 async def run_monitor_service() -> None:
     config: AppConfig = load_app_config()
-    logger = configure_logging(config.log_level)
+    logger = configure_logging(config.log_level, config.log_format)
 
     # A configuracao e lida antes de o logger existir, entao os avisos dela ficam
     # guardados e saem agora. Sem isto, um valor recusado — `INTERVAL_SECONDS=6O`, com a
@@ -77,40 +78,58 @@ async def run_monitor_service() -> None:
         timeout_seconds=config.defaults.timeout_seconds,
         user_agent=config.defaults.user_agent,
     ) as http_client:
-        reports = asyncio.create_task(
-            _guard_reports(
-                run_status_reports(
-                    notifier,
-                    config.notifications,
-                    [module_config.slug for _, module_config in monitors],
-                    http_client,
+        module_ids = [module_config.slug for _, module_config in monitors]
+        side_tasks = [
+            asyncio.create_task(
+                _guard(
+                    run_status_reports(
+                        notifier,
+                        config.notifications,
+                        module_ids,
+                        http_client,
+                        logger,
+                        version=__version__,
+                    ),
                     logger,
-                    version=__version__,
-                ),
-                logger,
-            )
-        )
+                    "status reports stopped",
+                    "status_report_failed",
+                )
+            ),
+            asyncio.create_task(
+                _guard(
+                    run_status_board(
+                        notifier,
+                        module_ids,
+                        logger,
+                        version=__version__,
+                        minutes=config.status_board_minutes,
+                        startup_timeout_seconds=config.notifications.startup_timeout_seconds,
+                    ),
+                    logger,
+                    "status board stopped",
+                    "status_board_failed",
+                )
+            ),
+        ]
         try:
             await schedule_monitors(monitors, http_client, logger, notifier)
         finally:
-            reports.cancel()
+            for task in side_tasks:
+                task.cancel()
 
 
-async def _guard_reports(reports, logger) -> None:
-    """A bug in the status reports must be loud, and must never stop the monitoring.
+async def _guard(work, logger, message: str, event: str) -> None:
+    """A bug in a side task (reports, board) must be loud and never stop the monitoring.
 
     A task that dies with an exception nobody awaits vanishes without a line; the
     heartbeat would then stop as silently as the dead pod it exists to reveal.
     """
     try:
-        await reports
+        await work
     except asyncio.CancelledError:
         raise
     except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "status reports stopped",
-            extra={"event": "status_report_failed", "reason": f"{type(exc).__name__}: {exc}"},
-        )
+        logger.error(message, extra={"event": event, "reason": f"{type(exc).__name__}: {exc}"})
 
 
 def main() -> None:
