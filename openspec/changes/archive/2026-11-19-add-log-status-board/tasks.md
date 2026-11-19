@@ -17,4 +17,4 @@
 ## 4. Validação
 - [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 4.2 `openspec validate add-log-status-board --strict`.
-- [ ] 4.3 Em produção, `kubectl logs --tail=30` mostra um quadro recente, e a rotina `OK` não aparece em `INFO`.
+- [x] 4.3 Em produção, `kubectl logs --tail=30` mostra um quadro recente, e a rotina `OK` não aparece em `INFO`. Verificado em 2026-11-19 (didevlab/housek8s#524): `status_board` com 12 OK e só a primeira rodada em `INFO` dois minutos após a subida.
