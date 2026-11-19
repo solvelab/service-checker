@@ -9,14 +9,24 @@ component attached; `api/v2/incidents/unresolved.json` answered 404. A Statuspag
 So this module reads what the page does publish: the page indicator decides whether to
 alert, and every open incident becomes one payload item, so each incident alerts and
 recovers on its own (the manager keys per-service state by the item's `id`).
+
+Regions (#136): the page has four regional sub-pages (`united-states`, `eu`, `india`,
+`singapore`) and `summary.json` aggregates their incidents without saying which is
+which. Only incident.io's undocumented frontend API maps an incident to its regions:
+`/proxy/<host>` lists the sub-pages, `/proxy/<host>/incidents?subpage_slug=<subpath>`
+lists one region's incidents with the same ids as `api/v2`. It is read only when an
+incident is open (or a region filter needs the catalogue), and when it fails the alert
+goes out as before, without the region: the documented API stays the source of truth.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 import time
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -38,6 +48,12 @@ class ElevenLabsStatusMonitor:
     def __init__(self, slug: str = "elevenlabs") -> None:
         self.id = slug
         self.config: Optional[ModuleConfig] = None
+        # Per open incident, across cycles (#136 bug-hunter): the regions seen so far and,
+        # with a filter, whether it was let in. A lookup that flaps would otherwise drop
+        # an incident one cycle (a false "restored") and send it again the next.
+        self._known_regions: Dict[str, List[str]] = {}
+        self._decisions: Dict[str, bool] = {}
+        self._lookup_error: Optional[str] = None
 
     def configure(self, config: ModuleConfig) -> None:
         self.config = config
@@ -65,8 +81,15 @@ class ElevenLabsStatusMonitor:
                 duration_ms=round((time.perf_counter() - start) * 1000, 2),
             )
 
+        regions = None
+        if self.config.rule.kind == "status":
+            # Only an incident that can alert is worth ~450 KB of regional listings.
+            targets = _targets(self.config.rule.value)
+            alerting = any(_alerts(i["impact"], targets) for i in _open_incidents(data))
+            if alerting or self.config.service_filter:
+                regions = await self._lookup_regions(http_client, logger, need_incidents=alerting)
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        status, reason, payload, items = self._evaluate_rule(data)
+        status, reason, payload, items = self._evaluate_rule(data, regions)
         message = {
             MonitorStatus.ERROR: "elevenlabs rule evaluation failed",
             MonitorStatus.ALERT: "elevenlabs status degraded",
@@ -81,7 +104,63 @@ class ElevenLabsStatusMonitor:
             reason_items=items,
         )
 
-    def _evaluate_rule(self, data: object) -> Evaluation:
+    async def _lookup_regions(
+        self, http_client: httpx.AsyncClient, logger: logging.Logger, *, need_incidents: bool
+    ) -> Optional["RegionLookup"]:
+        """Catalogue and, when an incident is open, incident ids per region; None on failure."""
+        parts = urlsplit(self.config.url)
+        base = f"{parts.scheme}://{parts.netloc}/proxy/{parts.netloc}"
+        headers = {"User-Agent": self.config.user_agent}
+        errors: List[str] = []
+        membership: Dict[str, List[str]] = {}
+        try:
+            catalog = _parse_catalog(await self._get_json(http_client, base, headers))
+        except Exception as exc:  # noqa: BLE001
+            self._report_lookup(logger, f"catalogue: {type(exc).__name__}: {exc}")
+            return None
+        if need_incidents:
+            # return_exceptions: one failing region keeps the others' answers, and no
+            # request is left running past the check.
+            listings = await asyncio.gather(*(
+                self._listing(http_client, f"{base}/incidents", headers, subpath)
+                for subpath, _name in catalog
+            ), return_exceptions=True)
+            for (subpath, name), listing in zip(catalog, listings):
+                if isinstance(listing, BaseException):
+                    errors.append(f"{subpath}: {type(listing).__name__}: {listing}")
+                    continue
+                for incident_id in listing:
+                    membership.setdefault(incident_id, []).append(name)
+        self._report_lookup(logger, "; ".join(errors) or None)
+        return RegionLookup(catalog=catalog, membership=membership)
+
+    async def _listing(self, http_client, url, headers, subpath) -> List[str]:
+        return _parse_incident_ids(
+            await self._get_json(http_client, url, headers, params={"subpage_slug": subpath})
+        )
+
+    def _report_lookup(self, logger: logging.Logger, error: Optional[str]) -> None:
+        """Log a failing lookup once per streak, and its recovery once."""
+        if error and self._lookup_error is None:
+            logger.warning(
+                "elevenlabs region lookup failed; regions may be missing",
+                extra={"event": "region_lookup_failed", "module_id": self.id, "reason": error},
+            )
+        elif error is None and self._lookup_error is not None:
+            logger.info(
+                "elevenlabs region lookup working again",
+                extra={"event": "region_lookup_recovered", "module_id": self.id},
+            )
+        self._lookup_error = error
+
+    async def _get_json(self, http_client, url, headers, params=None):
+        response = await http_client.get(
+            url, params=params, timeout=self.config.timeout_seconds, headers=headers
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def _evaluate_rule(self, data: object, regions: Optional["RegionLookup"] = None) -> Evaluation:
         if self.config is None:
             return MonitorStatus.ERROR, "missing config", None, None
 
@@ -89,7 +168,7 @@ class ElevenLabsStatusMonitor:
         rule_value = self.config.rule.value
 
         if rule_kind == "status":
-            return self._evaluate_status_rule(data, rule_value)
+            return self._evaluate_status_rule(data, rule_value, regions)
 
         raw_text = json.dumps(data)
         if rule_kind == "keyword":
@@ -107,7 +186,9 @@ class ElevenLabsStatusMonitor:
 
         return MonitorStatus.ERROR, f"unsupported rule kind '{rule_kind}'", None, None
 
-    def _evaluate_status_rule(self, data: object, rule_value: str) -> Evaluation:
+    def _evaluate_status_rule(
+        self, data: object, rule_value: str, regions: Optional["RegionLookup"] = None
+    ) -> Evaluation:
         page = data.get("status") if isinstance(data, dict) else None
         indicator = page.get("indicator") if isinstance(page, dict) else None
         if not isinstance(indicator, str):
@@ -129,12 +210,25 @@ class ElevenLabsStatusMonitor:
         if isinstance(components, MonitorResult):
             return components.status, components.reason, components.payload, None
 
+        region_filter = [v.strip().lower() for v in self.config.service_filter if v.strip()]
+        if region_filter and regions is not None:
+            known = {s.lower() for s, _ in regions.catalog} | {n.lower() for _, n in regions.catalog}
+            unknown = [v for v in region_filter if v not in known]
+            if unknown:
+                # The API answers 200 and empty for a sub-page that does not exist: a
+                # typo would leave the module blind without a word.
+                return (MonitorStatus.ERROR,
+                        f"unknown region(s) in filter: {', '.join(unknown)}; known: "
+                        f"{', '.join(s for s, _ in regions.catalog)}",
+                        None, None)
+
         targets = _targets(rule_value)
         items: List[Dict] = []
         # The page item lives exactly as long as the indicator is raised, alongside the
         # incidents rather than instead of them: swapping one for the other turned one
-        # outage into a recovery and a fresh alert at each swap (bug-hunter).
-        if _alerts(indicator, targets):
+        # outage into a recovery and a fresh alert at each swap (bug-hunter). With a
+        # region filter it is left out: the indicator aggregates every region.
+        if not region_filter and _alerts(indicator, targets):
             items.append({
                 "id": "page",
                 "name": "ElevenLabs",
@@ -143,7 +237,32 @@ class ElevenLabsStatusMonitor:
             })
         # An open incident stays an item until it closes, whatever the indicator does
         # meanwhile; its own impact decides whether it is severe enough.
-        items += [inc for inc in _open_incidents(data) if _alerts(inc["impact"], targets)]
+        open_incidents = _open_incidents(data)
+        open_ids = {inc["incident_id"] for inc in open_incidents}
+        for key in [k for k in self._known_regions if k not in open_ids]:
+            del self._known_regions[key]
+        for key in [k for k in self._decisions if k not in open_ids]:
+            del self._decisions[key]
+        for inc in open_incidents:
+            if not _alerts(inc["impact"], targets):
+                continue
+            names = self._regions_of(inc["incident_id"], regions)
+            if region_filter and inc["incident_id"]:
+                # The first decision holds while the incident is open: an incident not
+                # yet in any listing (or met while the lookup fails) is let in — a false
+                # positive beats a blind module — and stays in, so it never "recovers"
+                # just because its region showed up outside the filter.
+                decision = self._decisions.get(inc["incident_id"])
+                if decision is None:
+                    decision = (not names) or RegionLookup.matches_catalog(
+                        regions.catalog if regions is not None else [], names, region_filter)
+                    self._decisions[inc["incident_id"]] = decision
+                if not decision:
+                    continue
+            if names:
+                inc["regions"] = names
+                inc["name"] = f"{inc['name']} [{', '.join(names)}]"
+            items.append(inc)
         items += components
 
         if not items:
@@ -151,6 +270,16 @@ class ElevenLabsStatusMonitor:
         lines = [f"{item['name']}: {item.get('status_text') or item['status']}"
                  for item in items]
         return MonitorStatus.ALERT, "; ".join(lines), items, lines
+
+    def _regions_of(self, incident_id: str, regions: Optional["RegionLookup"]) -> List[str]:
+        """Regions seen for this incident so far, merged with this cycle's lookup."""
+        if not incident_id:
+            return []
+        known = self._known_regions.setdefault(incident_id, [])
+        for name in regions.regions_of(incident_id) if regions is not None else []:
+            if name not in known:
+                known.append(name)
+        return list(known)
 
     def _degraded_components(self, data: object):
         """Degraded published components, or an ERROR result for a filter that matches none.
@@ -160,19 +289,7 @@ class ElevenLabsStatusMonitor:
         components = extract_components(data)
         if not components:
             return []
-        if self.config and self.config.service_filter:
-            allow = {item.lower() for item in self.config.service_filter}
-            filtered = [c for c in components
-                        if c["id"].lower() in allow or c["slug"] in allow
-                        or c["name"].lower() in allow]
-            if not filtered:
-                return MonitorResult(
-                    status=MonitorStatus.ERROR,
-                    message="",
-                    reason="no target components matched filter",
-                    payload={"components": components, "filter": self.config.service_filter},
-                )
-            components = filtered
+        # SERVICE_FILTER names regions (#136); components are not filtered.
         return [dict(c, id=f"component:{c['id']}") for c in components
                 if c["status"].lower() in _DEGRADED]
 
@@ -195,12 +312,50 @@ def _open_incidents(data: object) -> List[Dict]:
             # and one that leaves the page recovers on its own. The prefix keeps an
             # incident from sharing a key with the page or a component.
             "id": f"incident:{inc.get('id') or name}",
+            "incident_id": str(inc.get("id") or ""),
             "name": name,
             "status": status,
             "impact": str(inc.get("impact") or "unknown").strip().lower(),
             "updated_at": inc.get("updated_at") or inc.get("created_at") or "",
         })
     return items
+
+
+class RegionLookup:
+    """Region catalogue (subpath, name) and the region names listing each incident id."""
+
+    def __init__(self, catalog: List[tuple], membership: Dict[str, List[str]]) -> None:
+        self.catalog = catalog
+        self.membership = membership
+
+    def regions_of(self, incident_id: str) -> List[str]:
+        return list(self.membership.get(incident_id, [])) if incident_id else []
+
+    @staticmethod
+    def matches_catalog(catalog: List[tuple], names: List[str], region_filter: List[str]) -> bool:
+        wanted = {n.lower() for s, n in catalog
+                  if s.lower() in region_filter or n.lower() in region_filter}
+        wanted |= set(region_filter)  # names cached from an earlier catalogue
+        return any(name.lower() in wanted for name in names)
+
+
+def _parse_catalog(data: object) -> List[tuple]:
+    """(subpath, name) per region; a changed shape raises, which the lookup reports."""
+    subpages = data.get("subpages") if isinstance(data, dict) else None
+    if not isinstance(subpages, list) or not subpages:
+        raise ValueError("no subpages in proxy response")
+    catalog = [(str(s["subpath"]), str(s.get("name") or s["subpath"]))
+               for s in subpages if isinstance(s, dict) and s.get("subpath")]
+    if not catalog:
+        raise ValueError("no subpage with a subpath in proxy response")
+    return catalog
+
+
+def _parse_incident_ids(data: object) -> List[str]:
+    incidents = data.get("incidents") if isinstance(data, dict) else None
+    if not isinstance(incidents, list):
+        raise ValueError("no incidents list in regional response")
+    return [str(i["id"]) for i in incidents if isinstance(i, dict) and i.get("id")]
 
 
 def _targets(rule_value: str) -> set:

@@ -1,0 +1,32 @@
+{
+  "subpages": [
+    {
+      "id": "01M52F9K83SJMHX9VNB6VBKT1X",
+      "name": "Global (United States)",
+      "subpath": "united-states",
+      "public_url": "https://status.elevenlabs.io/united-states",
+      "worst_component_status": "operational"
+    },
+    {
+      "id": "01M52F9K838MF5ZP8SPJQFE46J",
+      "name": "EU (Enterprise-only)",
+      "subpath": "eu",
+      "public_url": "https://status.elevenlabs.io/eu",
+      "worst_component_status": "operational"
+    },
+    {
+      "id": "01M52F9K83EG1N96M2EHKYBD72",
+      "name": "India (Enterprise-only)",
+      "subpath": "india",
+      "public_url": "https://status.elevenlabs.io/india",
+      "worst_component_status": "operational"
+    },
+    {
+      "id": "01M52F9K834XPKJ20FG8SKFERQ",
+      "name": "Singapore (Enterprise-only)",
+      "subpath": "singapore",
+      "public_url": "https://status.elevenlabs.io/singapore",
+      "worst_component_status": "operational"
+    }
+  ]
+}
