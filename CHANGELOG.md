@@ -1,3 +1,10 @@
+# [2.16.0](https://github.com/solvelab/service-checker/compare/v2.15.0...v2.16.0) (2026-11-19)
+
+
+### Features
+
+* **liveness:** arquivo de vida e comando para o probe do Kubernetes ([#135](https://github.com/solvelab/service-checker/issues/135)) ([671514f](https://github.com/solvelab/service-checker/commit/671514f62dc520daa325e460ea3d236b22baccd8)), closes [#134](https://github.com/solvelab/service-checker/issues/134)
+
 # [2.15.0](https://github.com/solvelab/service-checker/compare/v2.14.0...v2.15.0) (2026-11-19)
 
 
