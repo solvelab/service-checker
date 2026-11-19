@@ -56,6 +56,10 @@ def _capture(level="INFO"):
 #: Blocos `except` que podem ficar calados, com o motivo de cada um. Uma allowlist sem
 #: motivo escrito vira carimbo, e um carimbo não protege de nada.
 ACCEPTED_SILENT = {
+    # O comando do probe (#134) não tem logger: o motivo vai para stdout e o código de
+    # saída é o sinal, que o kubelet registra no evento do pod.
+    ("healthcheck.py", "except OSError as exc:"),
+    ("healthcheck.py", "except ValueError:"),
     # Dentro de um formatter de log nao ha onde registrar sem recursao; um horario
     # ilegivel no quadro vira "—" na propria linha, que e o sinal visivel (#125).
     ("core/logging.py", "except ValueError:"),

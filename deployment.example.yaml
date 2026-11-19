@@ -33,6 +33,22 @@ spec:
           image: ghcr.io/solvelab/service-checker:v2.15.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "app"]
+          # The app serves no HTTP: the probe reads the age of the liveness file, which
+          # is touched every 30 s only while every module keeps completing checks. A
+          # blocked loop or a hung module lets it age past 120 s and the pod restarts.
+          livenessProbe:
+            exec:
+              command: ["python", "-m", "app.healthcheck"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["python", "-m", "app.healthcheck"]
+            initialDelaySeconds: 10
+            periodSeconds: 60
+            timeoutSeconds: 5
           env:
             - name: SERVICE_MONITOR_MODULES
               value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell,elevenlabs"
@@ -44,6 +60,9 @@ spec:
             # Minutes between periodic status boards; 0 = only at startup and on changes.
             - name: SERVICE_MONITOR_STATUS_BOARD_MINUTES
               value: "15"
+            # Read by the probes above; must stay non-empty while they are declared.
+            - name: SERVICE_MONITOR_LIVENESS_PATH
+              value: "/tmp/service-checker-alive"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
               value: "60"
             - name: SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS

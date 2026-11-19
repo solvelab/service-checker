@@ -218,6 +218,9 @@ See [DOCKER.md](DOCKER.md) for GHCR image usage, dev builds (`docker-compose-dev
   `DEBUG`, so at `INFO` the log shows only changes, errors and the periodic status board. Set
   `SERVICE_MONITOR_LOG_FORMAT=pretty` to read it as aligned lines and a table instead of JSON, and
   `kubectl logs --tail=30` will hold a recent board. See [DOCKER.md](DOCKER.md#log-como-painel-125).
+- **Pod restarting with a failed liveness probe**: `kubectl describe pod` shows the probe's reason
+  (`liveness file is 300s old`). Look for `liveness_stale` in the log: it names the module that
+  stopped completing checks. See [DOCKER.md](DOCKER.md#-liveness-probe-134).
 - **Too many alerts**: increase `NOTIFICATION_REPEAT_MINUTES` or narrow `*_SERVICE_FILTER`.
 - **Alerts stop after a restart**: with `NOTIFICATION_STATE_PATH` unset, notification state lives in
   memory only, so a restart re-alerts what is still degraded and loses pending recoveries. Point it
