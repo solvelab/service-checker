@@ -7,6 +7,7 @@ from .core.loader import load_monitors
 from .core.logging import configure_logging
 from .core.notifications import NotificationManager
 from .core.board import run_status_board
+from .core.liveness import run_liveness
 from .core.reports import run_status_reports
 from .core.scheduler import schedule_monitors
 
@@ -47,6 +48,8 @@ async def run_monitor_service() -> None:
             },
             # Status report settings as read (#124): a heartbeat time that fell back to
             # the default after a typo is visible here, like the connectivity windows.
+            # The file the Kubernetes probe reads (#134); null means off.
+            "liveness_path": config.liveness_path,
             "reports": {
                 "startup_announce": config.notifications.startup_announce,
                 "startup_timeout_seconds": config.notifications.startup_timeout_seconds,
@@ -108,6 +111,19 @@ async def run_monitor_service() -> None:
                     logger,
                     "status board stopped",
                     "status_board_failed",
+                )
+            ),
+            asyncio.create_task(
+                _guard(
+                    run_liveness(
+                        notifier,
+                        [module_config for _, module_config in monitors],
+                        config.liveness_path,
+                        logger,
+                    ),
+                    logger,
+                    "liveness stopped",
+                    "liveness_failed",
                 )
             ),
         ]

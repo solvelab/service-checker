@@ -252,6 +252,48 @@ Não há dashboard: `kubectl logs` é o painel, então o log separa rotina de no
   channels: telegram   open alerts: 0   failing: 1
 ```
 
+## 🩺 Liveness probe (#134)
+
+O app não serve HTTP, então o probe do Kubernetes lê a idade de um arquivo. Processo morto já
+reinicia o container sozinho; o probe cobre o processo vivo e travado — event loop bloqueado ou um
+módulo pendurado.
+
+- `SERVICE_MONITOR_LIVENESS_PATH` (default `/tmp/service-checker-alive`; vazio desliga): uma task
+  grava esse arquivo a cada 30 s, **só** quando todo módulo carregado completou uma checagem dentro
+  da sua janela — `3 × intervalo + pior caso de uma busca` (3 tentativas do timeout mais o backoff),
+  com **piso de 15 minutos**. O piso existe porque o ciclo também espera a entrega das notificações,
+  serializada entre módulos (um Telegram fora do ar segura ~4 min por rodada), e restart não conserta
+  canal lento — só para o monitoramento durante o CrashLoop. Travamento real é pego em até ~17 min
+  (janela + 120 s do probe); o heartbeat diário continua sendo a outra rede. Antes da primeira checagem, a janela conta da subida do processo. O
+  módulo atrasado sai num `liveness_stale` (com `modules`), a volta num `liveness_fresh`; falha de
+  escrita num `liveness_write_failed`, uma vez por motivo.
+- `python -m app.healthcheck [max_age_seconds]` sai `0` quando o arquivo tem menos de `max_age`
+  (default `120`) e `1` em qualquer outro caso — arquivo ausente, liveness desligado ou argumento
+  inválido —, com o motivo numa linha, que o kubelet guarda no evento do pod.
+
+```yaml
+livenessProbe:
+  exec:
+    command: ["python", "-m", "app.healthcheck"]
+  initialDelaySeconds: 60
+  periodSeconds: 60
+  timeoutSeconds: 5      # o default de 1 s é curto para subir um python
+  failureThreshold: 3
+readinessProbe:          # o pod não recebe tráfego; existe para quem exige o par
+  exec:
+    command: ["python", "-m", "app.healthcheck"]
+  initialDelaySeconds: 10
+  periodSeconds: 60
+  timeoutSeconds: 5
+```
+
+Um módulo com intervalo longo ganha janela longa sozinho; o `max_age` do probe só precisa passar
+dos 30 s da gravação com folga. O arquivo precisa de disco local gravável: com
+`readOnlyRootFilesystem: true`, monte um `emptyDir` em `/tmp` (ou aponte o path para um), e não use
+volume de rede — a gravação é síncrona no loop. Um bug na própria verificação loga
+`liveness_check_failed` e mantém a gravação, para não virar restart em loop. Com o liveness desligado, **não** declare o probe: ele falharia
+sempre e o pod entraria em restart.
+
 ## 🔔 Notifications
 **Telegram**
 - `TELEGRAM_TIMESTAMP_FORMAT` (default `%Y-%m-%d %H:%M:%S %Z`): `strftime` do carimbo nas mensagens.

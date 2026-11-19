@@ -36,6 +36,8 @@ _EXTRA_KEYS = (
     "timeout_seconds",
     # The log's status board (#125).
     "board",
+    # The file the Kubernetes probe reads (#134).
+    "liveness_path",
 )
 
 

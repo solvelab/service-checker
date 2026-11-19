@@ -59,6 +59,8 @@ class AppConfig:
     log_format: str = "json"
     # Cadence of the status board in the log; 0 keeps only startup and change boards.
     status_board_minutes: int = 15
+    # File the Kubernetes probe reads (#134); None turns it off.
+    liveness_path: Optional[str] = None
 
 
 @dataclass
@@ -77,6 +79,17 @@ class TelegramConfig:
 
 TELEGRAM_MODES = ("daily_summary", "per_event")
 LOG_FORMATS = ("json", "pretty")
+
+LIVENESS_PATH_ENV = "SERVICE_MONITOR_LIVENESS_PATH"
+LIVENESS_PATH_DEFAULT = "/tmp/service-checker-alive"
+
+
+def liveness_path_from_env() -> Optional[str]:
+    """Unset means the default; set and empty means off. Shared with `app.healthcheck`."""
+    value = os.getenv(LIVENESS_PATH_ENV)
+    if value is None:
+        return LIVENESS_PATH_DEFAULT
+    return value.strip() or None
 
 
 @dataclass
@@ -189,6 +202,7 @@ def load_app_config() -> AppConfig:
         notifications=notifications,
         log_format=log_format,
         status_board_minutes=status_board_minutes,
+        liveness_path=liveness_path_from_env(),
     )
 
 
