@@ -1,3 +1,10 @@
+# [2.19.0](https://github.com/solvelab/service-checker/compare/v2.18.0...v2.19.0) (2026-11-19)
+
+
+### Features
+
+* **alerts:** todo alerta nomeia o serviço impactado ([#147](https://github.com/solvelab/service-checker/issues/147)) ([fc84484](https://github.com/solvelab/service-checker/commit/fc84484bd5553145f343f412aa510713f5bd67ae)), closes [#146](https://github.com/solvelab/service-checker/issues/146)
+
 # [2.18.0](https://github.com/solvelab/service-checker/compare/v2.17.0...v2.18.0) (2026-11-19)
 
 
