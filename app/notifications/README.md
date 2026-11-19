@@ -85,6 +85,11 @@ any channel by name. A channel is any object implementing the four methods of th
 All four take the same keyword arguments: `module_id`, `result`, `interval_seconds`,
 `level_name`, `event_name`, `event_time`, `http_client`, `logger`.
 
+A channel that delivers to a human also implements `StatusReporter.send_status_report(report,
+http_client, logger)` (#124): the startup announcement and the daily heartbeat. Telegram, webhook
+and Google Chat do; Alertmanager deliberately does not, being a record rather than a delivery.
+`tests/test_status_reports.py` fails when one of the three stops implementing it.
+
 **All four return `bool`: whether at least one target accepted the message.** This is not
 bookkeeping — `NotificationManager` only advances the alert state when some channel
 returns `True`. A channel that returns `False` gets the event retried on the next cycle;

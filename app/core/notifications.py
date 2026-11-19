@@ -14,7 +14,15 @@ import httpx
 
 from .config import ModuleConfig, NotificationConfig
 from .state_store import StateStore, _parse_dt
-from .types import NOTIFIER_METHODS, MonitorResult, MonitorStatus, Notifier
+from .types import (
+    NOTIFIER_METHODS,
+    ModuleReport,
+    MonitorResult,
+    MonitorStatus,
+    Notifier,
+    StatusReport,
+    StatusReporter,
+)
 from ..notifications.alertmanager.notifier import AlertmanagerNotifier
 from ..notifications.google_chat.notifier import GoogleChatNotifier
 from ..notifications.telegram.notifier import TelegramNotifier
@@ -53,6 +61,14 @@ class NotificationManager:
         # arrives while an announcement is in flight announces it again (bug-hunter).
         self._connectivity_lock = asyncio.Lock()
         self._notifiers: dict[str, Notifier] = {}
+        # The last result of each module, for the status reports (#124). Raw on
+        # purpose: the report shows what each provider answered, before tolerance and
+        # thresholds decide what to page.
+        self._snapshots: dict[str, ModuleReport] = {}
+        # Set once every loaded module has delivered its first result.
+        self.first_round = asyncio.Event()
+        if not self._module_ids:
+            self.first_round.set()
         self._alert_state: dict[str, AlertState] = {}
         self._error_state: dict[str, MonitorErrorState] = {}
         self._repeat_seconds = max(config.repeat_minutes, 1) * 60
@@ -142,7 +158,7 @@ class NotificationManager:
 
     # -----------------------------------------------------------------------
 
-    async def _dispatch(self, method: str, **kwargs) -> bool:
+    async def _dispatch(self, method: str, *, only: Optional[tuple] = None, **kwargs) -> bool:
         """Deliver one event to every registered channel, and say if anyone got it.
 
         Each channel is isolated: an exception escaping one used to abort
@@ -163,6 +179,8 @@ class NotificationManager:
         # sempre avancou. So "havia canal e todos falharam" conta como nao entregue.
         delivered = not self._notifiers
         for name, notifier in list(self._notifiers.items()):
+            if only is not None and name not in only:
+                continue
             try:
                 accepted = await getattr(notifier, method)(**kwargs)
             except Exception as exc:  # noqa: BLE001
@@ -198,6 +216,55 @@ class NotificationManager:
             # `False` ja foi registrado pelo proprio canal, com o motivo concreto.
         return delivered
 
+    def observe(self, module_id: str, result: MonitorResult, event_time: datetime) -> None:
+        """Record a module's latest result for the status reports (#124)."""
+        at = _ensure_aware(event_time)
+        previous = self._snapshots.get(module_id)
+        since = previous.since if previous and previous.status == result.status else at
+        self._snapshots[module_id] = ModuleReport(
+            module_id=module_id,
+            status=result.status,
+            reason=result.reason,
+            checked_at=at,
+            since=since,
+        )
+        if not self.first_round.is_set() and self._module_ids <= self._snapshots.keys():
+            self.first_round.set()
+
+    def module_reports(self, module_ids: Iterable[str]) -> tuple:
+        """One line per module, in the given order; None status when not checked yet."""
+        return tuple(
+            self._snapshots.get(module_id)
+            or ModuleReport(module_id=module_id, status=None)
+            for module_id in module_ids
+        )
+
+    def channel_names(self) -> tuple:
+        return tuple(self._notifiers)
+
+    def report_channels(self) -> tuple:
+        """The channels that deliver status reports to a human (not Alertmanager)."""
+        return tuple(
+            name
+            for name, notifier in self._notifiers.items()
+            if isinstance(notifier, StatusReporter)
+        )
+
+    async def send_status_report(
+        self, report: StatusReport, http_client, logger: logging.Logger
+    ) -> bool:
+        """Deliver a status report to the human channels; True when anyone got it."""
+        channels = self.report_channels()
+        if not channels:
+            return False
+        return await self._dispatch(
+            "send_status_report",
+            only=channels,
+            report=report,
+            http_client=http_client,
+            logger=logger,
+        )
+
     async def handle_result(self, **kwargs) -> None:
         """Handle one monitor result, then persist whatever the state became.
 
@@ -206,6 +273,7 @@ class NotificationManager:
         means every path is covered by construction.
         """
         try:
+            self.observe(kwargs["module_id"], kwargs["result"], kwargs["event_time"])
             await self._handle_result(**kwargs)
             await self._sync_connectivity(
                 _ensure_aware(kwargs["event_time"]),

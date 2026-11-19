@@ -60,6 +60,13 @@ CLAUDE · 1 problema(s) hoje
 - In a group, the bot can delete its own messages for 48 hours, which always covers the day's message.
 - Rollback without a new image: `TELEGRAM_MODE=per_event`.
 
+## 📣 Startup announcement and heartbeat (#124)
+After every module's first check the bot sends an "online" message to each chat, with the version,
+the pod and each provider's first result; then a "still running" message every day at
+`NOTIFICATION_HEARTBEAT_TIME`. Both are **new messages in every mode**, `daily_summary` included:
+an edit of the day's summary does not ring the phone, and a heartbeat that does not ring is worth
+nothing. The summary is left untouched. Variables in [DOCKER.md](../../../DOCKER.md#-startup-announcement-and-heartbeat-124).
+
 ## ✅ Validating the bot and recipients
 1. Check the token:  
    `curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"` should return `{"ok":true,...}` with the `username`.

@@ -27,7 +27,17 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from ...core.types import MonitorResult
+from ...core.reports import (
+    STATUS_ICONS,
+    SUBTITLES,
+    TITLES,
+    format_uptime,
+    local_time,
+    short_reason,
+    status_label,
+    summary_counts,
+)
+from ...core.types import MonitorResult, StatusReport
 
 # Header per event type, so the four are distinguishable without reading the body.
 _HEADERS = {
@@ -50,6 +60,10 @@ class GoogleChatNotifier:
     def __init__(self, config) -> None:
         self.config = config
         self._last_sent_at: float = 0.0
+        # Pacing and post happen under one lock: two sends started together used to
+        # both pass the quota check before either moved `_last_sent_at`, and the space
+        # answered 429 — the startup card races the first alerts (bug-hunter).
+        self._quota_lock = asyncio.Lock()
 
     async def send_alert(self, **kwargs) -> bool:
         return await self._send("alert", **kwargs)
@@ -94,25 +108,57 @@ class GoogleChatNotifier:
         url = self.config.webhook_url
         if self.config.thread_by_check:
             url = _with_reply_option(url)
+        return await self._deliver(body, url, module_id, http_client, logger)
 
-        await self._respect_quota()
+    async def send_status_report(
+        self,
+        *,
+        report: StatusReport,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+        **_ignored,
+    ) -> bool:
+        """Startup announcement or daily heartbeat (#124), as a card of its own.
 
-        try:
-            response = await http_client.post(url, json=body, timeout=10.0)
-        except Exception as exc:  # noqa: BLE001
-            logger.error(
-                "google chat notification failed",
-                extra={
-                    "event": "notify_error",
-                    "module_id": module_id,
-                    "target": "google_chat",
-                    "space": _space_id(self.config.webhook_url),
-                    "reason": f"{type(exc).__name__}: {exc}",
-                },
+        No thread key: a report is not an incident, and grouping every heartbeat into
+        one conversation would bury the day's in an old thread nobody opens.
+        """
+        if not self.config.webhook_url:
+            logger.warning(
+                "google chat notifier missing webhook url; skipping",
+                extra={"event": "notify_skip", "target": "google_chat"},
             )
             return False
+        body = _build_report_message(report)
+        return await self._deliver(
+            body, self.config.webhook_url, None, http_client, logger
+        )
 
-        self._last_sent_at = time.monotonic()
+    async def _deliver(
+        self,
+        body: Dict[str, Any],
+        url: str,
+        module_id: Optional[str],
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> bool:
+        async with self._quota_lock:
+            await self._respect_quota()
+            try:
+                response = await http_client.post(url, json=body, timeout=10.0)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "google chat notification failed",
+                    extra={
+                        "event": "notify_error",
+                        "module_id": module_id,
+                        "target": "google_chat",
+                        "space": _space_id(self.config.webhook_url),
+                        "reason": f"{type(exc).__name__}: {exc}",
+                    },
+                )
+                return False
+            self._last_sent_at = time.monotonic()
 
         status = getattr(response, "status_code", 0)
         if status >= 400:
@@ -207,6 +253,46 @@ class GoogleChatNotifier:
         if self.config.thread_by_check:
             message["thread"] = {"threadKey": _thread_key(module_id, result)}
         return message
+
+
+def _build_report_message(report: StatusReport) -> Dict[str, Any]:
+    facts = [
+        ("Version", report.version),
+        ("Pod", report.pod),
+        ("Channels", ", ".join(report.channels) or "none"),
+    ]
+    if report.kind == "heartbeat":
+        facts.append(("Uptime", format_uptime(report.sent_at - report.started_at)))
+    facts.append(("Providers", summary_counts(report)))
+    header_widgets = [
+        {"decoratedText": {"topLabel": label, "text": _esc(value)}} for label, value in facts
+    ]
+    provider_widgets = []
+    for line in report.modules:
+        text = f"{STATUS_ICONS.get(line.status, '⚪')} <b>{_esc(line.module_id)}</b> — {_esc(status_label(line))}"
+        if line.status is not None and line.status.value != "OK" and line.reason:
+            text += f"<br>{_esc(short_reason(line.reason))}"
+        if line.since is not None and report.kind == "heartbeat":
+            text += f"<br><i>since {_esc(local_time(line.since, report.zone))}</i>"
+        provider_widgets.append({"textParagraph": {"text": text}})
+    return {
+        "cardsV2": [
+            {
+                "cardId": f"service-checker-{report.kind}",
+                "card": {
+                    "header": {
+                        "title": TITLES[report.kind],
+                        "subtitle": _esc(SUBTITLES[report.kind]),
+                    },
+                    "sections": [
+                        {"widgets": header_widgets},
+                        {"header": "Providers", "widgets": provider_widgets
+                         or [{"textParagraph": {"text": "No provider configured"}}]},
+                    ],
+                },
+            }
+        ]
+    }
 
 
 def _items(result: MonitorResult) -> List[str]:

@@ -31,6 +31,8 @@ _EXTRA_KEYS = (
     # Connectivity loss settings as read (#106, #108): the operator checks the windows here.
     "connectivity",
     "challenge",
+    # Status report settings as read (#124).
+    "reports",
     "timeout_seconds",
 )
 

@@ -124,3 +124,62 @@ class Notifier(Protocol):
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
     ) -> bool: ...
+
+
+#: The two status reports a human channel receives (#124).
+REPORT_KINDS = ("startup", "heartbeat")
+
+
+@dataclass(frozen=True)
+class ModuleReport:
+    """One provider's line in a status report.
+
+    `status` is None for a module that has not delivered a result yet: the startup
+    announcement does not wait forever for a slow module, and says so instead.
+    """
+
+    module_id: str
+    status: Optional[MonitorStatus]
+    reason: Optional[str] = None
+    checked_at: Optional[datetime] = None
+    since: Optional[datetime] = None
+
+
+@dataclass(frozen=True)
+class StatusReport:
+    """What the checker says about itself: "I am up" or "I am still up" (#124).
+
+    The alert channels say what is wrong with a provider; this says the checker runs,
+    delivers, and reads every configured provider. Silence on a channel used to mean
+    either "all healthy" or "the checker is dead", with no way to tell them apart.
+    """
+
+    kind: str
+    version: str
+    pod: str
+    channels: tuple
+    started_at: datetime
+    sent_at: datetime
+    modules: tuple
+    # IANA zone the channels show times in (`NOTIFICATION_HEARTBEAT_TIMEZONE`).
+    zone: str = "UTC"
+
+
+@runtime_checkable
+class StatusReporter(Protocol):
+    """A channel that delivers the status reports to a human.
+
+    Kept apart from `Notifier` on purpose: Alertmanager is a record, not a delivery to
+    anyone, and a "checker is up" alert there would be noise or, worse, a fake
+    delivery. The human channels implement it; `tests/test_status_reports.py` fails
+    when one of them stops doing so, so a silent channel is caught before production.
+    Returns whether at least one target accepted, like every `Notifier` method.
+    """
+
+    async def send_status_report(
+        self,
+        *,
+        report: StatusReport,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+    ) -> bool: ...

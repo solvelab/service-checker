@@ -288,3 +288,18 @@ def test_the_startup_log_keeps_the_challenge_tolerance():
     record.challenge = {"tolerance_minutes": 60}
     line = json.loads(JsonFormatter().format(record))
     assert line["challenge"] == {"tolerance_minutes": 60}
+
+
+def test_the_startup_log_keeps_the_report_settings():
+    # #124: same allowlist; a heartbeat time that fell back after a typo shows here.
+    import logging as std_logging
+
+    from app.core.logging import JsonFormatter
+
+    record = std_logging.LogRecord("t", std_logging.INFO, __file__, 1, "service monitor starting",
+                                   None, None)
+    record.event = "startup"
+    record.reports = {"startup_announce": True, "startup_timeout_seconds": 120,
+                      "heartbeat_time": "09:00", "heartbeat_timezone": "America/Sao_Paulo"}
+    line = json.loads(JsonFormatter().format(record))
+    assert line["reports"]["heartbeat_time"] == "09:00"

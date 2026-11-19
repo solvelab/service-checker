@@ -1,4 +1,5 @@
 import asyncio
+import html
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8,7 +9,18 @@ from zoneinfo import ZoneInfo
 import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from ...core.types import MonitorResult
+from ...core.reports import (
+    REASON_LIMIT,
+    STATUS_ICONS,
+    SUBTITLES,
+    TITLES,
+    format_uptime,
+    local_time,
+    short_reason,
+    status_label,
+    summary_counts,
+)
+from ...core.types import MonitorResult, StatusReport
 from .summary import KIND_MONITORING, KIND_SERVICE, DailySummary
 
 _TEMPLATE_ENV = Environment(
@@ -295,6 +307,57 @@ class TelegramNotifier:
             http_client,
             logger,
         )
+
+    async def send_status_report(
+        self,
+        *,
+        report: StatusReport,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+        **_ignored,
+    ) -> bool:
+        """Startup announcement or daily heartbeat (#124), as a new message.
+
+        A new message in both modes, `daily_summary` included: an edit of the day's
+        summary does not ring the phone, and a heartbeat that does not ring is worth
+        nothing. The summary itself is left untouched.
+        """
+        if not self.config.bot_token or not self.config.chat_ids:
+            logger.warning(
+                "telegram notifier missing token or chat_ids; skipping",
+                extra={"event": "notify_skip", "target": "telegram"},
+            )
+            return False
+        text = _render_report(report)
+        delivered = False
+        for chat_id in self.config.chat_ids:
+            status, description, _ = await self._bot_call(
+                "sendMessage",
+                {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
+                http_client,
+            )
+            if status is None or status >= 400:
+                logger.error(
+                    "telegram status report rejected",
+                    extra={
+                        "event": "notify_error",
+                        "target": "telegram",
+                        "chat_id": chat_id,
+                        "reason": f"status {status}: {description}",
+                    },
+                )
+                continue
+            logger.info(
+                "telegram status report sent",
+                extra={"event": "notify", "target": "telegram", "chat_id": chat_id},
+            )
+            delivered = True
+        return delivered
 
     async def _send_with_template(
         self,
@@ -594,6 +657,48 @@ class TelegramNotifier:
         result = data.get("result")
         message_id = result.get("message_id") if isinstance(result, dict) else None
         return response.status_code, str(data.get("description") or ""), message_id
+
+
+#: Telegram refuses a message over 4096 characters (UTF-16 units). Kept under it with a
+#: margin, measured on the raw HTML, which is never shorter than what Telegram counts.
+_TELEGRAM_TEXT_LIMIT = 4000
+
+
+def _render_report(report: StatusReport) -> str:
+    """The report as Telegram HTML, shrinking reasons until it fits the limit.
+
+    A fixed reason cap only fitted today's twelve providers; past ~16 in ERROR, or with
+    reasons full of `&` or emoji, Telegram answered 400 on every attempt, every day
+    (bug-hunter). Reasons shrink first; with none left, the list of providers stays.
+    """
+    for limit in (REASON_LIMIT, 100, 50, 0):
+        text = _render_report_text(report, limit)
+        if len(text.encode("utf-16-le")) // 2 <= _TELEGRAM_TEXT_LIMIT:
+            return text
+    return text
+
+
+def _render_report_text(report: StatusReport, reason_limit: int) -> str:
+    esc = html.escape
+    lines = [
+        f"<b>{esc(TITLES[report.kind])}</b>",
+        f"<i>{esc(SUBTITLES[report.kind])}</i>",
+        "",
+        f"<b>Version:</b> <code>{esc(report.version)}</code>",
+        f"<b>Pod:</b> <code>{esc(report.pod)}</code>",
+        f"<b>Channels:</b> {esc(', '.join(report.channels) or 'none')}",
+    ]
+    if report.kind == "heartbeat":
+        lines.append(f"<b>Uptime:</b> {esc(format_uptime(report.sent_at - report.started_at))}")
+    lines += [f"<b>Providers:</b> {esc(summary_counts(report))}", ""]
+    for line in report.modules:
+        entry = f"{STATUS_ICONS.get(line.status, '⚪')} <b>{esc(line.module_id)}</b> {esc(status_label(line))}"
+        if report.kind == "heartbeat" and line.since is not None:
+            entry += f" <i>since {esc(local_time(line.since, report.zone))}</i>"
+        lines.append(entry)
+        if reason_limit and line.status is not None and line.status.value != "OK" and line.reason:
+            lines.append(f"    <code>{esc(short_reason(line.reason, reason_limit))}</code>")
+    return "\n".join(lines)
 
 
 def _utcnow() -> datetime:

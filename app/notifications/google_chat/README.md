@@ -70,6 +70,13 @@ a thread that does not exist yet is created.
 The component half of that key comes from the provider payload, which is untrusted input, so
 it is slugified before use — the same treatment `cardId` gets.
 
+## 📣 Startup announcement and heartbeat (#124)
+After every module's first check the space gets an "online" card with the version, the pod, the
+channels and each provider's first result; then a "still running" card every day at
+`NOTIFICATION_HEARTBEAT_TIME`. Neither carries a thread key: a report is not an incident, and every
+heartbeat in one old thread would bury today's. Variables in
+[DOCKER.md](../../../DOCKER.md#-startup-announcement-and-heartbeat-124).
+
 ## ⚡ Setup
 1. In the target space: **Apps & integrations → Webhooks → Add webhook**, and copy the URL.
 2. Set `GOOGLE_CHAT_ENABLED=true` and `GOOGLE_CHAT_WEBHOOK_URL=<url>`.
