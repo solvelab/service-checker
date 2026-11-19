@@ -16,4 +16,4 @@
 ## 4. Validação
 - [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 4.2 `openspec validate add-liveness-probe --strict`.
-- [ ] 4.3 Em produção o probe passa, e `kill -STOP` no processo faz o kubelet reiniciar o pod.
+- [x] 4.3 Em produção o probe passa, e `kill -STOP` no processo faz o kubelet reiniciar o pod. Verificado em 2026-11-19 (didevlab/housek8s#526): probe passa; SIGSTOP pelo nó k8s-04 levou o kubelet a reiniciar o container em ~4,5 min.
