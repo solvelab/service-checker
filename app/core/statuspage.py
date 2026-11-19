@@ -120,7 +120,9 @@ def attach_incidents(payload: object, incidents: object) -> None:
     A component name says *where* (`Responses`), the incident title says *what*
     ("Elevated error rates for gpt-6 Luna API requests"). An incident that lists
     components goes on those; one that lists none (incident.io never does) goes on
-    every item. Anything malformed is skipped, never raised.
+    every item. All of them are in `incidents`, as since #142; the ones that list no
+    component are repeated in `page_incidents`, so the card can say it may be about
+    another component (#146). Anything malformed is skipped, never raised.
     """
     if not isinstance(payload, list) or not isinstance(incidents, list):
         return
@@ -142,6 +144,10 @@ def attach_incidents(payload: object, incidents: object) -> None:
             continue
         name = str(item["name"]).lower()
         titles = [title for title, components in open_incidents
-                  if not components or name in components]
+                  if not components or name in components][:INCIDENTS_PER_ITEM]
+        page_wide = [title for title, components in open_incidents if not components]
         if titles:
-            item["incidents"] = titles[:INCIDENTS_PER_ITEM]
+            item["incidents"] = titles
+            shown_wide = [t for t in titles if t in page_wide]
+            if shown_wide:
+                item["page_incidents"] = shown_wide

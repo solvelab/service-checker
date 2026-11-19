@@ -1179,7 +1179,7 @@ class NotificationManager:
                 last_status_text=status_text,
                 # Incident titles describe this check only; a later vanished-path
                 # recovery must not quote them as if still current.
-                last_item={k: v for k, v in item.items() if k != "incidents"},
+                last_item={k: v for k, v in item.items() if k not in _PER_CHECK_KEYS},
                 opened_at=opened_at,
             )
 
@@ -1390,6 +1390,10 @@ def _service_reason(item: dict) -> str:
     if status_text:
         return f"{name}: {status_text} ({status})"
     return f"{name}: {status}"
+
+
+#: Item keys that describe one check only and never belong in the stored alert state.
+_PER_CHECK_KEYS = frozenset({"incidents", "page_incidents"})
 
 
 def _status_text(item: dict) -> str:

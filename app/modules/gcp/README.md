@@ -15,6 +15,11 @@ Monitor incidents published at https://status.cloud.google.com (endpoint `incide
 - Supported strategies: `status` (default), `keyword`, `regex`.
 - Alert/resolution lifecycle is per incident/region, with independent ALERT/RESOLVED.
 - Region filter via `GCP_SERVICE_FILTER` (uses region `id`, e.g., `us-east1`).
+- Each item is named after the affected product and its regions (#146): `service_name`
+  (`Google Cloud Storage (us-central1)`), or, when Google says only "Multiple Products", the first
+  3 distinct `affected_products` then `+N`; capped at 80 characters. The alert line reads
+  `Google Cloud Storage (us-central1): service_disruption`. The alert key stays the incident `id`
+  (then `number`, then `uri`), so the name never re-fires an open alert.
 
 ## 🔧 Environment variables (`GCP_`)
 - `URL` (default `https://status.cloud.google.com/incidents.json`)

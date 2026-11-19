@@ -128,7 +128,7 @@ def test_gcp_bullets_contain_no_python_repr():
 
 def test_gcp_multi_region_incident_lists_regions_readably():
     bullets = _bullets(_gcp_result())
-    assert "us-central1, us-east1: service_outage" in bullets
+    assert "Google Cloud incident (us-central1, us-east1): service_outage" in bullets
 
 
 def test_gcp_reason_no_longer_leaks_repr():

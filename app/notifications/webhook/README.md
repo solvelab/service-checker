@@ -60,7 +60,8 @@ again". The provider may have been perfectly healthy the whole time.
 `started_at` is when the alert opened (kept across restarts); `duration_seconds` runs from it to
 the recovery. An alert already open when #142 was deployed counts from its last notification.
 
-Since #142 an ALERT `payload` item may also carry `incidents` (open status-page incident titles)
+Since #142 an ALERT `payload` item may also carry `incidents` (open status-page incident titles,
+up to 3) and, since #146, `page_incidents` (the subset of those that list no component)
 and, on a repeat whose state moved, `from_status`. On an ALERT, `from_status` is the previous
 state, not a recovery signal: read `status` to tell them apart.
 
