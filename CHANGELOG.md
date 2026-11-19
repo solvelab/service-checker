@@ -1,3 +1,10 @@
+# [2.18.0](https://github.com/solvelab/service-checker/compare/v2.17.0...v2.18.0) (2026-11-19)
+
+
+### Features
+
+* **google-chat:** cartão diz o que quebrou, quando e por quanto tempo ([#143](https://github.com/solvelab/service-checker/issues/143)) ([bfc2829](https://github.com/solvelab/service-checker/commit/bfc28297a5da8e285b18d0e6a43ab7d77e6634f4)), closes [#142](https://github.com/solvelab/service-checker/issues/142)
+
 # [2.17.0](https://github.com/solvelab/service-checker/compare/v2.16.0...v2.17.0) (2026-11-19)
 
 
