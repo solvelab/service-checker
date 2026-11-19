@@ -56,6 +56,9 @@ def _capture(level="INFO"):
 #: Blocos `except` que podem ficar calados, com o motivo de cada um. Uma allowlist sem
 #: motivo escrito vira carimbo, e um carimbo não protege de nada.
 ACCEPTED_SILENT = {
+    # Catálogo de regiões do ElevenLabs (#136): o bloco loga por `_report_lookup`, uma
+    # vez por sequência de falhas, que o detector não enxerga por ser indireto.
+    ("modules/elevenlabs/monitor.py", "except Exception as exc:  # noqa: BLE001"),
     # O comando do probe (#134) não tem logger: o motivo vai para stdout e o código de
     # saída é o sinal, que o kubelet registra no evento do pod.
     ("healthcheck.py", "except OSError as exc:"),

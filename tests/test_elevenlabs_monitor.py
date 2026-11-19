@@ -165,17 +165,15 @@ async def test_a_degraded_component_alerts_even_with_the_indicator_none():
     assert [item["id"] for item in result.payload] == ["component:tts"]
 
 
-async def test_the_filter_applies_to_published_components():
+async def test_published_components_are_not_filtered_by_region():
+    # SERVICE_FILTER names regions since #136; a component is never a region.
     data = _load("summary_healthy.json")
     data["components"] = [
         {"id": "tts", "name": "Text to Speech", "status": "partial_outage"},
-        {"id": "stt", "name": "Speech to Text", "status": "operational"},
     ]
-    assert (await _check(data, service_filter=["speech-to-text"])).status == MonitorStatus.OK
-
-    result = await _check(data, service_filter=["dubbing"])
-    assert result.status == MonitorStatus.ERROR
-    assert result.reason == "no target components matched filter"
+    result = await _check(data)
+    assert result.status == MonitorStatus.ALERT
+    assert [i["id"] for i in result.payload] == ["component:tts"]
 
 
 # ---------------------------------------------------------------------------
@@ -348,3 +346,218 @@ async def test_an_incident_with_id_page_is_not_mistaken_for_the_page_item():
     kinds, _ = await _drive([_page("minor"), _page("minor", ("page", "investigating", "minor"))])
 
     assert kinds == ["alert", "alert"]
+
+
+# ---------------------------------------------------------------------------
+# Regions (#136): the live sub-page catalogue and regional listings of 2026-11-19
+# ---------------------------------------------------------------------------
+
+_CATALOG = _FIXTURES / "proxy_catalog.json"
+_REGIONAL = _FIXTURES / "regional_incidents.json"
+_VOICE_ID = "01M7SND7J0PCKGN45B3FADECJR"
+_VOICE = "Degraded performance of Voice Library voices"
+
+
+def _voice_summary():
+    data = _load("summary_incident.json")
+    data["incidents"].append({"id": _VOICE_ID, "name": _VOICE, "status": "investigating",
+                              "impact": "minor", "updated_at": "2026-11-19T10:25:02Z"})
+    return data
+
+
+def _routing_client(summary, catalog=None, regional=None, fail=None):
+    """Answer by URL like the real host; `fail` maps a URL fragment to an exception."""
+    catalog = catalog if catalog is not None else json.loads(_CATALOG.read_text())
+    regional = regional if regional is not None else json.loads(_REGIONAL.read_text())
+    calls = []
+
+    async def get(url, params=None, **_):
+        slug = (params or {}).get("subpage_slug")
+        calls.append((url, slug))
+        for fragment, exc in (fail or {}).items():
+            if fragment in url or fragment == f"region:{slug}":
+                raise exc
+        if url.endswith("/api/v2/summary.json"):
+            body = summary
+        elif url.endswith("/incidents"):
+            body = regional.get(params["subpage_slug"], {"incidents": []})
+        else:
+            body = catalog
+        resp = MagicMock(spec=httpx.Response)
+        resp.json.return_value = copy.deepcopy(body)
+        resp.raise_for_status.return_value = None
+        return resp
+
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get.side_effect = get
+    return client, calls
+
+
+async def _region_check(summary, logger=None, **kwargs):
+    config = {k: kwargs.pop(k) for k in ("service_filter", "rule_value") if k in kwargs}
+    monitor = ElevenLabsStatusMonitor()
+    monitor.configure(_config(**config))
+    client, calls = _routing_client(summary, **kwargs)
+    result = await monitor.check(client, logger or MagicMock(spec=logging.Logger))
+    return result, calls
+
+
+def _incident(result, incident_id):
+    return next(i for i in result.payload if i["id"] == f"incident:{incident_id}")
+
+
+async def test_each_incident_names_its_regions():
+    result, calls = await _region_check(_voice_summary())
+    assert result.status == MonitorStatus.ALERT
+    voice = _incident(result, _VOICE_ID)
+    assert voice["regions"] == ["EU (Enterprise-only)", "India (Enterprise-only)",
+                                "Singapore (Enterprise-only)"]
+    assert (f"{_VOICE} [EU (Enterprise-only), India (Enterprise-only), "
+            f"Singapore (Enterprise-only)]: investigating") in result.reason_items
+    us = _incident(result, _INCIDENT_ID)
+    assert us["regions"] == ["Global (United States)"]
+    # one item per incident, not one per region
+    assert sum(i["id"] == f"incident:{_VOICE_ID}" for i in result.payload) == 1
+    assert len(calls) == 1 + 1 + 4  # summary, catalogue, four regions
+
+
+async def test_a_healthy_page_costs_no_extra_request():
+    result, calls = await _region_check(_load("summary_healthy.json"))
+    assert result.status == MonitorStatus.OK
+    assert [url for url, _ in calls] == ["https://status.elevenlabs.io/api/v2/summary.json"]
+
+
+async def test_a_filter_leaves_out_an_incident_of_other_regions_and_the_page():
+    result, _ = await _region_check(_voice_summary(), service_filter=["united-states"])
+    assert result.status == MonitorStatus.ALERT
+    assert [i["id"] for i in result.payload] == [f"incident:{_INCIDENT_ID}"]
+
+
+async def test_a_filter_matches_by_name_too_and_ignores_case():
+    result, _ = await _region_check(_voice_summary(), service_filter=["india (ENTERPRISE-ONLY)"])
+    assert [i["id"] for i in result.payload] == [f"incident:{_VOICE_ID}"]
+
+
+async def test_a_filter_with_only_other_regions_affected_is_ok():
+    summary = _load("summary_healthy.json")
+    summary["status"]["indicator"] = "minor"  # the page item would alert without a filter
+    summary["incidents"] = [{"id": _VOICE_ID, "name": _VOICE, "status": "investigating",
+                             "impact": "minor"}]
+    result, _ = await _region_check(summary, service_filter=["united-states"])
+    assert result.status == MonitorStatus.OK
+
+
+async def test_an_unknown_region_in_the_filter_is_an_error():
+    result, _ = await _region_check(_load("summary_healthy.json"), service_filter=["brazil"])
+    assert result.status == MonitorStatus.ERROR
+    assert "brazil" in result.reason and "united-states" in result.reason
+
+
+@pytest.mark.parametrize("fail, catalog", [
+    ({"/proxy/status.elevenlabs.io/incidents": httpx.ConnectError("down")}, None),
+    ({"/proxy/": httpx.HTTPStatusError("503", request=MagicMock(), response=MagicMock())}, None),
+    ({}, {"summary": {}}),  # the catalogue changed shape
+    ({}, {"subpages": [{"name": "no subpath"}]}),
+])
+async def test_a_failed_lookup_alerts_without_region_and_warns(fail, catalog):
+    logger = MagicMock(spec=logging.Logger)
+    result, _ = await _region_check(_voice_summary(), logger=logger, fail=fail, catalog=catalog)
+    assert result.status == MonitorStatus.ALERT
+    voice = _incident(result, _VOICE_ID)
+    assert "regions" not in voice and voice["name"] == _VOICE
+    logger.warning.assert_called_once()
+    assert logger.warning.call_args.kwargs["extra"]["event"] == "region_lookup_failed"
+
+
+async def test_with_a_filter_a_failed_lookup_still_alerts():
+    result, _ = await _region_check(
+        _voice_summary(), service_filter=["united-states"],
+        fail={"/proxy/": httpx.ConnectError("down")},
+    )
+    assert {i["id"] for i in result.payload} == {f"incident:{_INCIDENT_ID}", f"incident:{_VOICE_ID}"}
+
+
+async def test_an_incident_missing_from_every_region_alerts_without_region():
+    summary = _load("summary_healthy.json")
+    summary["incidents"] = [{"id": "NEW", "name": "Brand new", "status": "investigating",
+                             "impact": "minor"}]
+    result, _ = await _region_check(summary, service_filter=["united-states"])
+    assert result.status == MonitorStatus.ALERT
+    assert result.payload[0]["name"] == "Brand new"
+
+
+
+class _Cycles:
+    """One monitor across several checks, each with its own regional answers."""
+
+    def __init__(self, **config):
+        self.monitor = ElevenLabsStatusMonitor()
+        self.monitor.configure(_config(**config))
+        self.logger = MagicMock(spec=logging.Logger)
+
+    async def run(self, summary, **kwargs):
+        client, calls = _routing_client(summary, **kwargs)
+        return await self.monitor.check(client, self.logger)
+
+
+def _ids(result):
+    return [i["id"] for i in (result.payload or [])]
+
+
+async def test_a_flapping_lookup_never_lets_in_an_incident_outside_the_filter():
+    cycles = _Cycles(service_filter=["united-states"])
+    voice = f"incident:{_VOICE_ID}"
+    for fail in ({}, {"region:singapore": httpx.ConnectError("x")}, {"/proxy/": httpx.ConnectError("x")}, {}):
+        result = await cycles.run(_voice_summary(), fail=fail)
+        assert voice not in _ids(result)
+        assert f"incident:{_INCIDENT_ID}" in _ids(result)
+
+
+async def test_an_incident_let_in_before_its_region_was_known_stays_in():
+    # summary.json lists it before any regional listing does: let in (unknown region),
+    # and kept when the listing shows it outside the filter — no false "restored".
+    cycles = _Cycles(service_filter=["united-states"])
+    regional = json.loads(_REGIONAL.read_text())
+    lagging = {slug: {"incidents": [i for i in body["incidents"] if i["id"] != _VOICE_ID]}
+               for slug, body in regional.items()}
+    first = await cycles.run(_voice_summary(), regional=lagging)
+    second = await cycles.run(_voice_summary())
+    voice = f"incident:{_VOICE_ID}"
+    assert voice in _ids(first) and voice in _ids(second)
+    assert "EU (Enterprise-only)" in _incident(second, _VOICE_ID)["name"]
+
+
+async def test_one_failing_region_keeps_the_others_and_regions_stay_known():
+    cycles = _Cycles()
+    partial = await cycles.run(_voice_summary(), fail={"region:singapore": httpx.ConnectError("x")})
+    assert _incident(partial, _VOICE_ID)["regions"] == ["EU (Enterprise-only)", "India (Enterprise-only)"]
+    full = await cycles.run(_voice_summary())
+    down = await cycles.run(_voice_summary(), fail={"/proxy/": httpx.ConnectError("x")})
+    for result in (full, down):
+        assert _incident(result, _VOICE_ID)["regions"] == [
+            "EU (Enterprise-only)", "India (Enterprise-only)", "Singapore (Enterprise-only)"]
+
+
+async def test_a_failing_lookup_is_logged_once_per_streak_and_its_recovery_once():
+    cycles = _Cycles()
+    for _ in range(3):
+        await cycles.run(_voice_summary(), fail={"/proxy/": httpx.ConnectError("x")})
+    await cycles.run(_voice_summary())
+    await cycles.run(_voice_summary())
+    assert cycles.logger.warning.call_count == 1
+    events = [c.kwargs["extra"]["event"] for c in cycles.logger.info.call_args_list]
+    assert events == ["region_lookup_recovered"]
+
+
+async def test_an_incident_below_the_rule_costs_no_regional_request():
+    result, calls = await _region_check(_voice_summary(), rule_value="critical")
+    assert result.status == MonitorStatus.OK
+    assert len(calls) == 1
+
+
+async def test_a_closed_incident_forgets_its_regions_and_decision():
+    cycles = _Cycles(service_filter=["united-states"])
+    await cycles.run(_voice_summary())
+    assert _VOICE_ID in cycles.monitor._decisions
+    await cycles.run(_load("summary_healthy.json"))
+    assert cycles.monitor._decisions == {} and cycles.monitor._known_regions == {}
