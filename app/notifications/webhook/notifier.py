@@ -3,7 +3,7 @@ from datetime import datetime
 
 import httpx
 
-from ...core.types import MonitorResult
+from ...core.types import MonitorResult, StatusReport
 
 
 class WebhookNotifier:
@@ -185,6 +185,52 @@ class WebhookNotifier:
         }
 
         return await self._deliver(payload, headers, module_id, http_client, logger)
+
+    async def send_status_report(
+        self,
+        *,
+        report: StatusReport,
+        http_client: httpx.AsyncClient,
+        logger: logging.Logger,
+        **_ignored,
+    ) -> bool:
+        """Startup announcement or daily heartbeat (#124).
+
+        `event` is `startup` or `heartbeat` and `status` its upper-case form, so a
+        consumer that switches on `status` (ALERT, RESOLVED, MONITOR_*) sees a value it
+        can ignore instead of mistaking the report for an alert.
+        """
+        if not self.config.url:
+            logger.warning(
+                "webhook notifier missing URL; skipping",
+                extra={"event": "notify_skip", "target": "webhook"},
+            )
+            return False
+        headers = {}
+        if self.config.token:
+            headers[self.config.header_name] = self.config.token
+        payload = {
+            "timestamp": report.sent_at.isoformat(),
+            "level": "INFO",
+            "event": report.kind,
+            "status": report.kind.upper(),
+            "version": report.version,
+            "pod": report.pod,
+            "channels": list(report.channels),
+            "started_at": report.started_at.isoformat(),
+            "uptime_seconds": max(int((report.sent_at - report.started_at).total_seconds()), 0),
+            "modules": [
+                {
+                    "module": line.module_id,
+                    "status": line.status.value if line.status is not None else None,
+                    "reason": line.reason,
+                    "checked_at": line.checked_at.isoformat() if line.checked_at else None,
+                    "since": line.since.isoformat() if line.since else None,
+                }
+                for line in report.modules
+            ],
+        }
+        return await self._deliver(payload, headers, None, http_client, logger)
 
     async def _deliver(
         self,

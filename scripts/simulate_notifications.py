@@ -29,6 +29,7 @@ manages to suppress a healthy one.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
@@ -48,6 +49,7 @@ from app.core.config import (  # noqa: E402
     WebhookConfig,
 )
 from app.core.notifications import NotificationManager  # noqa: E402
+from app.core.reports import build_report  # noqa: E402
 from app.core.types import NOTIFIER_METHODS, MonitorResult, MonitorStatus  # noqa: E402
 from app.notifications.alertmanager.notifier import AlertmanagerNotifier  # noqa: E402
 from app.notifications.google_chat.notifier import GoogleChatNotifier  # noqa: E402
@@ -547,6 +549,87 @@ async def _challenge_tolerance_report() -> list[str]:
     return failures
 
 
+async def _status_report_report() -> list[str]:
+    """The startup announcement and the heartbeat reach the human channels only (#124).
+
+    Real manager, real channels, real schedule on a simulated clock: three providers
+    answer (OK, ALERT, ERROR), a fourth never does, the startup timeout passes, and the
+    clock runs to the next heartbeat. Telegram, webhook and Google Chat must each get
+    both reports; Alertmanager none. Then each human channel is pointed at an endpoint
+    that refuses, and must say it did not deliver.
+    """
+    from dataclasses import replace
+
+    from app.core.reports import run_status_reports
+
+    print("\nstatus reports (#124)")
+    config = replace(
+        _notification_config(),
+        startup_timeout_seconds=0.05,
+        heartbeat_minute=9 * 60,
+        heartbeat_timezone="America/Sao_Paulo",
+    )
+    modules = ("oci", "elevenlabs", "bitbucket", "aws")
+    manager = NotificationManager(config, module_ids=modules)
+    manager.observe("oci", _ok(), _T0)
+    manager.observe("elevenlabs", _alert(), _T0)
+    manager.observe("bitbucket", MonitorResult(
+        status=MonitorStatus.ERROR, message="failed",
+        reason="no target components matched filter"), _T0)
+
+    client = CapturingClient()
+    now = [datetime(2026, 11, 19, 11, 30, tzinfo=timezone.utc)]  # 08:30 in Sao Paulo
+
+    class Done(Exception):
+        pass
+
+    async def sleep(seconds):
+        now[0] += timedelta(seconds=seconds)
+        if any("heartbeat" in json.dumps(kw.get("json")) for _, kw in client.posts):
+            raise Done
+
+    try:
+        await run_status_reports(manager, config, modules, client, logging.getLogger("simulate"),
+                                 version="sim", clock=lambda: now[0], sleep=sleep)
+    except Done:
+        pass
+
+    failures = []
+    per_channel: dict[str, int] = {}
+    for url, kwargs in client.posts:
+        name = _channel_of(url)
+        per_channel[name] = per_channel.get(name, 0) + 1
+        print(f"  -> {name:<12} {_describe(kwargs)}")
+    for name, expected in (("telegram", 2), ("webhook", 2), ("google_chat", 2), ("alertmanager", 0)):
+        got = per_channel.get(name, 0)
+        print(f"  {name:<12} {got} report(s)  {'ok' if got == expected else f'EXPECTED {expected}'}")
+        if got != expected:
+            failures.append(f"{name} got {got} status reports, expected {expected}")
+
+    telegram_text = next(kw["json"]["text"] for url, kw in client.posts
+                         if _channel_of(url) == "telegram")
+    print("\n  startup message as Telegram renders it:")
+    for line in telegram_text.splitlines():
+        print(f"    | {line}")
+    for needle in ("no target components matched filter", "<b>aws</b> no result yet"):
+        if needle not in telegram_text:
+            failures.append(f"startup report misses {needle!r}")
+
+    print("\n  each human channel against an endpoint that answers 500:")
+    report = build_report(manager, "startup", modules, _T0, "sim", _T0)
+    for name, channel in (
+        ("telegram", TelegramNotifier(config.telegram)),
+        ("webhook", WebhookNotifier(config.webhook)),
+        ("google_chat", GoogleChatNotifier(config.google_chat)),
+    ):
+        delivered = await channel.send_status_report(
+            report=report, http_client=RejectingClient(), logger=logging.getLogger("simulate"))
+        print(f"    {name:<14} {'reported not delivered' if delivered is False else f'SAID {delivered!r}'}")
+        if delivered is not False:
+            failures.append(f"{name} did not report a refused status report")
+    return failures
+
+
 async def main() -> int:
     logging.disable(logging.CRITICAL)
 
@@ -652,6 +735,7 @@ async def main() -> int:
     failures.extend(await _daily_summary_report(timeline))
     failures.extend(await _connectivity_loss_report())
     failures.extend(await _challenge_tolerance_report())
+    failures.extend(await _status_report_report())
 
     if failures:
         print(f"\n{len(failures)} FAILURE(S):")

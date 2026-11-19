@@ -91,12 +91,17 @@ a provider that flaps does not page on every flap.
 | Channel | Notes |
 |---|---|
 | [Telegram](app/notifications/telegram/README.md) | HTML cards for chats or groups |
-| [Webhook](app/notifications/webhook/README.md) | JSON POST; `status` is an **open set** — `ALERT`, `RESOLVED`, `MONITOR_ERROR`, `MONITOR_RECOVERED` |
+| [Webhook](app/notifications/webhook/README.md) | JSON POST; `status` is an **open set** — `ALERT`, `RESOLVED`, `MONITOR_ERROR`, `MONITOR_RECOVERED`, `STARTUP`, `HEARTBEAT` |
 | [Google Chat](app/notifications/google_chat/README.md) | `cardsV2` messages; the webhook URL is a credential |
 | [Alertmanager](app/notifications/alertmanager/README.md) | `POST /api/v2/alerts`, so incidents reuse your existing silences and routes |
 
 All four are off by default. A channel that fails is logged and skipped — it cannot stop the
 others from receiving the same event.
+
+Telegram, webhook and Google Chat also get two **status reports**: an "online" message after the
+first round of checks, with each provider's first result, and a daily heartbeat. A heartbeat that
+does not arrive means the checker is down. Details and variables in
+[DOCKER.md](DOCKER.md#-startup-announcement-and-heartbeat-124).
 
 ## 🚀 Quick start
 1. Copy `.env.example` to `.env` and customize filters/tokens.

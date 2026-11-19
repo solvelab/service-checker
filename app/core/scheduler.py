@@ -106,5 +106,15 @@ async def _run_monitor_loop(
                     "interval_seconds": config.interval_seconds,
                 },
             )
+            if notifier is not None:
+                # A module whose check raises still answered: the startup report shows
+                # it in ERROR with the reason, instead of "no result" (#124).
+                notifier.observe(
+                    config.slug,
+                    MonitorResult(
+                        status=MonitorStatus.ERROR, message="monitor loop error", reason=str(exc)
+                    ),
+                    datetime.now(timezone.utc),
+                )
 
         await asyncio.sleep(max(config.interval_seconds, 1))

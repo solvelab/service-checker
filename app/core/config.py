@@ -139,6 +139,14 @@ class NotificationConfig:
     # A streak made only of anti-bot challenges is announced only once it lasts this
     # long (#112); 0 announces it at the threshold like any other failure.
     challenge_tolerance_minutes: int = 60
+    # Status reports to the human channels (#124). The startup announcement waits for
+    # every module's first result, but never longer than the timeout.
+    startup_announce: bool = True
+    startup_timeout_seconds: int = 120
+    # Daily heartbeat, as minutes of the day in `heartbeat_timezone`; None is off.
+    # Off by default here so a hand-built config (the tests) never schedules one.
+    heartbeat_minute: Optional[int] = None
+    heartbeat_timezone: str = "America/Sao_Paulo"
 
 
 def load_app_config() -> AppConfig:
@@ -359,6 +367,13 @@ def _load_notification_config() -> NotificationConfig:
             f"{connectivity_tolerance_minutes!r} is negative; using the default 10"
         )
         connectivity_tolerance_minutes = 10
+    startup_timeout_seconds = _get_int("NOTIFICATION_STARTUP_TIMEOUT_SECONDS", 120)
+    if startup_timeout_seconds < 1:
+        _warn_config(
+            "NOTIFICATION_STARTUP_TIMEOUT_SECONDS="
+            f"{startup_timeout_seconds!r} is below 1; using the default 120"
+        )
+        startup_timeout_seconds = 120
     challenge_tolerance_minutes = _get_int("NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES", 60)
     if challenge_tolerance_minutes < 0:
         _warn_config(
@@ -379,6 +394,10 @@ def _load_notification_config() -> NotificationConfig:
         connectivity_windows=_get_time_windows("NOTIFICATION_CONNECTIVITY_WINDOWS"),
         connectivity_timezone=_get_timezone("NOTIFICATION_CONNECTIVITY_TIMEZONE"),
         challenge_tolerance_minutes=challenge_tolerance_minutes,
+        startup_announce=_get_bool("NOTIFICATION_STARTUP_ANNOUNCE", True),
+        startup_timeout_seconds=startup_timeout_seconds,
+        heartbeat_minute=_get_heartbeat_minute(),
+        heartbeat_timezone=_get_timezone("NOTIFICATION_HEARTBEAT_TIMEZONE"),
         google_chat=google_chat,
         alertmanager=alertmanager,
     )
@@ -414,6 +433,28 @@ def _get_timezone(env_name: str, default: str = "America/Sao_Paulo") -> str:
         )
         return default
     return raw
+
+
+def _get_heartbeat_minute() -> Optional[int]:
+    """`NOTIFICATION_HEARTBEAT_TIME` as minutes of the day (#124).
+
+    Unset means the default 09:00; set and empty means the heartbeat is off. A value
+    that is not `HH:MM` falls back to the default loudly: switching the heartbeat off
+    because of a typo would silence the one signal that says the checker is alive.
+    """
+    raw = os.getenv("NOTIFICATION_HEARTBEAT_TIME")
+    if raw is None:
+        return _HEARTBEAT_DEFAULT_MINUTE
+    if not raw.strip():
+        return None
+    try:
+        return _parse_clock(raw)
+    except ValueError:
+        _warn_config(f"NOTIFICATION_HEARTBEAT_TIME={raw!r} is not HH:MM; using 09:00")
+        return _HEARTBEAT_DEFAULT_MINUTE
+
+
+_HEARTBEAT_DEFAULT_MINUTE = 9 * 60
 
 
 def _parse_clock(text: str) -> int:

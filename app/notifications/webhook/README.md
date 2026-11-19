@@ -100,6 +100,29 @@ Emitted when the module evaluates successfully again — but only if the corresp
 
 `check_id` identifica de forma unica o componente recuperado (ex: `openai:api`, `steam:csgo`). Para recuperacoes no nivel do modulo (sem componentes), `check_id` e igual ao `module`.
 
+### STARTUP and HEARTBEAT (#124)
+The startup announcement, after every module's first check, and the daily heartbeat. `status`
+is `STARTUP` or `HEARTBEAT`; a consumer that only handles alerts can ignore them. `modules[].status`
+is `null` for a module that had not answered when the announcement went out.
+
+```json
+{
+  "timestamp": "<iso8601>",
+  "level": "INFO",
+  "event": "startup",
+  "status": "STARTUP",
+  "version": "<semver>",
+  "pod": "<hostname>",
+  "channels": ["webhook", "google_chat"],
+  "started_at": "<iso8601>",
+  "uptime_seconds": "<int>",
+  "modules": [
+    {"module": "oci", "status": "OK", "reason": null, "checked_at": "<iso8601>", "since": "<iso8601>"},
+    {"module": "bitbucket", "status": "ERROR", "reason": "no target components matched filter", "checked_at": "<iso8601>", "since": "<iso8601>"}
+  ]
+}
+```
+
 ## ⚙️ Usage example
 1. Enable the channel: `WEBHOOK_ENABLED=true`.
 2. Point `WEBHOOK_URL` to your endpoint and, if needed, set:

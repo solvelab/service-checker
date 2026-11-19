@@ -6,6 +6,7 @@ from .core.http_client import create_http_client
 from .core.loader import load_monitors
 from .core.logging import configure_logging
 from .core.notifications import NotificationManager
+from .core.reports import run_status_reports
 from .core.scheduler import schedule_monitors
 
 
@@ -43,6 +44,19 @@ async def run_monitor_service() -> None:
             "challenge": {
                 "tolerance_minutes": config.notifications.challenge_tolerance_minutes,
             },
+            # Status report settings as read (#124): a heartbeat time that fell back to
+            # the default after a typo is visible here, like the connectivity windows.
+            "reports": {
+                "startup_announce": config.notifications.startup_announce,
+                "startup_timeout_seconds": config.notifications.startup_timeout_seconds,
+                "heartbeat_time": (
+                    None
+                    if config.notifications.heartbeat_minute is None
+                    else f"{config.notifications.heartbeat_minute // 60:02d}:"
+                    f"{config.notifications.heartbeat_minute % 60:02d}"
+                ),
+                "heartbeat_timezone": config.notifications.heartbeat_timezone,
+            },
         },
     )
 
@@ -63,7 +77,40 @@ async def run_monitor_service() -> None:
         timeout_seconds=config.defaults.timeout_seconds,
         user_agent=config.defaults.user_agent,
     ) as http_client:
-        await schedule_monitors(monitors, http_client, logger, notifier)
+        reports = asyncio.create_task(
+            _guard_reports(
+                run_status_reports(
+                    notifier,
+                    config.notifications,
+                    [module_config.slug for _, module_config in monitors],
+                    http_client,
+                    logger,
+                    version=__version__,
+                ),
+                logger,
+            )
+        )
+        try:
+            await schedule_monitors(monitors, http_client, logger, notifier)
+        finally:
+            reports.cancel()
+
+
+async def _guard_reports(reports, logger) -> None:
+    """A bug in the status reports must be loud, and must never stop the monitoring.
+
+    A task that dies with an exception nobody awaits vanishes without a line; the
+    heartbeat would then stop as silently as the dead pod it exists to reveal.
+    """
+    try:
+        await reports
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "status reports stopped",
+            extra={"event": "status_report_failed", "reason": f"{type(exc).__name__}: {exc}"},
+        )
 
 
 def main() -> None:

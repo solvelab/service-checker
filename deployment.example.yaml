@@ -311,3 +311,13 @@ spec:
               value: "America/Sao_Paulo"
             - name: NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES
               value: "60"
+            # Startup announcement and daily heartbeat (#124), to Telegram, webhook and
+            # Google Chat. HEARTBEAT_TIME empty switches the heartbeat off.
+            - name: NOTIFICATION_STARTUP_ANNOUNCE
+              value: "true"
+            - name: NOTIFICATION_STARTUP_TIMEOUT_SECONDS
+              value: "120"
+            - name: NOTIFICATION_HEARTBEAT_TIME
+              value: "09:00"
+            - name: NOTIFICATION_HEARTBEAT_TIMEZONE
+              value: "America/Sao_Paulo"

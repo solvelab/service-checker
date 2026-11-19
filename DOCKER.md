@@ -71,6 +71,15 @@ These apply across modules:
 - `NOTIFICATION_CONNECTIVITY_TIMEZONE` (default `America/Sao_Paulo`): IANA zone the windows are read in.
 - `NOTIFICATION_CHALLENGE_TOLERANCE_MINUTES` (default `60`): a failure streak made only of the source's anti-bot challenge (`UpstreamChallenged`, steam and rockstar) is announced only once it lasts this long; a shorter one only logs `monitor_challenge_absorbed`. Any other error in the streak pages at the plain threshold, and a failure already announced keeps repeating. `0` pages a challenge at the threshold. Negative or not a whole number warns and uses the default.
 
+### 📣 Startup announcement and heartbeat (#124)
+Silence on a channel used to mean either "every provider is healthy" or "the checker is down". These two messages tell them apart. They go to Telegram, webhook and Google Chat; Alertmanager never gets them.
+- `NOTIFICATION_STARTUP_ANNOUNCE` (default `true`): once every loaded module delivered its first result, each channel gets one "online" message with the version, the pod, the channels and each provider's first result (`OK`, `ALERT`, `ERROR` with its reason). A wrong `*_SERVICE_FILTER` shows up here as `ERROR`, not after the failure threshold.
+- `NOTIFICATION_STARTUP_TIMEOUT_SECONDS` (default `120`): the announcement does not wait longer than this; a module that has not answered shows as `no result yet`, and `status_report_partial` names it in the log.
+- `NOTIFICATION_HEARTBEAT_TIME` (default `09:00`, `HH:MM`): a daily "still running" message with the uptime and each provider's last result. Empty switches it off; a value that is not `HH:MM` warns and uses `09:00`. The first one is the next occurrence after startup — the announcement covers the current day — so a restart never repeats the day's heartbeat.
+- `NOTIFICATION_HEARTBEAT_TIMEZONE` (default `America/Sao_Paulo`): IANA zone of the heartbeat time and of the times shown in the reports.
+
+A report no channel accepted is tried again, up to 3 attempts 60 s apart; the log carries `startup_announced` / `heartbeat_sent`, or `status_report_failed` when it gave up. On Telegram the report is always a new message, also in `daily_summary` mode: an edit of the summary does not ring the phone.
+
 ## 🔧 Module configuration
 Each module supports the same environment shape:
 - `<MODULE>_URL`
