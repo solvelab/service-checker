@@ -17,4 +17,4 @@
 ## 4. Validação
 - [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 4.2 `openspec validate update-elevenlabs-regions --strict`.
-- [ ] 4.3 Em produção, o módulo segue `OK` sem requisição extra quando não há incidente.
+- [x] 4.3 Em produção, o módulo segue `OK` sem requisição extra quando não há incidente. Verificado em 2026-11-19 (didevlab/housek8s#528): `elevenlabs` OK e nenhum `region_lookup_*` no log da v2.17.0.
