@@ -46,6 +46,7 @@ class WebhookNotifier:
             "reason": result.reason,
             "payload": result.payload,
             "interval_seconds": interval_seconds,
+            "started_at": result.started_at.isoformat() if result.started_at else None,
         }
 
         return await self._deliver(payload, headers, module_id, http_client, logger)
@@ -94,6 +95,11 @@ class WebhookNotifier:
             "reason": result.reason,
             "payload": result.payload,
             "interval_seconds": interval_seconds,
+            "started_at": result.started_at.isoformat() if result.started_at else None,
+            "duration_seconds": (
+                max(round((event_time - result.started_at).total_seconds()), 0)
+                if result.started_at else None
+            ),
         }
 
         return await self._deliver(payload, headers, module_id, http_client, logger)

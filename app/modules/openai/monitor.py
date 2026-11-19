@@ -11,7 +11,7 @@ from ...core.types import MonitorResult, MonitorStatus
 # Parsing compartilhado: cinco modulos liam o mesmo documento com copias
 # byte-identicas, e foi a duplicacao que fez o mesmo defeito precisar ser
 # corrigido cinco vezes. Ver `app/core/statuspage.py`.
-from ...core.statuspage import extract_components
+from ...core.statuspage import attach_open_incidents, extract_components
 
 
 class OpenAIStatusMonitor:
@@ -60,6 +60,7 @@ class OpenAIStatusMonitor:
             )
 
         if rule_status == MonitorStatus.ALERT:
+            await attach_open_incidents(payload, http_client, self.config, logger)
             return MonitorResult(
                 status=MonitorStatus.ALERT,
                 message="openai status degraded",

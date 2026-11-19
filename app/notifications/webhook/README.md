@@ -35,7 +35,8 @@ again". The provider may have been perfectly healthy the whole time.
   "message": "<result.message>",
   "reason": "<result.reason>",
   "payload": "<result.payload>",
-  "interval_seconds": "<int>"
+  "interval_seconds": "<int>",
+  "started_at": "<iso8601 | null>"
 }
 ```
 
@@ -51,9 +52,17 @@ again". The provider may have been perfectly healthy the whole time.
   "message": "<result.message>",
   "reason": "<result.reason>",
   "payload": "<result.payload>",
-  "interval_seconds": "<int>"
+  "interval_seconds": "<int>",
+  "started_at": "<iso8601 | null>",
+  "duration_seconds": "<int | null>"
 }
 ```
+`started_at` is when the alert opened (kept across restarts); `duration_seconds` runs from it to
+the recovery. An alert already open when #142 was deployed counts from its last notification.
+
+Since #142 an ALERT `payload` item may also carry `incidents` (open status-page incident titles)
+and, on a repeat whose state moved, `from_status`. On an ALERT, `from_status` is the previous
+state, not a recovery signal: read `status` to tell them apart.
 
 ### MONITOR_ERROR
 Emitted after `NOTIFICATION_ERROR_THRESHOLD` consecutive failed checks (default `3`), then repeated

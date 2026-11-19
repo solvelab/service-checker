@@ -109,10 +109,10 @@ def _widget_texts(client):
 @pytest.mark.parametrize(
     "method,expected_title",
     [
-        ("send_alert", "🚨 Service alert"),
-        ("send_recovery", "✅ Service recovered"),
-        ("send_monitor_error", "🛑 Monitoring failure"),
-        ("send_monitor_recovered", "🔄 Monitoring restored"),
+        ("send_alert", "🚨 Rockstar — Service alert"),
+        ("send_recovery", "✅ Rockstar — Recovered"),
+        ("send_monitor_error", "🛑 Rockstar — Monitoring failure"),
+        ("send_monitor_recovered", "🔄 Rockstar — Monitoring restored"),
     ],
 )
 def test_each_event_has_its_own_header(method, expected_title):
@@ -136,9 +136,9 @@ def test_monitoring_failure_says_it_is_about_the_checker():
     assert "may be fine" in subtitle
 
 
-def test_the_module_is_named_in_the_card():
+def test_the_provider_is_named_in_the_title():
     client, _ = _send(GoogleChatNotifier(_config()))
-    assert "rockstar" in _widget_texts(client)
+    assert "Rockstar" in _card(client)["header"]["title"]
 
 
 # ---------------------------------------------------------------------------
@@ -203,9 +203,10 @@ def test_a_script_tag_cannot_survive_into_the_card():
     assert "<script>" not in json.dumps(_body(client))
 
 
-def test_the_module_name_is_escaped_in_display_text():
-    client, _ = _send(GoogleChatNotifier(_config()), module_id="<b>evil</b>")
-    assert "&lt;b&gt;evil&lt;/b&gt;" in _widget_texts(client)
+def test_the_header_title_is_plain_text_not_html():
+    """The header is not an HTML field: escaping would show `&amp;` to the reader."""
+    client, _ = _send(GoogleChatNotifier(_config()), module_id="Files & Uploads")
+    assert "Files & Uploads" in _card(client)["header"]["title"]
 
 
 def test_markup_never_reaches_the_card_id_or_the_thread_key():
@@ -451,7 +452,7 @@ async def test_the_channel_receives_an_event_through_the_manager():
         logger=MagicMock(spec=logging.Logger),
     )
     assert client.post.call_count == 1
-    assert _card(client)["header"]["title"] == "🚨 Service alert"
+    assert _card(client)["header"]["title"] == "🚨 Rockstar — Service alert"
 
 
 # ---------------------------------------------------------------------------

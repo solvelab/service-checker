@@ -21,9 +21,10 @@ import html
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -54,6 +55,17 @@ _HEADERS = {
 }
 
 _REPLY_OPTION = "REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD"
+
+# How each module's provider reads in a card title (#142); an unknown slug is shown
+# as is rather than guessed.
+PROVIDER_NAMES = {
+    "aws": "AWS", "bitbucket": "Bitbucket", "claude": "Claude", "cloudflare": "Cloudflare",
+    "elevenlabs": "ElevenLabs", "gcp": "Google Cloud", "github": "GitHub", "oci": "OCI",
+    "openai": "OpenAI", "retell": "Retell AI", "rockstar": "Rockstar", "steam": "Steam",
+}
+_KIND_STATE = {"recovery": "Recovered"}
+#: A repeat says "ongoing for"; a first alert just says when it started.
+_ONGOING_AFTER = timedelta(minutes=1)
 
 
 class GoogleChatNotifier:
@@ -204,46 +216,62 @@ class GoogleChatNotifier:
         event_time: datetime,
         interval_seconds: int,
     ) -> Dict[str, Any]:
-        title, subtitle = _HEADERS[kind]
-        widgets: List[Dict[str, Any]] = [
-            {
-                "decoratedText": {
-                    "topLabel": "Module",
-                    "text": _esc(module_id),
-                }
-            }
-        ]
+        """One card per event (#142): what broke in the title, when in local time,
+        for how long on a repeat, how long it lasted on a recovery."""
+        heading, subtitle = _HEADERS[kind]
+        item = _first_item(result)
+        zone = getattr(self.config, "timezone", "UTC") or "UTC"
 
-        for item in _items(result):
-            widgets.append({"textParagraph": {"text": f"• {_esc(item)}"}})
+        title = f"{heading.split(' ', 1)[0]} {PROVIDER_NAMES.get(module_id, module_id)}"
+        if item and item.get("name"):
+            title += f" · {item['name']}"
+        # Monitoring events, and an alert with no single component, name the event.
+        state = _KIND_STATE.get(kind) or (
+            "" if kind.startswith("monitor") else _state_label(item)
+        ) or heading.split(" ", 1)[1]
+        if state:
+            title += f" — {state}"
 
-        if result.message:
-            widgets.append(
-                {"decoratedText": {"topLabel": "Message", "text": _esc(result.message)}}
-            )
-        widgets.append(
-            {
-                "decoratedText": {
-                    "topLabel": "When",
-                    "text": _esc(event_time.isoformat()),
-                }
-            }
-        )
-        widgets.append(
-            {
-                "decoratedText": {
-                    "topLabel": "Check interval",
-                    "text": f"{interval_seconds}s",
-                }
-            }
-        )
+        widgets: List[Dict[str, Any]] = []
+        incidents = [str(i) for i in (item or {}).get("incidents") or [] if i]
+        for incident in incidents:
+            widgets.append({"decoratedText": {"topLabel": "Status page incident",
+                                              "text": _esc(incident), "wrapText": True}})
+        # The monitor's own lines: region, summary, status text — what the title cannot hold.
+        for line in _items(result):
+            widgets.append({"textParagraph": {"text": f"• {_esc(line)}"}})
+        if item and item.get("from_status") and kind == "alert":
+            widgets.append({"decoratedText": {"topLabel": "State changed", "text": _esc(
+                f"{_human(item['from_status'])} → {_human(_raw_state(item))}")}})
+
+        started = result.started_at
+        if started is not None and started > event_time:
+            started = None  # clock stepped back: no duration beats a negative one
+        if kind == "recovery" and started is not None:
+            widgets.append({"decoratedText": {"topLabel": "Lasted", "text": _esc(
+                f"{format_uptime(event_time - started)} "
+                f"({_clock(started, zone)} → {_clock(event_time, zone)})")}})
+        elif kind == "alert" and started is not None and event_time - started >= _ONGOING_AFTER:
+            widgets.append({"decoratedText": {"topLabel": "Ongoing", "text": _esc(
+                f"for {format_uptime(event_time - started)} (since {_clock(started, zone)})")}})
+        widgets.append({"decoratedText": {"topLabel": "When",
+                                          "text": _esc(_stamp(event_time, zone))}})
+        if result.page_url:
+            host = urlsplit(result.page_url).netloc or result.page_url
+            widgets.append({"textParagraph": {
+                # quote=True: inside an attribute a bare `"` would end the href.
+                "text": f'<a href="{html.escape(result.page_url, quote=True)}">{_esc(host)}</a>'
+                        f" · checked every {interval_seconds}s"}})
 
         message: Dict[str, Any] = {
             "cardsV2": [
                 {
                     "cardId": f"service-checker-{_slug(module_id)}-{kind}",
                     "card": {
-                        "header": {"title": title, "subtitle": _esc(subtitle)},
+                        # Only the angle brackets: a tag never reaches the card, and a real
+                        # "Files & Uploads" reads the same whether the header renders HTML or not.
+                        "header": {"title": title.replace("<", "&lt;").replace(">", "&gt;"),
+                                   "subtitle": _esc(subtitle)},
                         "sections": [{"widgets": widgets}],
                     },
                 }
@@ -253,6 +281,49 @@ class GoogleChatNotifier:
         if self.config.thread_by_check:
             message["thread"] = {"threadKey": _thread_key(module_id, result)}
         return message
+
+
+def _first_item(result: MonitorResult) -> Optional[Dict[str, Any]]:
+    payload = result.payload
+    if isinstance(payload, list) and len(payload) == 1 and isinstance(payload[0], dict):
+        return payload[0]
+    return None
+
+
+def _raw_state(item: Optional[Dict[str, Any]]) -> str:
+    if not item:
+        return ""
+    return str(item.get("status") or item.get("severity") or item.get("status_text") or "")
+
+
+def _human(state: str) -> str:
+    """`partial_outage` -> `Partial outage`; free text is left as written."""
+    text = str(state).strip()
+    if text and " " not in text:
+        return text.replace("_", " ").capitalize()
+    return text
+
+
+def _state_label(item: Optional[Dict[str, Any]]) -> str:
+    """The provider's own words when it gives them; a bare code (AWS `3`) says nothing."""
+    if item and item.get("status_text"):
+        return str(item["status_text"]).strip()
+    state = _raw_state(item)
+    return "" if state.strip().isdigit() else _human(state)
+
+
+def _clock(at: datetime, zone: str) -> str:
+    return local_time(at, zone, "%H:%M")
+
+
+def _stamp(at: datetime, zone: str) -> str:
+    """`19/11 13:01 (UTC-3)`: local, no microseconds, the offset spelled out."""
+    local = at.astimezone(ZoneInfo(zone))
+    seconds = int((local.utcoffset() or timedelta(0)).total_seconds())
+    hours, minutes = divmod(abs(seconds) // 60, 60)  # on the magnitude: -3:30 stays -3:30
+    sign = "+" if seconds >= 0 else "-"
+    label = f"UTC{sign}{hours}" + (f":{minutes:02d}" if minutes else "") if seconds else "UTC"
+    return f"{local:%d/%m %H:%M} ({label})"
 
 
 def _build_report_message(report: StatusReport) -> Dict[str, Any]:

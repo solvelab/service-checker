@@ -161,11 +161,15 @@ class StateStore:
                 dropped += 1
                 continue
             item = raw.get("last_item")
+            # Optional (#142): a document from before it has none, and a bad one only
+            # loses the start, never the pending alert.
+            opened = _parse_dt(raw.get("opened_at"), lambda _reason: None)
             alerts[key] = AlertState(
                 last_status=MonitorStatus.ALERT,
                 last_alert_at=when,
                 last_status_text=raw.get("last_status_text") or None,
                 last_item=item if isinstance(item, dict) else None,
+                opened_at=opened if opened is not None and opened <= when else None,
             )
 
         errors: dict = {}
@@ -230,6 +234,7 @@ class StateStore:
                     "last_alert_at": state.last_alert_at.isoformat(),
                     "last_status_text": state.last_status_text,
                     "last_item": state.last_item,
+                    "opened_at": state.opened_at.isoformat() if state.opened_at else None,
                 }
                 # Only pending alerts. An OK entry is transient bookkeeping, and
                 # persisting it would resurrect keys the state machine just dropped.

@@ -20,7 +20,7 @@ from ...core.types import MonitorResult, MonitorStatus
 # Parsing compartilhado: cinco modulos liam o mesmo documento com copias
 # byte-identicas, e foi a duplicacao que fez o mesmo defeito precisar ser
 # corrigido cinco vezes. Ver `app/core/statuspage.py`.
-from ...core.statuspage import extract_components
+from ...core.statuspage import attach_incidents, extract_components
 
 _INCIDENTS_PATH = "/api/v2/incidents/unresolved.json"
 _MAINTENANCES_PATH = "/api/v2/scheduled-maintenances/active.json"
@@ -76,7 +76,7 @@ class RetellStatusMonitor:
 
         if rule_status == MonitorStatus.ALERT:
             enriched_reason, enriched_items = await self._enrich_reason(
-                rule_reason, reason_items, http_client, logger
+                rule_reason, reason_items, http_client, logger, payload=payload
             )
             return MonitorResult(
                 status=MonitorStatus.ALERT,
@@ -171,6 +171,7 @@ class RetellStatusMonitor:
         base_items: Optional[List[str]],
         http_client: httpx.AsyncClient,
         logger: logging.Logger,
+        payload: object = None,
     ) -> tuple[Optional[str], Optional[List[str]]]:
         """Fetch incidents and maintenances to enrich the alert reason.
 
@@ -188,6 +189,8 @@ class RetellStatusMonitor:
         incidents = await self._fetch_extra(
             http_client, f"{base_url}{_INCIDENTS_PATH}", logger
         )
+        # The same fetch puts each incident on the component it concerns (#142).
+        attach_incidents(payload, incidents.get("incidents") if isinstance(incidents, dict) else None)
         for inc in _records(incidents, "incidents"):
             name = inc.get("name") or "unknown"
             status = inc.get("status") or "unknown"

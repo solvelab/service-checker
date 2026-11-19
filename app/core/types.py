@@ -32,6 +32,12 @@ class MonitorResult:
     # operator's policy rather than a fault of the provider; the manager tolerates a
     # streak made only of these for longer (#112).
     challenged: bool = False
+    # When the alert this event belongs to first went out (#142), set by the manager on
+    # alert, repeat and recovery so a channel can say "ongoing for 17 min" and "lasted
+    # 57 min". None outside an alert's lifecycle.
+    started_at: Optional[datetime] = None
+    # The provider's status page (scheme and host of the module URL), for a link.
+    page_url: Optional[str] = None
 
 
 
