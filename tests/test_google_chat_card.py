@@ -76,6 +76,15 @@ def _fields(card):
     return out
 
 
+@pytest.fixture(autouse=True)
+def _forget_404s():
+    """The 404 memo is process-wide: no test may inherit another's."""
+    from app.core import statuspage
+    statuspage._NO_UNRESOLVED.clear()
+    yield
+    statuspage._NO_UNRESOLVED.clear()
+
+
 # -- the card ---------------------------------------------------------------------------
 
 
@@ -184,9 +193,9 @@ def _manager(path=None):
     return manager, spy
 
 
-async def _feed(manager, status, payload, minute):
+async def _feed(manager, status, payload, minute, module_id="openai"):
     await manager.handle_result(
-        module_id="openai",
+        module_id=module_id,
         result=MonitorResult(status, "m", "degraded" if status == MonitorStatus.ALERT else None,
                              10.0, payload),
         module_config=ModuleConfig("openai", "https://status.openai.com/api/v2/summary.json", 60,
@@ -290,17 +299,18 @@ def test_an_incident_goes_only_on_the_components_it_lists():
     assert "incidents" not in payload[0] and payload[1]["incidents"] == ["A"]
 
 
-def test_an_incident_without_components_goes_on_every_item():
+def test_an_incident_without_components_goes_on_every_item_as_page_wide():
     payload = [{"name": "Responses"}, {"name": "Codex"}]
     attach_incidents(payload, [{"name": _LUNA, "status": "investigating", "components": []}])
     assert payload[0]["incidents"] == payload[1]["incidents"] == [_LUNA]
+    assert payload[0]["page_incidents"] == payload[1]["page_incidents"] == [_LUNA]
 
 
 def test_closed_and_malformed_incidents_are_skipped_and_capped():
     payload = [{"name": "Responses"}]
     attach_incidents(payload, [{"name": "old", "status": "resolved"}, "junk", {"status": "x"}]
                      + [{"name": f"n{i}", "status": "identified"} for i in range(5)])
-    assert payload[0]["incidents"] == ["n0", "n1", "n2"]
+    assert payload[0]["incidents"] == payload[0]["page_incidents"] == ["n0", "n1", "n2"]
 
 
 def _http(*responses):
@@ -324,7 +334,7 @@ async def test_a_404_on_unresolved_falls_back_to_the_full_list():
     client = _http(_response(404), _response(200, {"incidents": [
         {"name": _LUNA, "status": "investigating"}, {"name": "old", "status": "resolved"}]}))
     await attach_open_incidents(payload, client, _CFG, MagicMock(spec=logging.Logger))
-    assert payload[0]["incidents"] == [_LUNA]
+    assert payload[0]["incidents"] == payload[0]["page_incidents"] == [_LUNA]
     urls = [c.args[0] for c in client.get.call_args_list]
     assert urls == ["https://status.openai.com/api/v2/incidents/unresolved.json",
                     "https://status.openai.com/api/v2/incidents.json"]
@@ -395,7 +405,7 @@ def test_a_non_list_components_field_never_raises():
     payload = [{"name": "Responses"}]
     attach_incidents(payload, [{"name": "X", "status": "investigating", "components": 5},
                                {"name": "Y", "status": "investigating", "components": "api"}])
-    assert payload[0]["incidents"] == ["X", "Y"]
+    assert payload[0]["incidents"] == payload[0]["page_incidents"] == ["X", "Y"]
 
 
 @pytest.mark.asyncio

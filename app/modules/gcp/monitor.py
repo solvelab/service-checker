@@ -146,11 +146,17 @@ class GcpStatusMonitor:
             if not matched_locations:
                 continue
 
+            regions = [loc.get("id") or loc.get("title") for loc in matched_locations]
             active_incidents.append(
                 {
-                    "id": incident.get("id"),
+                    # `number` and `uri` are as stable as `id`: an id-less incident keeps a
+                    # key of its own instead of sharing its product name with another.
+                    "id": incident.get("id") or incident.get("number") or incident.get("uri"),
+                    # The region goes in the name: the manager rebuilds the alert line from
+                    # it, and two incidents of one product must read differently (#146).
+                    "name": f"{_product_name(incident)} ({', '.join(str(r) for r in regions)})",
                     "status": status_impact or incident.get("most_recent_update", {}).get("status", ""),
-                    "regions": [loc.get("id") or loc.get("title") for loc in matched_locations],
+                    "regions": regions,
                     "most_recent_update": incident.get("most_recent_update"),
                 }
             )
@@ -158,13 +164,41 @@ class GcpStatusMonitor:
         if active_incidents:
             # `regions` is a list: interpolating it directly leaked a Python repr
             # (`['us-central1', 'us-east1']: service_outage`) straight into the alert.
-            items = [
-                f"{', '.join(str(r) for r in inc['regions'])}: {inc['status'] or 'unknown'}"
-                for inc in active_incidents
-            ]
+            items = [f"{inc['name']}: {inc['status'] or 'unknown'}" for inc in active_incidents]
             return MonitorStatus.ALERT, "; ".join(items), active_incidents, items
 
         return MonitorStatus.OK, None, [], None
+
+
+#: Products named before "+N": a title is not a list (#146).
+PRODUCTS_SHOWN = 3
+#: A title, not a paragraph: Google has no limit on `service_name`.
+NAME_MAX = 80
+_MULTIPLE = "multiple products"
+
+
+def _product_name(incident: Dict) -> str:
+    """What is broken, in Google's words: `service_name`, or the affected products
+    when Google only says "Multiple Products" (#146)."""
+    service = incident.get("service_name")
+    service = service.strip() if isinstance(service, str) else ""
+    if service and service.lower() != _MULTIPLE:
+        return _cap(service)
+    products = incident.get("affected_products")
+    titles: List[str] = []
+    for p in products if isinstance(products, list) else []:
+        title = p.get("title") if isinstance(p, dict) else None
+        if isinstance(title, str) and title.strip() and title.strip() not in titles:
+            titles.append(title.strip())
+    if titles:
+        rest = len(titles) - PRODUCTS_SHOWN
+        return _cap(", ".join(titles[:PRODUCTS_SHOWN]) + (f" +{rest}" if rest > 0 else ""))
+    # "Multiple Products" alone names nothing.
+    return "Google Cloud incident"
+
+
+def _cap(text: str) -> str:
+    return text if len(text) <= NAME_MAX else text[: NAME_MAX - 1].rstrip() + "…"
 
 
 def _matches_location(location: Dict, targets: set[str]) -> bool:

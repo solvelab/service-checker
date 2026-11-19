@@ -73,7 +73,8 @@ async def test_the_live_incident_alerts_as_the_page_and_the_incident():
     assert result.message == "elevenlabs status degraded"
     page, incident = result.payload
     assert page == {"id": "page", "name": "ElevenLabs", "status": "minor",
-                    "status_text": "Partial System Degradation"}
+                    "status_text": "Partial System Degradation",
+                    "incidents": ["Increased latency and API errors"]}
     assert incident["id"] == f"incident:{_INCIDENT_ID}"
     assert incident["name"] == _INCIDENT
     assert incident["status"] == "identified"

@@ -32,7 +32,7 @@ There is a test asserting no log line contains `key=` or `token=`.
 
 ```
 🚨 OpenAI · Responses — Partial outage
-   Status page incident: Elevated error rates for gpt-6 Luna API requests
+   Open page incident (no component listed): Elevated error rates for gpt-6 Luna API requests
    Ongoing: for 25m (since 13:01)
    When: 19/11 13:26 (UTC-3)
    status.openai.com · checked every 60s
@@ -42,8 +42,12 @@ There is a test asserting no log line contains `key=` or `token=`.
 ```
 
 - **Title**: provider, component and its state, so the card answers "what broke" without opening it.
-- **Status page incident**: the open incidents of the provider's page that list the component, or
-  that list no component at all (up to 3). The incident.io pages (OpenAI) answer `404` on
+  The provider is not repeated when the component has its name (`ElevenLabs — Minor`); GCP names
+  the affected product (#146).
+- **Status page incident**: the open incidents of the provider's page that list this component.
+  **Open page incident (no component listed)**: the ones that list no component, as every
+  incident.io page does (#146) — shown on every alerting component, so it may be about another
+  one. Up to 3 in all. The incident.io pages (OpenAI) answer `404` on
   `incidents/unresolved.json`, so the lookup falls back to `incidents.json`. A failed lookup only
   drops the line; the alert still goes out.
 - **State changed**: on a repeat whose state moved (`Degraded performance → Major outage`).

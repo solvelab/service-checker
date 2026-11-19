@@ -31,7 +31,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from ...core.config import ModuleConfig
-from ...core.statuspage import extract_components
+from ...core.statuspage import INCIDENTS_PER_ITEM, extract_components
 from ...core.types import MonitorResult, MonitorStatus
 
 #: Page indicator severities, lowest first. `RULE_VALUE` names the minimum that alerts.
@@ -228,13 +228,15 @@ class ElevenLabsStatusMonitor:
         # incidents rather than instead of them: swapping one for the other turned one
         # outage into a recovery and a fresh alert at each swap (bug-hunter). With a
         # region filter it is left out: the indicator aggregates every region.
+        page_item = None
         if not region_filter and _alerts(indicator, targets):
-            items.append({
+            page_item = {
                 "id": "page",
                 "name": "ElevenLabs",
                 "status": indicator,
                 "status_text": description,
-            })
+            }
+            items.append(page_item)
         # An open incident stays an item until it closes, whatever the indicator does
         # meanwhile; its own impact decides whether it is severe enough.
         open_incidents = _open_incidents(data)
@@ -263,6 +265,11 @@ class ElevenLabsStatusMonitor:
                 inc["regions"] = names
                 inc["name"] = f"{inc['name']} [{', '.join(names)}]"
             items.append(inc)
+        if page_item is not None:
+            # The indicator alone says "minor"; the incidents say what (#146).
+            cited = [i["name"] for i in items if i is not page_item][:INCIDENTS_PER_ITEM]
+            if cited:
+                page_item["incidents"] = cited
         items += components
 
         if not items:

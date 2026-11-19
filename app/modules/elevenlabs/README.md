@@ -28,6 +28,11 @@ Monitor https://status.elevenlabs.io using `api/v2/summary.json`. The page runs 
 - `RULE_VALUE`: for `status`, the **minimum severity** (page indicator and incident impact) that alerts, `minor` < `major` < `critical`. The lowest severity listed wins, so the generic default `major,minor` means "minor and up"; a value naming no severity also reads as `minor`. A non-severity indicator (e.g. `maintenance`) alerts only when listed explicitly.
 - `SERVICE_FILTER`: regions to monitor, by subpath (`united-states`, `eu`, `india`, `singapore`) or name (`EU (Enterprise-only)`), case-insensitive; empty = all. With a filter the `page` item is left out (its indicator aggregates every region), and a value missing from the catalogue is an ERROR naming it.
 
+## 🪧 The page indicator (#146)
+The `page` item (raised indicator) carries in `incidents` the titles of the open incidents that
+alert in the same check, regions included, so its card says what is degraded instead of only
+`ElevenLabs — Minor`.
+
 ## 🌍 Regions (#136)
 The page has four regional sub-pages and `summary.json` aggregates their incidents without saying which is which. Only incident.io's **undocumented** frontend API maps an incident to its regions:
 

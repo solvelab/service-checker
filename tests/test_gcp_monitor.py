@@ -177,7 +177,7 @@ def test_regions_are_reported_without_python_repr():
 
 def test_multiple_regions_are_joined_readably():
     result = _run([_active(locations=("us-central1", "us-east1"))])
-    assert "us-central1, us-east1: service_outage" in result.reason
+    assert "(us-central1, us-east1): service_outage" in result.reason
 
 
 def test_each_incident_becomes_one_reason_item():

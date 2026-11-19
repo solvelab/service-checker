@@ -64,6 +64,8 @@ PROVIDER_NAMES = {
     "openai": "OpenAI", "retell": "Retell AI", "rockstar": "Rockstar", "steam": "Steam",
 }
 _KIND_STATE = {"recovery": "Recovered"}
+#: An incident that lists no component may be about another one (#146).
+PAGE_WIDE_INCIDENT_LABEL = "Open page incident (no component listed)"
 #: A repeat says "ongoing for"; a first alert just says when it started.
 _ONGOING_AFTER = timedelta(minutes=1)
 
@@ -222,8 +224,9 @@ class GoogleChatNotifier:
         item = _first_item(result)
         zone = getattr(self.config, "timezone", "UTC") or "UTC"
 
-        title = f"{heading.split(' ', 1)[0]} {PROVIDER_NAMES.get(module_id, module_id)}"
-        if item and item.get("name"):
+        provider = PROVIDER_NAMES.get(module_id, module_id)
+        title = f"{heading.split(' ', 1)[0]} {provider}"
+        if item and item.get("name") and str(item["name"]).lower() != provider.lower():
             title += f" · {item['name']}"
         # Monitoring events, and an alert with no single component, name the event.
         state = _KIND_STATE.get(kind) or (
@@ -233,10 +236,15 @@ class GoogleChatNotifier:
             title += f" — {state}"
 
         widgets: List[Dict[str, Any]] = []
-        incidents = [str(i) for i in (item or {}).get("incidents") or [] if i]
-        for incident in incidents:
-            widgets.append({"decoratedText": {"topLabel": "Status page incident",
-                                              "text": _esc(incident), "wrapText": True}})
+        listed = (item or {}).get("incidents")
+        page_wide = (item or {}).get("page_incidents")
+        page_wide = page_wide if isinstance(page_wide, list) else []
+        for incident in listed if isinstance(listed, list) else []:
+            if incident:
+                label = PAGE_WIDE_INCIDENT_LABEL if incident in page_wide else "Status page incident"
+                widgets.append({"decoratedText": {"topLabel": label,
+                                                  "text": _esc(str(incident)),
+                                                  "wrapText": True}})
         # The monitor's own lines: region, summary, status text — what the title cannot hold.
         for line in _items(result):
             widgets.append({"textParagraph": {"text": f"• {_esc(line)}"}})

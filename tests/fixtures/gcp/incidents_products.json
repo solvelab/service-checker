@@ -1,0 +1,269 @@
+[
+ {
+  "id": "mSFVt6PiP557bjRyYsut",
+  "number": "2779651412601232975",
+  "begin": "2026-10-08T11:00:00+00:00",
+  "created": "2026-10-08T18:24:18+00:00",
+  "end": null,
+  "modified": "2026-10-14T07:24:12+00:00",
+  "external_desc": "Google Cloud Storage (GCS) customers experienced elevated latencies and error rates when performing upload or write operations.",
+  "most_recent_update": {
+   "created": "2026-10-14T07:15:32+00:00",
+   "modified": "2026-10-14T07:17:30+00:00",
+   "when": "2026-10-14T07:15:32+00:00",
+   "text": "## Incident Report\n## Date/Time of the Issue (All time US/Pacific)\n**Incident First Occurrence**\nIncident Start: 08 October 2026 04:00\nIncident End: 08 October 2026 16:30\nDuration: 12 hours, 30 minutes\n**Incident Recurrence**\nRecurrence Start: 09 October 2026 04:05\nRecurrence End: 09 October 2026 09:46\nDuration: 5 hours, 41 minutes\n**Total Duration:** 18 hours, 11 minutes\n## Summary\nOn Thursday, 08 October 2026, Google Cloud Storage experienced elevated write latency and write error rates while performing upload or write operations in the us-central1 region for a duration of 12 hours, 30 minutes. This was followed by a recurrence on Friday, 09 October 2026 in the us-central1-b zone for a duration of 5 hours, 41 minutes. We are taking immediate steps to ensure this doesn’t happen again.\n## Root Cause\nGoogle Cloud Storage relies on a highly distributed backend architecture to process and store incoming data. During the incident window, specific storage backend nodes within the us-central1 region experienced a localized capacity shortfall due to increased traffic.\nThe sequence of events leading to customer impact was as follows:\n* A traffic sorting optimization configuration update to the Google Cloud Storage load balancing layer intended to address localized capacity constraints caused severe resource exhaustion on specific storage backend nodes in the affected region by inadvertently bypassing the standard capacity-aware routing logic, resulting in a severe load imbalance.\n* Consequently, a small fraction of storage backend nodes in the us-central1 region received an overwhelming proportion of incoming write traffic despite having low available serving capacity. This concentration of traffic led to resource exhaustion on the affected backend servers causing backend services handling object data ingestion to begin timing out.\n* Because the underlying instances could not process the high volume of requests quickly enough, the incoming upload and write requests routed to these nodes experienced elevated latency and failed to complete, resulting in errors surfaced to customers.\n* Concurrently, a separate issue with the underlying database service contributed to additional metadata processing errors during a portion of the incident window.\n* The recurrence of the issue on October 9 was caused by an incomplete rollback of an upload planner feature, which broke the load balancing mechanism and overloaded a few smaller storage backend nodes.\n## Remediation and Prevention\nThe issue was initially detected on 08 October 2026 at 04:50 by Google engineering teams actively monitoring system telemetry early in the incident window. \nTo mitigate the issue, Google engineers executed the following step-by-step strategy:\n* Engineers initially attempted to dynamically allocate additional emergency capacity to the affected region, but this was blocked by systemic regional capacity limits.\n* To relieve immediate pressure, engineers selectively drained traffic from the most overloaded storage backend nodes.\n* A configuration change was deployed to disable the traffic sorting optimization, significantly reducing resource overhead on the storage backend.\n* For the concurrent metadata issue, engineers rolled back a recent update to the underlying metadata database service.\n* While these steps provided temporary relief, a recurrence of the load imbalance required further traffic redirection and draining of affected storage components. The incident was permanently resolved when engineering fully reverted the problematic load balancing configuration change, restoring the previous capacity-aware routing behavior and allowing traffic to distribute evenly across the region.\nOnce traffic levels stabilized and resource utilization returned to normal baseline levels, the previously drained nodes were restored to active service, successfully restoring normal operations.\n**Preventative Actions:**\nTo ensure this issue does not recur, we are implementing the following improvements:\n- **Safe Configuration Rollouts:** We are updating our deployment protocols to ensure that load balancing logic changes are rigorously validated in alternative, smaller regions before being rolled out to larger, highly utilized regions.\n- **Intelligent Operational Controls:** We are enhancing the storage load balancing architecture to strictly enforce capacity constraints, ensuring that traffic distribution logic cannot bypass pre-spilling safeguards and route traffic to clusters lacking sufficient serving resources.\n- **Resilient Scaling Logic:** We are implementing targeted improvements to accelerate internal data movement within highly utilized storage cells, enabling the system to process data more efficiently and handle temporary load spikes with greater resilience.\n## Description of Impact\nOn 08 October 2026, from 04:00 to 16:30 in us-central1 region and 09 October 2026, from 04:05 to 09:46 in us-central1-b zone, customers experienced elevated latency and error rates during Cloud Storage upload and write operations.\n* **Upload & Write Failures:** Customers primarily observed HTTP 503 UNAVAILABLE errors on WriteObject operations and client-side timeouts.\n* **Increased Write Latency:** Write operations that did succeed experienced significantly higher latencies than normal.\n* Cloud Storage operations in all other regions, as well as all other Google Cloud services, remained unaffected by this specific event.",
+   "status": "AVAILABLE",
+   "affected_locations": []
+  },
+  "status_impact": "SERVICE_DISRUPTION",
+  "severity": "medium",
+  "service_key": "UwaYoXQ5bHYHG6EdiPB8",
+  "service_name": "Google Cloud Storage",
+  "affected_products": [
+   {
+    "title": "Google Cloud Storage",
+    "id": "UwaYoXQ5bHYHG6EdiPB8",
+    "current_title": "Google Cloud Storage"
+   }
+  ],
+  "uri": "incidents/mSFVt6PiP557bjRyYsut",
+  "currently_affected_locations": [
+   {
+    "title": "Iowa (us-central1)",
+    "id": "us-central1"
+   }
+  ],
+  "previously_affected_locations": [
+   {
+    "title": "Iowa (us-central1)",
+    "id": "us-central1"
+   }
+  ]
+ },
+ {
+  "id": "Xs2XTHzAVC9YnafnPyzj",
+  "number": "7057439711403861453",
+  "begin": "2026-10-20T06:00:00+00:00",
+  "created": "2026-10-20T08:35:37+00:00",
+  "end": null,
+  "modified": "2026-11-05T06:17:42+00:00",
+  "external_desc": "Multiple services were experiencing issues in the europe-west2 region.",
+  "most_recent_update": {
+   "created": "2026-11-04T21:15:26+00:00",
+   "modified": "2026-11-05T06:17:42+00:00",
+   "when": "2026-11-04T21:15:26+00:00",
+   "text": "# Incident Report\n## Summary\nOn Monday, 19 Oct 2026 at 22:53 US/Pacific (Tuesday, 20 Oct 2026, 06:53 BST), a data center facility that hosts europe-west2-b, a zone within the europe-west2 cloud region, experienced an external electrical power disruption. This resulted in service unavailability for workloads located in this zone. The subsequent failover of these workloads to unaffected zones and alternate regions caused transient latency and elevated error rates across the broader europe-west2 region.\nThe resolution of the main impact was completed within 6 hours and 8 minutes.\n## Root Cause\n**Facility architecture and background:**\nThe data center facility in the UK region hosts Cloud clusters serving the europe-west2-b zone, which form part of the multi-zonal europe-west2 Cloud region. The site relies on a 2N utility power architecture—where the facility has complete duplicate power paths for every critical load—backed by a central high-voltage generator bank managed by a dual-redundant Programmable Logic Controller (PLC).\nPrimary utility power is supplied to the facility via two independent feeders (A and B), supplemented by a standby utility connection configured for manual campus-wide transfer during maintenance operations or emergency events. The two high-voltage primary feeders (A and B) terminate at separate primary intake switchboards capable of closed-loop operation if either board is taken offline. Switching between the primary and standby utility providers utilizes open transitions and key interlocks to prevent parallel connections across sources.\nUninterruptible Power Supply (UPS) battery systems provide approximately five minutes of autonomous runtime. This bridge power ensures uninterrupted operation while the PLC detects utility undervoltage events, initiates diesel generator startup, synchronizes the generators, and transfers the site load.\nPrior to the utility disruption, the facility had been placed in a temporary single-feed (1N) bridged maintenance posture on the primary utility. Circuit breaker feeder B was physically opened to allow for corrective repairs following issues identified during a quarterly generator load test on 14 Oct 2026. Consequently, primary utility feed A was supporting the total critical load while the feed B breaker remained in an open position to allow repairs to be conducted on the B feeder pathway.\n**Root Cause:**\nOn Monday, 19 Oct 2026 at 22:53 US/Pacific (Tuesday, 20 Oct 2026, 06:53 BST), the primary utility provider experienced an outage on primary utility feed A, caused by an external underground cable fault on the utility network outside the data center facility.\nFollowing the loss of primary utility feed A, a voltage-sensing design flaw and PLC misconfiguration prevented the facility’s generator plant from receiving an automatic start signal to assume the critical load. Consequently, static UPS battery banks sustained the critical load as intended until their reserves were used up, leading to a loss of power across the data halls.\nThe investigation of the PLC configuration identified the root cause as a misconfiguration of the PLC logic that did not verify both an undervoltage condition and physical breaker position for both utility feeders. Instead, the PLC undervoltage sensing inputs were wired upstream (line side) of the isolated utility feed breakers. The PLC was programmed to verify whether voltage was present on the line side of the feeder before commanding a generator start. At the time of the power event on 19 Oct 2026, the Utility feed B remained energized upstream while its incomer feed was in open position. Consequently, the active and standby master PLCs, which were running identical control logic, sensed live voltage from feed B through shared upstream sensors on the disconnected path. As a result, the PLC logic indicated that a healthy utility source was available, even though the primary and secondary distribution feeds were de-energized, and did not issue a start command to the generator plant.\nThe onsite facilities team attempted to execute a remote load transfer via the PLC; however, the system inhibited the action due to the live upstream voltage reading on feed B. Recognizing that the UPS battery reserves would be used up before further remote operations could be resolved, the team transferred the facility load to the standby utility source, restoring the critical load that was lost once batteries depleted during this process.\nOnce utility power was restored via the standby utility source, and UPS batteries started recharging, the onsite facility teams and OEM vendors reconfigured and validated PLC functionality on both undervoltage and breaker status.\nFollowing the initial detection of the power outage, Google engineering teams initiated efforts to address failover issues and lay the groundwork for service restoration. Once the utility feed, UPS systems, and generator capabilities were successfully restored, engineers initiated the recovery procedure to bring europe-west2-b services back online.\n## Remediation and Prevention\nThe sequence of events leading to customer impact was as follows:\n* **19 Oct 22:53 US/Pacific (20 Oct 2026, 06:53 BST) -** An electrical power disruption occurred at the data center facility hosting availability zone europe-west2-b, and a PLC (Programmable Logic Controller) startup fault prevented facility emergency generators from assuming the electrical load. Facility load continued to be supported by UPS battery banks until the batteries were depleted.\n* **19 Oct 23:00 US/Pacific (20 Oct 2026, 07:00 BST) - Impact start -** As battery backups were used up, physical host servers, local storage infrastructure, and network aggregation hardware in availability zone europe-west2-b lost power, causing instances, database replicas, and worker nodes in that zone to become immediately unreachable.\n* **19 Oct 23:04 US/Pacific (20 Oct 2026, 07:04 BST) -** Google engineers were alerted to the disruption via automated monitoring systems and probers, which detected elevated API error ratios, job submission timeouts, and loss of infrastructure reachability in zone europe-west2-b. Engineering teams immediately mobilized to isolate the affected infrastructure and commence recovery.\n* **19 Oct 23:09 US/Pacific (20 Oct 2026, 07:09 BST) -** Regional traffic-routing mechanisms and client applications initiated automated failover toward available infrastructure in adjacent availability zones within the region.\n* Cross-zone remote procedure calls from regional service control planes directed to metadata and catalog components in the offline zone encountered timeouts, causing initial job submission stalls and API latency spikes.\n* The sudden influx of redirected query executions, high-availability database failovers, and compute workloads saturated available compute slots and processing capacity in other availability zones, creating elevated admission queues, delayed database failover completions, and intermittent 500 and 503 API errors across the region.\n* **Traffic Isolation:** Google engineers isolated the offline availability zone (europe-west2-b) by adjusting regional service routing away from the affected infrastructure, preventing cross-zone client requests from timing out against offline endpoints.\n* **Workload Reprioritization and Resource Safeguards:** Engineers adjusted scheduler allocations and capacity limits across unimpacted infrastructure to prioritize active customer reservations, reduce resource contention on execution slots, and relieve queue backlogs for regional workloads.\n* **19 Oct 23:54 US/Pacific (20 Oct 2026, 07:54 BST) - Utility Power Restoration-** Power supply from the standby utility source was restored and power restoration to the data hall began.\n* **20 Oct 00:20 US/Pacific (20 Oct 2026, 08:20 BST) - Datahall Power Restoration-** Utility power was re-established to the datahalls. Mains utility power normalized; power feed to data hall verified. Following this, the site operations and engineering teams focused on and completed a reset and tested the emergency backup generator automation controllers to restore facility power.\n* **20 Oct 00:40 US/Pacific (20 Oct 2026, 08:40 BST)-** Clusters began to recover, cluster manager systems started rescheduling compute jobs.\n* **20 Oct 00:45 US/Pacific (20 Oct 2026, 08:45 BST) -** Network devices were back online.\n* **20 Oct 00:50 US/Pacific (20 Oct 2026, 08:50 BST) -** Due to the immediacy of power loss, storage devices with unclean shutdowns began recovery. Responders recognized this and chose not to restore services that would otherwise make this worse. Because of the large volume of storage devices involved, this process required a substantial period to finish prior to restoring service to customers.\n* **20 Oct 03:13 US/Pacific (20 Oct 2026, 11:13 BST)-** Power redundancy was verified and the storage infrastructure was sufficiently restored to prepare the initiation of controlled traffic re-admission. The remaining storage systems continued recovery operations.\n* **20 Oct 03:45 US/Pacific (20 Oct 2026, 11:45 BST)-** Once system health and storage integrity were verified, engineers executed gradual, controlled traffic re-admission back to zone europe-west2-b allowing accumulated job backlogs to clear smoothly.\n* **20 Oct 04:11 US/Pacific (20 Oct 2026, 12:11 BST)-** Google Cloud Platform services and APIs were made fully available to customers. Some Google Compute Engine virtual machines were still not yet available.\n* **20 Oct 04:29 US/Pacific (20 Oct 2026, 12:29 BST) -** Regional services and backend compute management systems were fully undrained, marking the end of core platform-level disruption.\n* **20 Oct 05:08 US/Pacific (20 Oct 2026, 13:08 BST) - Majority Workload Recovery-** GCE virtual machines were 99.5% operational and healthy, and creating new VMs was fully supported. Service availability was restored for most customer workloads, with resolution confirmed for the majority of users across Google Cloud Platform services in the region. Following the recovery of a small tail of remaining isolated workloads, the closure notification for the incident was posted by 07:03 US/Pacific (20 Oct 2026, 15:03 BST).\nGoogle is committed to preventing a repeat of this issue in the future and is completing the following actions:\n**Data Center Action Items:**\n* Restoration of normal utility configuration (both A & B feeds) * Utility provider to locate the damaged cable fault, using low-frequency radar penetration testing procedures. **[Completed 26 Oct]** * Utility provider to repair the cable, test and restore the impacted primary utility feed A source. **[Estimated Completion Date 13 Nov]** * Onsite Operations teams with a controlled method of procedure (MOP) to transfer the facility to its primary utility source (feeds A and B) from standby utility feed through coordinated switching with the utility provider **[Estimated Completion Date 17 Nov]**\n* Generator confidence testing * Full generator load transfer tests with utility power cutover of the active utility feed. Test automatic startup of generators through PLC signals within the backup battery timer and detailed review of backup procedures **[Completed on 20 Oct and 26 Oct (full critical load transfer test including updated EOPs)]** * Full generator load transfer tests in coordination with the primary utility source feeds (A and B) after restoration work completed by the primary utility provider. **[Estimated Completion Date 17 Nov]**\n* PLC configuration fix * Reconfigured and validated the PLC after the outage on 20 Oct and then again on 26 Oct **[Completed 26 Oct]** * Google engineers to work in collaboration with the facility vendor teams to perform a comprehensive PLC code review and system resiliency to multiple failure scenarios. **[Estimated Completion Date (prior to generator transfer test) 06 Nov]** * Validate PLC telemetry once primary utility feed A and B lineup is restored. **[Estimated Completion Date 17 Nov]** * Validate global PLC configurations at sites with similar topologies and PLC manufacturers **[Estimated Completion Date 15 Nov]**\n* Emergency Operating Procedures (EOP) documentation update: * Comprehensive update to the EOP for site’s response to unexpected loss of active utility source. Update includes - manual steps to attempt to restore active utility feed, manual restart of generators and manual transfer to other utility sources within the UPS battery run time. **[Completed 26 Oct]** * Ensure updated EOP is practiced twice per shift by on-site facility team. **[Completed 24 Oct and checked with Google DC Operations daily]**\n* Detect and prevent future PLC misconfigurations * Google to ensure PLC code reviews are fully conducted and validated during facility commissioning and Integrated System Tests (ISTs) prior to Facility Ready (FR). A second Google team will then validate this within a quarter post-FR. **[Estimated Completion Date 18 Dec]**\n* Strengthen change management: * Freeze planned maintenance activities at other sites with similar topologies, and implement elevated approvals and reviews for data center configuration changes which are outside their standard designs. **[Completed Date 30 Oct]**\n**Cloud Service Action Items:**\n* **Communications Enhancement:** Bolster notification speed by developing an automated alert-to-communication mechanism for location-impacting incidents.\n* **Platform Testing:** Expand platform-wide testing outcomes for infrastructure-level events.\n## Detailed Description of Impact\nBetween Monday, 19 Oct 2026, 23:00 US/Pacific (Tuesday, 20 Oct 2026, 07:00 BST) and Tuesday, 20 Oct 2026, 05:08 US/Pacific (Tuesday, 20 Oct 2026, 13:08 BST), customers utilizing Google Cloud Platform services in the europe-west2 region experienced service disruptions across two consecutive phases, lasting a total duration of 6 hours, 08 minutes.\nDuring the initial phase from 23:00 US/Pacific (07:00 BST) to 04:29 US/Pacific (12:29 BST) (duration 5 hours, 29 minutes), customers experienced unavailability of zone-scoped resources in products, including:\n* **Compute Engine** - VM instances, zonal MIGs, unmanaged instance groups, zonal NEGs, sole-tenant node groups, zonal reservations, target instances, zonal API operations.\n* **Persistent Disk / Hyperdisk** - Zonal PD, zonal Hyperdisk, Hyperdisk storage pools, instant snapshots.\n* **GKE -** Zonal clusters (control plane), node pool nodes in -b, PVs on zonal disks.\n* **Cloud SQL -** Non-HA instances, read replicas in -b.\n* **AlloyDB -** Basic (non-HA) primaries in -b.\n* **Bigtable -** Single-cluster instances in -b.\n* **Other products with affected zonal resources:** Cloud Batch, Cloud Build, Cloud Storage, Cloud Workstations, Composer, Dataproc, Filestore, Managed Lustre, Migrate to VMs, NetApp Volumes, Pub/Sub Lite, Vertex AI Workbench, VMware Engine.\nThe unavailability of those resources scoped to a zone that undergoes disruption is working within the design of a zonally-scoped system. Requests made to these resulted either in a timeout or error code during the disruption. Workloads and resources hosted entirely within europe-west2-b became unreachable due to this event.\nWhile the physical power outage was isolated strictly to data center facilities in zone europe-west2-b, some customers running workloads in unimpacted zones (europe-west2-a and europe-west2-c) or across regional architectures also experienced unexpected impact.\nGoogle Cloud designs regional services to be robust to zone failures, but in this case there were a set of unexpected failures which caused impact outside of the zonal failure domain. We are committed to learning from this incident and preventing zonal events from impacting broader regional operations.\nThe primary causes of impact outside of zone europe-west2-b were:\n1) Instantaneous demand surges on neighboring zones (a and c) and\n2) Control-plane dependencies across zonal boundaries\nSee below for more detailed descriptions of impact and next steps for each impacted product.\n### Google Compute Engine and Persistent Disk\n**Impact:**\nUpon power loss in europe-west2-b at 22:53 US/Pacific (06:53 BST), all Compute Engine VMs and zonal Persistent Disk and Hyperdisk volumes in the zone became unavailable. Google Compute Engine's zonal resources, such as VMs, require customers to provision cross-zone failover and recovery mechanisms tailored to their needs. During this incident, however, some of these failover attempts were unsuccessful due to capacity constraints and difficulty in replicating the underlying storage mechanism.\nOnce data hall power was restored at 00:20 US/Pacific (08:20 BST), engineers worked to confirm storage integrity before restoring compute services. Following platform service restoration, some customer workloads running on Compute Engine instances as well as products that rely on Compute Engine experienced a longer recovery due to action taken by responders in order to prevent data loss. Once storage stabilized, engineers brought VMs and zonal disks in the zone back online between 04:01 US/Pacific (12:01 BST) and 04:29 US/Pacific (12:29 BST). By 04:46 US/Pacific (12:46 BST) new VM creation resumed, and by 05:08 US/Pacific (13:08 BST) over 99% of Compute Engine VM were in a healthy state. (The remaining VMs were restarted after their disks recovered). Any remaining customers that were experiencing VM problems were directed to file a customer support case as per normal procedure.\n**Next Steps:**\nGoogle Compute Engine and Persistent Disk engineering teams are conducting a comprehensive postmortem review of this event along with Google data center and infrastructure teams. The follow-up actions focus on preventing a recurrence and on making our clusters recover from an unplanned power loss more quickly and safely. We are also expanding our regular disaster-recovery testing for full cluster power-loss scenarios to validate end-to-end Compute Engine recovery.\nThe zonal failure in a facility within europe-west2-b exhibited sequencing atypical of previous zonal outages. We are investigating additional signals to incorporate into our failure detection capabilities for Regional Persistent Disk, so that should this sequence recur, Regional Persistent Disk can differentiate this case from the more typical zonal outage scenarios. We exercise caution with all changes to detection mechanisms to ensure we do not regress our capabilities to detect and react to more typical outages.\n### Cloud SQL\n**Impact:**\nUpon power loss, Cloud SQL detected failures and immediately initiated automated failovers for all regional HA instances. The failover was complete for regional instances that did not have Regional Persistent Disk failures (see above), mitigating their impact right away. A majority of the remaining instances recovered by 20 Oct 2026, 01:00 US/Pacific (09:00 BST) once the Regional Persistent Disk recovered, shortly after europe-west2-b recovery. A small number of remaining instances were fully recovered by 20 Oct 2026, 11:00 US/Pacific (19:00 BST).\n**Next Steps:**\nOur engineering team is implementing improvements across our database and storage infrastructure to ensure that High Availability instances using Regional Persistent Disks recover more rapidly during unplanned outages.\n### Google Kubernetes Engine\n**Impact:**\nThe power loss in europe-west2-b caused total zonal failure, autoscaling stalls, API error spikes, and regional pod unavailability across GKE clusters. Total incident duration for GKE was 7 hours and 34 minutes, starting at 23:02 US/Pacific (07:02 BST), reaching initial mitigation at 05:22 US/Pacific (13:22 BST), and achieving final resolution at 06:37 US/Pacific (14:37 BST).\nZonal clusters in europe-west2-b experienced 100% unavailability between 23:05 US/Pacific (07:05 BST) and 04:30 US/Pacific (12:30 BST), with full restoration by 06:00 US/Pacific (14:00 BST).\nRegional clusters lost worker nodes in europe-west2-b, causing a spike in regional unavailable pods. Worker nodes scaled up in neighboring zones europe-west2-a and europe-west2-c. The scale ups in surviving zones were impacted by available capacity. Autoscaling was slowed down due to increased load and failures of underlying APIs, such as Google Compute Engine (see above).\nRegional API operations suffered increased failure rates for cluster creation, deletion, updates and node pool operations due to reduced capacity and increased load on underlying APIs (see above).\n### Google Cloud Dataflow\n**Impact:**\nDataflow mostly behaved as expected for a zonal failure: new batch jobs were automatically routed away from europe-west2-b within about one minute, and all workloads (streaming and batch) recovered with no data loss once power returned. Jobs running in the affected zone also resumed responding to user cancellation requests once the zone came back up.\nAdditionally, we identified and have now fixed an issue that caused increased streaming job start latency for about two hours. Google engineering is actively working to resolve a zone-selection issue that incorrectly routed a small number of new jobs to the unavailable zone.\n### Looker\n**Impact:**\nThe power event interrupted Looker's connectivity to GKE and CloudSQL, which Looker uses for its backend compute and metadata database resources, respectively. About 45% of instances became unresponsive as Looker's messaging middle tier was unable to recover and reestablish database connectivity due to degraded GKE and Cloud SQL availability.\nA manual rolling restart of messaging infrastructure across all instances brought unavailable Looker instances down to about 15% within about two hours of onset. Subsequently, regional control-plane issues in GKE pushed instance unavailability back to about 35% before settling near 20% for several hours. Cloud SQL failover degradation extended the delay as well.\nAvailability returned to pre-incident baseline by 05:20 US/Pacific (13:20 BST) as the GKE outage was mitigated; the incident was declared mitigated at 07:44 US/Pacific (15:44 BST).\n**Next Steps**:\nEngineering teams are working to expand zonal outage telemetry and improve Looker's messaging middleware failovers to shorten recovery times during zonal unavailability.\n### AlloyDB\n**Impact:**\nCustomer impact for AlloyDB began at 23:07 US/Pacific (07:07 BST). Regional primary AlloyDB instances experienced up to a 95-minute delay in starting automated failovers due to delayed failover notifications. ~4% of these instances experienced a stalled failover due to Persistent Disk issues that required manual recovery. Additionally, zonal primary instances, zonal secondary instances, and single-node read pool instances encountered downtime directly aligned with the zone's power loss. Over 99% of affected AlloyDB instances in the region were restored to a healthy state by 06:16 US/Pacific (14:16 BST), with the final zonal primary AlloyDB instances recovering by 08:28 US/Pacific (16:28 BST).\n**Next Steps:**\nAlloyDB engineering team will be updating their monitoring system to detect zonal outage reliably and send the failover notification. The AlloyDB team is also partnering with the Persistent Disk team to ensure that high availability instances which leverage regional disk will recover faster during unplanned downtime events.\n### BigQuery\n**Impact:**\nBigQuery experienced a service disruption in the europe-west2 region between 23:03 US/Pacific (07:03 BST) and 04:12 US/Pacific (12:12 BST) (approximately 5 hours and 9 minutes). During this incident, affected customers experienced significant increases in job latencies and high query queuing, resulting in delayed job execution. Customers also experienced intermittent 503 UNAVAILABLE errors on Job API calls (InsertJob, GetQueryResult). Similarly, customers received errors when calling AppendRows on buffered-type streams also after the incident onset until the streams were re-created. Finally, customers experienced reduced processing efficiency and elevated job failure rates across affected projects.\nThe majority of the impact was confined to customers assigned to the impacted zone and was caused by an autoscaling dependency in a critical data plane job, which was unable to scale up during the failover. Some customers not assigned to the impacted zone saw elevated (1%) error rates on JobAPI calls due to overly broad concurrency throttling in the Job API component.\n**Next Steps:**\nEngineering teams have updated job provisioning to eliminate the dependency on autoscaling and are enhancing isolation mechanisms for the job server to ensure that future zonal disruptions are contained.\n### Memorystore Redis\n**Impact:**\nDuring the power disruption, Basic Tier (non-HA) instances located in europe-west2-b experienced full unavailability, while Standard Tier (HA) instances initiated automated failovers or operated in a degraded state with missing replicas.\nFollowing the restoration of the zone, a subset of instances remained stuck in a REPAIRING state. For these affected instances, the data plane remained fully available and online for customer use, but control plane operations such as scaling and RDB exports were temporarily blocked. Google engineers manually mitigated this issue and fully repaired all affected instances within 24 hours.\n**Next Steps:**\nThe team is working on mechanisms to detect cases when the control plane and data plane get out of sync, then reconcile them so that the system can automatically recover.\n### Apigee X\n**Impact:**\nDuring the power disruption, the Apigee X runtime in the region returned elevated HTTP 5xx errors for 7 hours and 19 minutes. Apigee X is **designed to withstand** a single-zone loss as its datastore keeps replicas across the region's three zones, but a scheduling misconfiguration had placed two of three replicas in the zone that lost power, so the datastore lost quorum and the runtime failed requests instead of failing over.\nThe errors were concentrated in a small number of affected clusters rather than spread across the region. As remediation, engineers restored the affected replicas into nearby zones. Apigee Hybrid clusters were not severely impacted.\n**Next Steps:**\nThe engineering team has already audited the Apigee fleet to rebalance unevenly spread instances without downtime, and added monitoring to alert if datastore replicas drift across zones. Moving forward, the team will modify Apigee X to strictly enforce that every instance's three datastore replicas always run in three different zones. Additionally, the team is improving alert handling practices to help engineers better focus on affected services during similar outages.\n### Apigee Edge\n**Impact:**\nDuring the power disruption, Apigee Edge clusters that had a single node in the affected zone successfully auto-recovered once power was restored. However, clusters with multiple nodes in the affected zone experienced extended recovery times. The automated node replacement system didn't handle multiple nodes going down simultaneously. This required manual intervention by Google engineers to restore the affected nodes. Furthermore, during this manual recovery, some virtual machines experienced a timeout when attempting to reach external OS repositories, causing them to boot with an older binary version and further delaying full restoration.\n**Next Steps:**\nThe engineering team will implement retries and scope repository updates to prevent pre-hook timeouts when reaching external OS repositories during the boot process. The team is also investigating further multiple-node failure scenario resilience improvements.\n### Cloud Bigtable\n**Impact:**\nCloud Bigtable behaved as expected during the europe-west2-b power outage. All single-cluster instances located in europe-west2-b experienced expected zonal unavailability while the zone lost power and recovered. Multi-cluster instances configured with High Availability (HA) routing automatically failed over to healthy replica clusters in other zones where replica clusters and the control plane remained available with sufficient capacity to absorb the failover load.\n### List of impacted services\nWe did not identify any impact of the outage outside of the europe-west2 region.\nThe following Google Cloud Platform services experienced impact within europe-west2:\n* AlloyDB for PostgreSQL\n* Apigee\n* BigQuery Data Transfer Service\n* Cloud Data Fusion\n* Cloud Filestore\n* Cloud Firestore\n* Cloud Load Balancing\n* Cloud Memorystore\n* Cloud NAT\n* Cloud Run\n* Cloud Spanner\n* Cloud Workstations\n* Datastream\n* Dialogflow CX\n* Google App Engine\n* Google BigQuery\n* Google Cloud Bigtable\n* Google Cloud Dataflow\n* Google Cloud Dataproc\n* Google Cloud NetApp Volumes\n* Google Cloud Pub/Sub\n* Google Cloud SQL\n* Google Cloud Storage (GCS)\n* Google Compute Engine (GCE)\n* Google Kubernetes Engine (GKE)\n* Google SecOps (Security Information and Event Management [SIEM] and Security Orchestration, Automation, and Response [SOAR])\n* Looker (Google Cloud core)\n* Looker Studio\n* Managed Airflow (Google Cloud Composer)\n* Managed Service for Apache Kafka\n* Memorystore for Memcached\n* Memorystore for Redis\n* Memorystore for Redis Cluster\n* Memorystore for Valkey\n* Network Connectivity Center\n* Persistent Disk\n* Private Service Connect\n* Speech-to-Text\n* Virtual Private Cloud (VPC)\n* VMware Engine",
+   "status": "AVAILABLE",
+   "affected_locations": []
+  },
+  "status_impact": "SERVICE_DISRUPTION",
+  "severity": "medium",
+  "service_key": "zall",
+  "service_name": "Multiple Products",
+  "affected_products": [
+   {
+    "title": "AlloyDB for PostgreSQL",
+    "id": "fPovtKbaWN9UTepMm3kJ",
+    "current_title": "AlloyDB for PostgreSQL"
+   },
+   {
+    "title": "Apigee",
+    "id": "9Y13BNFy4fJydvjdsN3X",
+    "current_title": "Apigee"
+   },
+   {
+    "title": "BigQuery Data Transfer Service",
+    "id": "UdjkJSWTHMj2b11ftW6E",
+    "current_title": "BigQuery Data Transfer Service"
+   },
+   {
+    "title": "Cloud Data Fusion",
+    "id": "rLKDHeeaBiXTeutF1air",
+    "current_title": "Cloud Data Fusion"
+   },
+   {
+    "title": "Cloud Filestore",
+    "id": "jog4nyYkquiLeSK5s26q",
+    "current_title": "Cloud Filestore"
+   },
+   {
+    "title": "Cloud Firestore",
+    "id": "CETSkT92V21G6A1x28me",
+    "current_title": "Cloud Firestore"
+   },
+   {
+    "title": "Cloud Load Balancing",
+    "id": "ix7u9beT8ivBdjApTif3",
+    "current_title": "Cloud Load Balancing"
+   },
+   {
+    "title": "Cloud Memorystore",
+    "id": "LGPLu3M5pcUAKU1z6eP3",
+    "current_title": "Cloud Memorystore"
+   },
+   {
+    "title": "Cloud NAT",
+    "id": "hCNpnTQHkUCCGxJy35Yq",
+    "current_title": "Cloud NAT"
+   },
+   {
+    "title": "Cloud Run",
+    "id": "9D7d2iNBQWN24zc1VamE",
+    "current_title": "Cloud Run"
+   },
+   {
+    "title": "Cloud Spanner",
+    "id": "EcNGGUgBtBLrtm4mWvqC",
+    "current_title": "Cloud Spanner"
+   },
+   {
+    "title": "Cloud Workstations",
+    "id": "5UUXCiH1vfFHXmbDixrB",
+    "current_title": "Cloud Workstations"
+   },
+   {
+    "title": "Datastream",
+    "id": "ibJgP4CNKnFojHHw8L3s",
+    "current_title": "Datastream"
+   },
+   {
+    "title": "Google App Engine",
+    "id": "kchyUtnkMHJWaAva8aYc",
+    "current_title": "Google App Engine"
+   },
+   {
+    "title": "Google BigQuery",
+    "id": "9CcrhHUcFevXPSVaSxkf",
+    "current_title": "Google BigQuery"
+   },
+   {
+    "title": "Google Cloud Bigtable",
+    "id": "LfZSuE3xdQU46YMFV5fy",
+    "current_title": "Google Cloud Bigtable"
+   },
+   {
+    "title": "Google Cloud Dataflow",
+    "id": "T9bFoXPqG8w8g1YbWTKY",
+    "current_title": "Google Cloud Dataflow"
+   },
+   {
+    "title": "Google Cloud Dataproc",
+    "id": "yjXrEg3Yvy26BauMwr69",
+    "current_title": "Google Cloud Dataproc"
+   },
+   {
+    "title": "Google Cloud NetApp Volumes",
+    "id": "vtzMUyQ4z9CbA1x6z85s",
+    "current_title": "Google Cloud NetApp Volumes"
+   },
+   {
+    "title": "Google Cloud Pub/Sub",
+    "id": "dFjdLh2v6zuES6t9ADCB",
+    "current_title": "Google Cloud Pub/Sub"
+   },
+   {
+    "title": "Google Cloud SQL",
+    "id": "hV87iK5DcEXKgWU2kDri",
+    "current_title": "Google Cloud SQL"
+   },
+   {
+    "title": "Google Cloud Storage",
+    "id": "UwaYoXQ5bHYHG6EdiPB8",
+    "current_title": "Google Cloud Storage"
+   },
+   {
+    "title": "Google Compute Engine",
+    "id": "L3ggmi3Jy4xJmgodFA9K",
+    "current_title": "Google Compute Engine"
+   },
+   {
+    "title": "Google Kubernetes Engine",
+    "id": "LCSbT57h59oR4W98NHuz",
+    "current_title": "Google Kubernetes Engine"
+   },
+   {
+    "title": "Looker (Google Cloud core)",
+    "id": "QEyA1YSaAS3rJS6O8wHp",
+    "current_title": "Looker (Google Cloud core)"
+   },
+   {
+    "title": "Google Cloud Composer",
+    "id": "YxkG5FfcC42cQmvBCk4j",
+    "current_title": "Managed Airflow"
+   },
+   {
+    "title": "Managed Service for Apache Kafka",
+    "id": "QMZ3IpyG3Ooxotv7JOKV",
+    "current_title": "Managed Service for Apache Kafka"
+   },
+   {
+    "title": "Memorystore for Memcached",
+    "id": "paC6vmsvnjCHsBkp4Wva",
+    "current_title": "Memorystore for Memcached"
+   },
+   {
+    "title": "Memorystore for Redis",
+    "id": "3yFciKa9NQH7pmbnUYUs",
+    "current_title": "Memorystore for Redis"
+   },
+   {
+    "title": "Memorystore for Redis Cluster",
+    "id": "pAQRwuhqRn7Y1E2we8ds",
+    "current_title": "Memorystore for Redis Cluster"
+   },
+   {
+    "title": "Memorystore for Valkey",
+    "id": "QUDi3IaNvixryrShGpGw",
+    "current_title": "Memorystore for Valkey"
+   },
+   {
+    "title": "Network Connectivity Center",
+    "id": "kFBKMAzrhno1We6f7Ydk",
+    "current_title": "Network Connectivity Center"
+   },
+   {
+    "title": "Persistent Disk",
+    "id": "SzESm2Ux129pjDGKWD68",
+    "current_title": "Persistent Disk"
+   },
+   {
+    "title": "Private Service Connect",
+    "id": "fbzQRKqPfxZ2DUScMGV2",
+    "current_title": "Private Service Connect"
+   },
+   {
+    "title": "Speech-to-Text",
+    "id": "5f5oET9B3whnSFHfwy4d",
+    "current_title": "Speech-to-Text"
+   },
+   {
+    "title": "Storage Transfer Service",
+    "id": "reC3xJSY6Gzc8n9eYmmj",
+    "current_title": "Storage Transfer Service"
+   },
+   {
+    "title": "VMWare engine",
+    "id": "9H6gWUHvb2ZubeoxzQ1Y",
+    "current_title": "VMWare engine"
+   },
+   {
+    "title": "Virtual Private Cloud (VPC)",
+    "id": "BSGtCUnz6ZmyajsjgTKv",
+    "current_title": "Virtual Private Cloud (VPC)"
+   }
+  ],
+  "uri": "incidents/Xs2XTHzAVC9YnafnPyzj",
+  "currently_affected_locations": [
+   {
+    "title": "London (europe-west2)",
+    "id": "europe-west2"
+   }
+  ],
+  "previously_affected_locations": [
+   {
+    "title": "London (europe-west2)",
+    "id": "europe-west2"
+   }
+  ]
+ }
+]
