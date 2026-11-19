@@ -1,3 +1,10 @@
+# [2.15.0](https://github.com/solvelab/service-checker/compare/v2.14.0...v2.15.0) (2026-11-19)
+
+
+### Features
+
+* **logging:** quadro de status no log e rotina repetida em DEBUG ([#131](https://github.com/solvelab/service-checker/issues/131)) ([5e47530](https://github.com/solvelab/service-checker/commit/5e47530dafe9dd784dcafd32dc964c071010c42e)), closes [#125](https://github.com/solvelab/service-checker/issues/125)
+
 # [2.14.0](https://github.com/solvelab/service-checker/compare/v2.13.0...v2.14.0) (2026-11-19)
 
 
