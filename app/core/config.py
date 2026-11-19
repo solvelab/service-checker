@@ -110,6 +110,8 @@ class GoogleChatConfig:
     min_interval_seconds: float
     # Group an alert and its recovery into one conversation, keyed on check_id.
     thread_by_check: bool
+    # IANA zone every time on a card is written in (#142).
+    timezone: str = "America/Sao_Paulo"
 
 
 @dataclass
@@ -374,6 +376,7 @@ def _load_notification_config() -> NotificationConfig:
             _get_float("GOOGLE_CHAT_MIN_INTERVAL_SECONDS", 1.1), 0.0
         ),
         thread_by_check=_get_bool("GOOGLE_CHAT_THREAD_BY_CHECK", True),
+        timezone=_get_timezone("GOOGLE_CHAT_TIMEZONE"),
     )
     alertmanager = AlertmanagerConfig(
         enabled=_get_bool("ALERTMANAGER_ENABLED", False),

@@ -26,6 +26,30 @@ There is a test asserting no log line contains `key=` or `token=`.
 - `WEBHOOK_URL`: the incoming-webhook URL — required when enabled
 - `MIN_INTERVAL_SECONDS`: minimum gap between two sends (default `1.1`)
 - `THREAD_BY_CHECK`: group an alert and its recovery into one conversation (default `true`)
+- `TIMEZONE`: IANA zone for every time on a card (default `America/Sao_Paulo`)
+
+## 🪧 What a card says (#142)
+
+```
+🚨 OpenAI · Responses — Partial outage
+   Status page incident: Elevated error rates for gpt-6 Luna API requests
+   Ongoing: for 25m (since 13:01)
+   When: 19/11 13:26 (UTC-3)
+   status.openai.com · checked every 60s
+
+✅ OpenAI · Responses — Recovered
+   Lasted: 57m (13:01 → 13:58)
+```
+
+- **Title**: provider, component and its state, so the card answers "what broke" without opening it.
+- **Status page incident**: the open incidents of the provider's page that list the component, or
+  that list no component at all (up to 3). The incident.io pages (OpenAI) answer `404` on
+  `incidents/unresolved.json`, so the lookup falls back to `incidents.json`. A failed lookup only
+  drops the line; the alert still goes out.
+- **State changed**: on a repeat whose state moved (`Degraded performance → Major outage`).
+- **Ongoing** / **Lasted**: counted from when the alert opened, which is persisted with the alert
+  state, so a restart neither resets it nor loses the recovery's duration.
+- Times are local (`TIMEZONE`), minute precision, with the UTC offset spelled out.
 
 ## 🎴 Why `cardsV2` and not plain `text`
 

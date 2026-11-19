@@ -57,6 +57,7 @@ These apply across modules:
 - `GOOGLE_CHAT_WEBHOOK_URL`: empty. **Credential** — the incoming-webhook URL carries `key` and `token`; store it as a secret, never in the image or in version control.
 - `GOOGLE_CHAT_MIN_INTERVAL_SECONDS`: `1.1`. Minimum gap between sends; a Chat space accepts 1 request/second, shared by every webhook in it.
 - `GOOGLE_CHAT_THREAD_BY_CHECK`: `true`. Groups an alert and its recovery into one conversation.
+- `GOOGLE_CHAT_TIMEZONE`: `America/Sao_Paulo`. IANA zone for every time on a card; an invalid zone falls back to the default with a warning.
 - `ALERTMANAGER_ENABLED`: `false`. Enables the Alertmanager channel.
 - `ALERTMANAGER_URL`: empty. Base URL only, e.g. `http://alertmanager:9093`; the channel appends `/api/v2/alerts`.
 - `ALERTMANAGER_TOKEN` / `ALERTMANAGER_HEADER_NAME`: optional auth header (default header `Authorization`). **Credential** — store as a secret.

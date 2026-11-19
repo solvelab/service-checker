@@ -20,8 +20,19 @@ readable reason.
 """
 from __future__ import annotations
 
+import logging
 import re
 from typing import Dict, List
+
+import httpx
+
+#: Incident statuses that mean "over" on Statuspage and incident.io pages.
+_CLOSED_INCIDENT = frozenset({"resolved", "postmortem", "completed"})
+#: Page incidents attached to one component; the card is not a feed.
+INCIDENTS_PER_ITEM = 3
+#: Pages that answered 404 on `incidents/unresolved.json` (incident.io): asked once per
+#: process, so an outage costs one lookup per alerting cycle, not two.
+_NO_UNRESOLVED: set = set()
 
 
 def extract_components(data: Dict) -> List[Dict]:
@@ -62,3 +73,75 @@ def extract_components(data: Dict) -> List[Dict]:
 
 def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", str(value).lower()).strip("-")
+
+
+async def attach_open_incidents(
+    payload: object,
+    http_client: httpx.AsyncClient,
+    config,
+    logger: logging.Logger,
+) -> None:
+    """Fetch the page's open incidents and attach them to the alerting items (#142).
+
+    For modules that do not fetch incidents already (`openai`, `claude`).
+    `incidents/unresolved.json` first; an incident.io page answers it with 404, so then
+    `incidents.json`, filtered to open ones. Any failure leaves the items as they were:
+    this decorates an alert, it never decides one.
+    """
+    if not isinstance(payload, list) or not payload or config is None:
+        return
+    base = config.url.rsplit("/api/", 1)[0]
+    headers = {"User-Agent": config.user_agent}
+    try:
+        incidents = None
+        paths = ("/api/v2/incidents/unresolved.json", "/api/v2/incidents.json")
+        for path in paths[1:] if base in _NO_UNRESOLVED else paths:
+            response = await http_client.get(
+                f"{base}{path}", timeout=config.timeout_seconds, headers=headers
+            )
+            if response.status_code == 404 and path == paths[0]:
+                _NO_UNRESOLVED.add(base)
+                continue
+            response.raise_for_status()
+            incidents = response.json().get("incidents")
+            break
+        attach_incidents(payload, incidents)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(
+            "page incidents lookup failed; alert goes out without them",
+            extra={"event": "incident_lookup_failed", "reason": f"{type(exc).__name__}: {exc}"},
+        )
+        return
+
+
+def attach_incidents(payload: object, incidents: object) -> None:
+    """Put open incident titles on each component item they concern (#142).
+
+    A component name says *where* (`Responses`), the incident title says *what*
+    ("Elevated error rates for gpt-6 Luna API requests"). An incident that lists
+    components goes on those; one that lists none (incident.io never does) goes on
+    every item. Anything malformed is skipped, never raised.
+    """
+    if not isinstance(payload, list) or not isinstance(incidents, list):
+        return
+    open_incidents = []
+    for inc in incidents:
+        if not isinstance(inc, dict) or not inc.get("name"):
+            continue
+        if str(inc.get("status") or "").strip().lower() in _CLOSED_INCIDENT:
+            continue
+        listed = inc.get("components")
+        components = {
+            str(c.get("name")).lower()
+            for c in (listed if isinstance(listed, list) else [])
+            if isinstance(c, dict) and c.get("name")
+        }
+        open_incidents.append((str(inc["name"]), components))
+    for item in payload:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        name = str(item["name"]).lower()
+        titles = [title for title, components in open_incidents
+                  if not components or name in components]
+        if titles:
+            item["incidents"] = titles[:INCIDENTS_PER_ITEM]

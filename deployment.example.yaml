@@ -302,6 +302,9 @@ spec:
               value: "1.1"
             - name: GOOGLE_CHAT_THREAD_BY_CHECK
               value: "true"
+            # Fuso de toda hora no cartao (inicio, fim, "desde").
+            - name: GOOGLE_CHAT_TIMEZONE
+              value: "America/Sao_Paulo"
             - name: ALERTMANAGER_ENABLED
               value: "false"
             - name: ALERTMANAGER_URL

@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, time, timedelta, timezone
 from typing import Iterable, Optional
 from zoneinfo import ZoneInfo
@@ -413,7 +413,8 @@ class NotificationManager:
                 )
                 await self._notify_recovery(
                     module_id,
-                    result,
+                    replace(result, started_at=state.started_at,
+                            page_url=_page_url(module_config)),
                     module_config,
                     level_name="INFO",
                     event_name="monitor_resolved",
@@ -438,9 +439,11 @@ class NotificationManager:
         if not should_send:
             return
 
+        ongoing = state is not None and state.last_status == MonitorStatus.ALERT
+        opened_at = state.started_at if ongoing else event_time
         delivered = await self._notify_alert(
             module_id,
-            result,
+            replace(result, started_at=opened_at, page_url=_page_url(module_config)),
             module_config,
             level_name,
             event_name,
@@ -457,6 +460,7 @@ class NotificationManager:
             last_status=MonitorStatus.ALERT,
             last_alert_at=event_time,
             last_status_text=result.reason or "ALERT",
+            opened_at=opened_at,
         )
 
     async def _handle_monitor_error(
@@ -1049,7 +1053,8 @@ class NotificationManager:
                 "to_status": "operational",
             }
             recovery_result = _build_service_result(
-                result, enriched_item, MonitorStatus.OK, "service restored"
+                result, enriched_item, MonitorStatus.OK, "service restored",
+                started_at=state.started_at, page_url=_page_url(module_config),
             )
             logger.info(
                 "recovery notification emitted",
@@ -1097,7 +1102,8 @@ class NotificationManager:
                         "to_status": item.get("status") or "operational",
                     }
                     recovery_result = _build_service_result(
-                        result, enriched_item, MonitorStatus.OK, "service restored"
+                        result, enriched_item, MonitorStatus.OK, "service restored",
+                        started_at=state.started_at, page_url=_page_url(module_config),
                     )
                     logger.info(
                         "recovery notification emitted",
@@ -1142,8 +1148,16 @@ class NotificationManager:
             if not should_send:
                 continue
 
+            ongoing = state is not None and state.last_status == MonitorStatus.ALERT
+            opened_at = state.started_at if ongoing else event_time
+            alert_item = item
+            status_text = _status_text(item)
+            if ongoing and state.last_status_text and state.last_status_text != status_text:
+                # A repeat whose state moved (partial_outage -> degraded_performance).
+                alert_item = {**item, "from_status": state.last_status_text}
             alert_result = _build_service_result(
-                result, item, MonitorStatus.ALERT, "service degraded"
+                result, alert_item, MonitorStatus.ALERT, "service degraded",
+                started_at=opened_at, page_url=_page_url(module_config),
             )
             delivered = await self._notify_alert(
                 module_id,
@@ -1162,8 +1176,11 @@ class NotificationManager:
             self._alert_state[key] = AlertState(
                 last_status=MonitorStatus.ALERT,
                 last_alert_at=event_time,
-                last_status_text=item.get("status") or item.get("severity") or item.get("status_text") or "ALERT",
-                last_item=item,
+                last_status_text=status_text,
+                # Incident titles describe this check only; a later vanished-path
+                # recovery must not quote them as if still current.
+                last_item={k: v for k, v in item.items() if k != "incidents"},
+                opened_at=opened_at,
             )
 
     async def _notify_alert(
@@ -1222,6 +1239,13 @@ class AlertState:
     # incidents announces a recovery by *omitting* the component, so by the time the
     # all-clear is due there is no item left to describe it with.
     last_item: Optional[dict] = None
+    # First delivered alert of this key, kept across repeats (#142). The start of the
+    # problem as the channels saw it; `last_alert_at` is only the repeat throttle.
+    opened_at: Optional[datetime] = None
+
+    @property
+    def started_at(self) -> Optional[datetime]:
+        return self.opened_at or self.last_alert_at
 
 
 @dataclass
@@ -1368,11 +1392,28 @@ def _service_reason(item: dict) -> str:
     return f"{name}: {status}"
 
 
+def _status_text(item: dict) -> str:
+    return item.get("status") or item.get("severity") or item.get("status_text") or "ALERT"
+
+
+def _page_url(module_config: ModuleConfig) -> Optional[str]:
+    """Scheme and host of the module URL: the provider's status page, for a link."""
+    url = getattr(module_config, "url", None)
+    if not isinstance(url, str) or "://" not in url:
+        return None
+    scheme, rest = url.split("://", 1)
+    host = rest.split("/", 1)[0]
+    return f"{scheme}://{host}" if host else None
+
+
 def _build_service_result(
     base: MonitorResult,
     item: dict,
     status: MonitorStatus,
     message: str,
+    *,
+    started_at: Optional[datetime] = None,
+    page_url: Optional[str] = None,
 ) -> MonitorResult:
     reason = _service_reason(item)
     return MonitorResult(
@@ -1384,4 +1425,6 @@ def _build_service_result(
         reason_items=[reason],
         duration_ms=base.duration_ms,
         payload=[item],
+        started_at=started_at,
+        page_url=page_url,
     )
