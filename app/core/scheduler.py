@@ -38,6 +38,10 @@ async def _run_monitor_loop(
     notifier: NotificationManager | None,
 ) -> None:
     module_logger = logger.getChild(config.slug)
+    # (status, reason) of the previous check: a check that repeats it is routine and
+    # logs at DEBUG (#125). 119 of 121 lines in ten minutes of production were a
+    # healthy check saying the same thing again, burying the two that mattered.
+    previous: tuple | None = None
     while True:
         started = time.perf_counter()
         try:
@@ -54,8 +58,11 @@ async def _run_monitor_loop(
             elif result.status == MonitorStatus.ERROR:
                 log_level = logging.ERROR
 
+            # The message joins the key: two failures with the same (often empty) reason
+            # are still two different failures.
+            current = (result.status, result.reason, result.message)
             module_logger.log(
-                log_level,
+                logging.DEBUG if current == previous else log_level,
                 result.message,
                 extra={
                     "event": "monitor_check",
@@ -67,6 +74,7 @@ async def _run_monitor_loop(
                 },
             )
 
+            previous = current
             level_name = logging.getLevelName(log_level)
             if notifier is not None:
                 try:
@@ -95,7 +103,11 @@ async def _run_monitor_loop(
             raise
         except Exception as exc:  # noqa: BLE001
             duration_ms = (time.perf_counter() - started) * 1000
-            module_logger.error(
+            # The exception type joins the key: str(ReadTimeout("")) is "" too, and a new
+            # kind of failure must not be demoted as a repeat of the last one.
+            current = (MonitorStatus.ERROR, type(exc).__name__, str(exc))
+            module_logger.log(
+                logging.DEBUG if current == previous else logging.ERROR,
                 "monitor loop error",
                 extra={
                     "event": "monitor_check",
@@ -106,6 +118,7 @@ async def _run_monitor_loop(
                     "interval_seconds": config.interval_seconds,
                 },
             )
+            previous = current
             if notifier is not None:
                 # A module whose check raises still answered: the startup report shows
                 # it in ERROR with the reason, instead of "no result" (#124).

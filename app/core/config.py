@@ -55,6 +55,10 @@ class AppConfig:
     defaults: DefaultConfig
     log_level: str
     notifications: "NotificationConfig"
+    # `json` (one object per line, for machines) or `pretty` (for `kubectl logs`), #125.
+    log_format: str = "json"
+    # Cadence of the status board in the log; 0 keeps only startup and change boards.
+    status_board_minutes: int = 15
 
 
 @dataclass
@@ -72,6 +76,7 @@ class TelegramConfig:
 
 
 TELEGRAM_MODES = ("daily_summary", "per_event")
+LOG_FORMATS = ("json", "pretty")
 
 
 @dataclass
@@ -160,6 +165,20 @@ def load_app_config() -> AppConfig:
     modules = [_load_module_config(slug, defaults) for slug in module_slugs]
 
     log_level = os.getenv("SERVICE_MONITOR_LOG_LEVEL", "INFO").upper()
+    log_format = (os.getenv("SERVICE_MONITOR_LOG_FORMAT") or "json").strip().lower()
+    if log_format not in LOG_FORMATS:
+        _warn_config(
+            f"SERVICE_MONITOR_LOG_FORMAT={log_format!r} is not one of "
+            f"{', '.join(LOG_FORMATS)}; using json"
+        )
+        log_format = "json"
+    status_board_minutes = _get_int("SERVICE_MONITOR_STATUS_BOARD_MINUTES", 15)
+    if status_board_minutes < 0:
+        _warn_config(
+            f"SERVICE_MONITOR_STATUS_BOARD_MINUTES={status_board_minutes!r} is negative; "
+            "using the default 15"
+        )
+        status_board_minutes = 15
 
     notifications = _load_notification_config()
 
@@ -168,6 +187,8 @@ def load_app_config() -> AppConfig:
         defaults=defaults,
         log_level=log_level,
         notifications=notifications,
+        log_format=log_format,
+        status_board_minutes=status_board_minutes,
     )
 
 

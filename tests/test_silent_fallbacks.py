@@ -56,6 +56,9 @@ def _capture(level="INFO"):
 #: Blocos `except` que podem ficar calados, com o motivo de cada um. Uma allowlist sem
 #: motivo escrito vira carimbo, e um carimbo não protege de nada.
 ACCEPTED_SILENT = {
+    # Dentro de um formatter de log nao ha onde registrar sem recursao; um horario
+    # ilegivel no quadro vira "—" na propria linha, que e o sinal visivel (#125).
+    ("core/logging.py", "except ValueError:"),
     # `asyncio.CancelledError` é o desligamento pedido, não uma falha. Logar no shutdown
     # só produz ruído no momento em que ninguém está lendo.
     ("core/scheduler.py", "except asyncio.CancelledError:"),

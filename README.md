@@ -214,6 +214,10 @@ See [DOCKER.md](DOCKER.md) for GHCR image usage, dev builds (`docker-compose-dev
 - **Alertmanager alerts flapping**: `ALERTMANAGER_RESOLVE_AFTER_SECONDS` must exceed the gap between
   two sends, which is `NOTIFICATION_REPEAT_MINUTES` plus one check interval. Leave it at `0` to have
   it derived.
+- **Container log too noisy to read**: repeated checks with an unchanged result are logged at
+  `DEBUG`, so at `INFO` the log shows only changes, errors and the periodic status board. Set
+  `SERVICE_MONITOR_LOG_FORMAT=pretty` to read it as aligned lines and a table instead of JSON, and
+  `kubectl logs --tail=30` will hold a recent board. See [DOCKER.md](DOCKER.md#log-como-painel-125).
 - **Too many alerts**: increase `NOTIFICATION_REPEAT_MINUTES` or narrow `*_SERVICE_FILTER`.
 - **Alerts stop after a restart**: with `NOTIFICATION_STATE_PATH` unset, notification state lives in
   memory only, so a restart re-alerts what is still degraded and loses pending recoveries. Point it

@@ -216,6 +216,42 @@ aparecem. Passar uma chave que não está lá a descarta sem dizer nada — foi 
 `notification channel failed` deixou de dizer qual canal falhou —, e
 `tests/test_logging.py::test_every_extra_key_used_in_the_app_is_allowed` quebra quando isso acontece.
 
+### Log como painel (#125)
+
+Não há dashboard: `kubectl logs` é o painel, então o log separa rotina de novidade.
+
+- **Checagem repetida vai para `DEBUG`.** Um `monitor_check` com o mesmo status e o mesmo motivo do
+  anterior não aparece em `INFO`; a primeira checagem e toda mudança de status ou de motivo mantêm o
+  nível de sempre (`WARNING` para `ALERT`, `ERROR` para `ERROR`). Um erro que se repete também desce
+  para `DEBUG` depois da primeira linha — o quadro abaixo continua mostrando o módulo como `ERROR`.
+  Os canais de notificação não mudam: decidem pelo status, não pelo nível da linha. A chave da
+  repetição é status, motivo e mensagem — e, numa exceção, o tipo dela —, então um `ReadTimeout`
+  depois de um `ConnectTimeout` não é tratado como repetição só porque os dois têm texto vazio.
+  **Atenção a quem alerta pelo log** (regra do Loki contando `level=ERROR` por janela): uma falha
+  persistente agora escreve uma linha `ERROR` e depois só `DEBUG`. O estado que continua visível é
+  o quadro (`failing`), e com o periódico desligado (`0`) nada em `INFO` repete a falha.
+- **Quadro de status** (`event: status_board`): uma linha por provedor com status, desde quando,
+  última checagem e uma nota — o motivo atual, ou o último erro depois que o provedor voltou ao
+  normal, para um erro que rolou para fora da tela continuar visível. Sai depois da primeira rodada,
+  a cada mudança de status (mudanças a menos de 5 s umas das outras viram um quadro só) e a cada
+  `SERVICE_MONITOR_STATUS_BOARD_MINUTES` (default `15`; `0` desliga o periódico; número inteiro).
+  Valor negativo ou fracionário é avisado e vira `15`. No rodapé, `failing` conta os módulos em
+  `ERROR` (o checker não consegue checar) e `open alerts` os alertas de serviço anunciados e não
+  recuperados — um provedor em `ALERT` aparece ali, não em `failing`. Assim `kubectl logs --tail=30` sempre traz um quadro recente.
+- `SERVICE_MONITOR_LOG_FORMAT` (default `json`): `json` mantém uma linha JSON por evento — o quadro vai
+  como um objeto `board` parseável —; `pretty` escreve linhas alinhadas com carimbo UTC (`Z`) e desenha
+  o quadro como tabela de até 100 colunas. Valor desconhecido é avisado e vira `json`. Use `pretty` quando
+  quem lê o log é gente; `json` quando é um coletor (Loki, Elastic).
+
+```
+2026-11-19 05:17:44Z  INFO   ── status board ─ v2.14.0 ─ up 0m ─────────────────────────────────────
+  PROVIDER    STATUS  SINCE        CHECKED   NOTE
+  oci         OK      19/11 05:17  05:17:43  —
+  openai      OK      19/11 05:17  05:17:43  —
+  bitbucket   ERROR   19/11 05:17  05:17:43  no target components matched filter
+  channels: telegram   open alerts: 0   failing: 1
+```
+
 ## 🔔 Notifications
 **Telegram**
 - `TELEGRAM_TIMESTAMP_FORMAT` (default `%Y-%m-%d %H:%M:%S %Z`): `strftime` do carimbo nas mensagens.

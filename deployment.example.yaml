@@ -38,6 +38,12 @@ spec:
               value: "steam,openai,claude,rockstar,oci,gcp,aws,github,bitbucket,cloudflare,retell,elevenlabs"
             - name: SERVICE_MONITOR_LOG_LEVEL
               value: "INFO"
+            # json (default) or pretty: aligned lines and the status board as a table.
+            - name: SERVICE_MONITOR_LOG_FORMAT
+              value: "json"
+            # Minutes between periodic status boards; 0 = only at startup and on changes.
+            - name: SERVICE_MONITOR_STATUS_BOARD_MINUTES
+              value: "15"
             - name: SERVICE_MONITOR_DEFAULT_INTERVAL_SECONDS
               value: "60"
             - name: SERVICE_MONITOR_DEFAULT_TIMEOUT_SECONDS
