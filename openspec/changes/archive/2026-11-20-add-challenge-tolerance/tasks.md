@@ -30,4 +30,4 @@
 ## 6. Validação
 - [x] 6.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 6.2 `openspec validate add-challenge-tolerance --strict`.
-- [ ] 6.3 Em produção, um dia de desafio do `steam` não abre falha de monitoramento abaixo da tolerância.
+- [x] 6.3 Em produção, um dia de desafio do `steam` não abre falha de monitoramento abaixo da tolerância. Evidência: 2026-11-20, pod v2.20.0 desde 00:59:30Z, 17 `monitor_challenge_absorbed` do `steam`, 0 `monitor_failure`, 0 `monitor_blind_window`; queda de conectividade 07:00:15–07:07:49Z durante desafio do `steam` (desde 06:57:12Z) sem `monitor_failure` (#112, #114).
