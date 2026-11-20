@@ -387,18 +387,25 @@ def _items(result: MonitorResult) -> List[str]:
 
 
 def _thread_key(module_id: str, result: MonitorResult) -> str:
-    """Stable per-component key, so an alert and its recovery share a conversation.
+    """One conversation per alert episode (#150).
 
-    Mirrors the alert-state key: the component id when the payload carries one,
-    otherwise the module.
+    The component half mirrors the alert-state key: the component id when the payload
+    carries one, otherwise the module. The episode half is the alert start, which the
+    manager carries on the alert, every repeat and the recovery, and persists across
+    restarts: one episode is one thread, and the same component failing again days
+    later opens a new one instead of replying under the old "Recovered". Without a
+    start (monitoring failures) the key is the component alone, as before.
     """
+    key = _slug(module_id)
     payload = result.payload
     if isinstance(payload, list) and payload and isinstance(payload[0], dict):
         item = payload[0]
         component = item.get("id") or item.get("slug") or item.get("name")
         if component:
-            return f"{_slug(module_id)}:{_slug(component)}"
-    return _slug(module_id)
+            key = f"{key}:{_slug(component)}"
+    if result.started_at is not None:
+        key = f"{key}:{int(result.started_at.timestamp())}"
+    return key
 
 
 def _with_reply_option(url: str) -> str:
