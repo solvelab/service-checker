@@ -90,8 +90,16 @@ Two consequences worth knowing:
 
 ## 🧵 Threading
 
-With `THREAD_BY_CHECK=true`, the `threadKey` is derived from the same component key the alert
-state uses (`rockstar:fivem`), so an alert and its recovery land in one conversation. The
+With `THREAD_BY_CHECK=true`, each alert episode is one conversation (#150): the `threadKey` is
+the same component key the alert state uses plus the alert start in Unix seconds
+(`openai:responses:1795611660`). The alert, its repeats and its recovery share it, also across a
+restart (the start is persisted with the alert state); the same component failing again after
+recovering opens a new thread instead of replying under the old "Recovered". Monitoring failures
+carry no start and keep the component key (`rockstar`).
+
+Two consequences: an alert already open when #150 was deployed continues in a new thread once
+(its first messages went out under the old key); and a component that flaps past
+`NOTIFICATION_RECOVERY_THRESHOLD` opens one thread per episode, since each recovery closes one. The
 `messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD` parameter is appended to the URL, so
 a thread that does not exist yet is created.
 
