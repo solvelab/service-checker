@@ -14,4 +14,4 @@
 ## 4. Validação
 - [x] 4.1 `ruff check app tests scripts` e `pytest tests/` verdes.
 - [x] 4.2 `openspec validate update-chat-thread-per-episode --strict`.
-- [ ] 4.3 Em produção, o pod sobe na versão nova sem re-alerta.
+- [x] 4.3 Em produção, o pod sobe na versão nova sem re-alerta. Evidência: v2.20.0 em 2026-11-19, pod Running/Ready, `state_load` sem descarte, 0 alertas e 0 linhas ERROR após a subida, healthcheck ok.
