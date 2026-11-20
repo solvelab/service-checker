@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: service-checker
-          image: ghcr.io/solvelab/service-checker:v2.19.0
+          image: ghcr.io/solvelab/service-checker:v2.20.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "app"]
           # The app serves no HTTP: the probe reads the age of the liveness file, which

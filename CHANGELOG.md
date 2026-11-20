@@ -1,3 +1,10 @@
+# [2.20.0](https://github.com/solvelab/service-checker/compare/v2.19.0...v2.20.0) (2026-11-20)
+
+
+### Features
+
+* **google-chat:** uma thread por episódio de alerta ([#151](https://github.com/solvelab/service-checker/issues/151)) ([f9218e6](https://github.com/solvelab/service-checker/commit/f9218e66ab2c3cdf0a6ef9fbeec5e2276c8da1a9)), closes [#142](https://github.com/solvelab/service-checker/issues/142) [#150](https://github.com/solvelab/service-checker/issues/150)
+
 # [2.19.0](https://github.com/solvelab/service-checker/compare/v2.18.0...v2.19.0) (2026-11-19)
 
 
